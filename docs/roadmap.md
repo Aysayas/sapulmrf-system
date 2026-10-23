@@ -80,10 +80,11 @@ By the end of this semester, the **Barangay Administrator side** of SapulMRF run
 Each phase ends in something you can demo in the browser. The ADM numbers are from the Notice of Title Approval.
 
 ### Phase 0: Workstation and skeleton (target: week 1)
-- [ ] Free up C: to 80 GB+, and raise Docker to 6 CPUs / 8 GB
-- [ ] New repo `C:\dev\sapulmrf` (`api/`, `web/`, `sim/`, `docs/`). The prototype stays as the design reference
-- [ ] `docker compose up` brings up db, api, web and adminer. `/health` reports API and DB OK, and the web app shows the login page
-- [ ] CI runs the backend tests and the frontend build on every push
+- [ ] Free up C: to 80 GB+ (you do this; the reclaimable space is measured in the 2026-10-23 session note)
+- [ ] Raise Docker to 6 CPUs / 8 GB: `.wslconfig` is updated. Takes effect after `wsl --shutdown` and restarting Docker Desktop
+- [x] New repo `C:\dev\sapulmrf` (`api/`, `web/`, `sim/`, `docs/`). The prototype stays as the design reference. First commit `6f0e4aa`
+- [x] `docker compose up` brings up db, api, web and adminer. `/health` reports API and DB OK, and the web app shows the login page. Ports: web 5174, API 8001, Adminer 8081 (Vencio's already uses 5173/8000/8080)
+- [ ] CI runs the backend tests and the frontend build on every push. The workflow is written, but it only runs once the repo is on GitHub
 
 ### Phase 1: Accounts and access (ADM-01, 02, 03, 21, 20 logging)
 - [ ] Admin logs in and out with a hashed password. Sessions expire
