@@ -47,12 +47,21 @@ They test the real stack on http://localhost:5174, and run `docker compose up -d
 |---|---|
 | `e2e.admin` (Barangay Administrator) | `.env`, created once as above. Only for tests, never a real person |
 | `e2e.<role>.<id>` | Created by the tests that need them, unique on every run |
-| `e2e Purok …`, `e2e Area …`, `E2E-…` devices | Created by `admin-02-setup.spec.ts` |
+| `e2e Purok …`, `e2e Area …`, `E2E-…` devices | Created by `admin-02-setup.spec.ts` and `admin-03-operations.spec.ts` |
 
-Clean up what the tests created: `e2e.<role>.<id>` users, `e2e …` source and storage areas, and `E2E-…` devices. It keeps `e2e.admin` and all real data:
+Clean up what the tests created: `e2e.<role>.<id>` users, `e2e …` source areas and their deliveries, `e2e …` storage areas, and `E2E-…` devices. It keeps `e2e.admin` and all real data:
 ```bash
 docker compose exec api python -m app.cli remove-test-data
 ```
+
+### Operations data
+
+`admin-03-operations.spec.ts` needs operations records in the dev database. Fill it with the simulator once (see `sim/README.md`):
+```bash
+docker compose --profile sim run --rm sim python -m app.simulator setup
+docker compose exec api python -m app.simulator backfill --days 40
+```
+Remove everything simulated with `docker compose exec api python -m app.simulator remove`. Real records are never touched.
 
 ## Where tests live
 

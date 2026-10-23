@@ -43,10 +43,20 @@ docker compose exec api alembic upgrade head    apply migrations
 docker compose down                       stop (data is kept in the db_data volume)
 ```
 
+## Simulated data
+Until Rhendel's devices are connected, the simulator fills the Overview and Operations pages:
+```
+docker compose --profile sim run --rm sim python -m app.simulator setup    once
+docker compose exec api python -m app.simulator backfill --days 40         40 days of history
+docker compose --profile sim up -d sim                                     live data
+docker compose exec api python -m app.simulator remove                     delete all of it
+```
+Details in `sim/README.md`.
+
 ## Layout
 - `api/`: FastAPI app (`app/`), Alembic migrations (`migrations/`), tests (`tests/`)
 - `web/`: React admin app. Design tokens live in `src/index.css`.
-- `sim/`: device, camera and operator simulators (Phase 3)
+- `sim/README.md`: the simulator (code in `api/app/simulator.py`) that stands in for the devices, camera and operator
 - `docs/roadmap.md`: the plan. `docs/phase-1-plan.md`: what Phase 1 built. `docs/testing.md`: how to run and write tests.
 
 ## Tests

@@ -98,9 +98,9 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 - [x] Compost temperature and moisture ranges, storage alert levels, the prediction start threshold (days of records), and anomaly sensitivity
 
 ### Phase 3: Simulators and live operations view (ADM-07, 08, 09, 19)
-- [ ] The `sim` service sends deliveries, segregation results, sorted quantities, compost readings, camera suggestions and heartbeats
-- [ ] Admin sees intake, sorting and inventory records, segregation compliance per purok, and compost batches with live readings
-- [ ] Overview dashboard: today's totals, storage capacity, compost status, device status and the last camera result
+- [x] The `sim` service sends deliveries, segregation results, sorted quantities, compost readings, camera suggestions and heartbeats (built into `api/app/simulator.py`, with a 40-day backfill; pickups are `outgoing` ledger rows until Phase 4 records sales)
+- [x] Admin sees intake, sorting and inventory records, segregation compliance per purok, and compost batches with live readings
+- [x] Overview dashboard: today's totals, storage capacity, compost status, device status and the last camera result (approvals, income and alerts KPIs wait for Phases 4–5; awaiting segregation, in storage and active batches stand in)
 
 ### Phase 4: Approvals and reviews (ADM-11, 16, 17)
 - [ ] One approvals inbox covering inventory adjustments and outgoing transactions. Approving changes stock; rejecting doesn't
