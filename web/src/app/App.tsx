@@ -1,6 +1,7 @@
 import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { ApiError } from '../api/client';
+import RolesPage from '../features/access/RolesPage';
 import LoginPage from '../features/auth/LoginPage';
 import ComingSoon from '../features/placeholder/ComingSoon';
 import SettingsLayout from '../features/settings/SettingsLayout';
@@ -32,7 +33,7 @@ export default function App() {
             <Route path="settings" element={<SettingsLayout />}>
               <Route index element={<Navigate to="users" replace />} />
               <Route path="users" element={<UsersPage />} />
-              <Route path="roles" element={<ComingSoon title="Roles and permissions" phase={1} />} />
+              <Route path="roles" element={<RolesPage />} />
               <Route path="masterdata" element={<ComingSoon title="Master data" phase={2} />} />
               <Route path="devices" element={<ComingSoon title="IoT devices" phase={2} />} />
               <Route path="ranges" element={<ComingSoon title="Ranges and limits" phase={2} />} />
