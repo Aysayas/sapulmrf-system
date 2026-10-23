@@ -30,7 +30,7 @@ def today() -> date:
 
 def outlook(db: DbSession, on: date) -> list[s.Outlook]:
     since = datetime(on.year, on.month, on.day, tzinfo=ops.TZ) - timedelta(days=INFLOW_DAYS)
-    inflow = dict(
+    inflow = dict(tuple(r) for r in
         db.execute(
             select(StockMovement.storage_area_id, func.sum(StockMovement.kg))
             .where(StockMovement.kind == "sorted", StockMovement.at >= since)
@@ -73,7 +73,7 @@ def schedule(db: DbSession, areas: list[s.Outlook], on: date) -> list[s.Suggesti
             .scalars()
             .all()
         )
-        names = sorted(db.get(Material, m).name.lower() for m in stock if m is not None)
+        names = sorted((db.get(Material, m) or Material(name="")).name.lower() for m in stock if m is not None)
         what = f"Sell {' and '.join(names)}" if names else "Residual pickup"
         reach = on + timedelta(days=o.days_to_alert)
         why = f"{o.area} already at {o.pct}%" if o.days_to_alert == 0 else f"{o.area} at {o.alert_pct}% by {reach:%b %d}"
@@ -162,7 +162,8 @@ def predictions(db: DbSession, category: int = ALL, on: date | None = None) -> s
 
 def flag_out(db: DbSession, f: Flag) -> s.FlagOut:
     d = db.get(Delivery, f.delivery_id)
-    area = db.get(SourceArea, d.source_area_id).name
+    assert d, "flag without delivery"  # the foreign key cascades
+    area = (db.get(SourceArea, d.source_area_id) or SourceArea(name="")).name
     if f.kind == "weight":
         why, expected = "Unusual weight", f"Usual for {area}: {f.expected_low:.1f}–{f.expected_high:.1f} kg"
     else:
@@ -176,7 +177,7 @@ def flag_out(db: DbSession, f: Flag) -> s.FlagOut:
         code=d.code,
         received_at=d.received_at,
         source_area=area,
-        category=db.get(WasteCategory, d.category_id).name,
+        category=(db.get(WasteCategory, d.category_id) or WasteCategory(name="")).name,
         value_kg=f.value_kg,
         expected_low=f.expected_low,
         expected_high=f.expected_high,

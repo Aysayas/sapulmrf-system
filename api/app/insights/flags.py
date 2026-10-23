@@ -49,7 +49,7 @@ def check_gap(db: DbSession, d: Delivery) -> Flag | None:
             StockMovement.delivery_id == d.id, StockMovement.kind == "sorted"
         )
     )
-    accounted = wet + float(sorted_kg)
+    accounted = wet + float(sorted_kg or 0)
     gap = abs(d.weight_kg - accounted)
     if gap <= GAP_PCT * d.weight_kg or gap <= GAP_KG:
         return None

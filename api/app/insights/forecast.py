@@ -4,6 +4,7 @@ A forecast made on day D only uses deliveries up to D-1, and predicts D..D+6. It
 forecast made on the day itself (1 day ahead), so scores are never computed with hindsight."""
 
 from datetime import date, timedelta
+from typing import Literal
 
 import numpy as np
 from sklearn.linear_model import Ridge
@@ -97,7 +98,7 @@ def make_forecasts(db: DbSession, made_on: date) -> int:
     if not ready(db, made_on):
         return 0
     end = made_on - timedelta(days=1)
-    start = max(first_day(db), end - timedelta(days=TRAIN_DAYS - 1))
+    start = max(first_day(db) or end, end - timedelta(days=TRAIN_DAYS - 1))
     rows = []
     for cat in categories(db):
         y = daily_kg(db, cat, start, end)
@@ -115,7 +116,7 @@ def make_forecasts(db: DbSession, made_on: date) -> int:
 
 def comparison(db: DbSession, category_id: int, model: str, start: date, end: date) -> list[tuple[date, float, float]]:
     """(day, predicted 1 day ahead, actual) for the days from start to end that have a forecast."""
-    predicted = dict(
+    predicted = dict(tuple(r) for r in
         db.execute(
             select(Forecast.for_day, Forecast.kg).where(
                 Forecast.made_on == Forecast.for_day,
@@ -146,7 +147,7 @@ def errors(db: DbSession, category_id: int, today: date, days: int) -> dict[str,
     return {m: mape(comparison(db, category_id, m, start, end)) for m in MODELS}
 
 
-def best_model(errs: dict[str, float | None]) -> str:
+def best_model(errs: dict[str, float | None]) -> Literal["baseline", "ml"]:
     """The model with the lower error; the baseline until the ML model has a score that beats it."""
     ml, base = errs.get("ml"), errs.get("baseline")
     return "ml" if ml is not None and (base is None or ml < base) else "baseline"
