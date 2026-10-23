@@ -1,0 +1,5 @@
+{
+  // For opening api/ on its own. The real runtime is the api container; .venv is for the editor only.
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+  "python.testing.pytestEnabled": false
+}

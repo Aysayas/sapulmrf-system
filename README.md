@@ -43,6 +43,15 @@ docker compose exec api alembic upgrade head    apply migrations
 docker compose down                       stop (data is kept in the db_data volume)
 ```
 
+## Editor setup (VS Code)
+The API runs in Docker, so Windows Python doesn't have its packages and VS Code underlines the imports. Give the editor its own copy (Python 3.12, like the container), once and after `requirements.txt` changes:
+```
+cd api
+uv venv .venv --python 3.12
+uv pip install --python .venv\Scripts\python.exe -r requirements.txt
+```
+`.vscode/settings.json` already points VS Code at `api/.venv`. It's for the editor only: run and test the API in Docker as above.
+
 ## Simulated data
 Until Rhendel's devices are connected, the simulator fills the Overview and Operations pages:
 ```

@@ -1,0 +1,6 @@
+{
+  // The API's packages live in Docker; api/.venv is a copy for the editor only (see README).
+  "python.defaultInterpreterPath": "${workspaceFolder}/api/.venv/Scripts/python.exe",
+  "python.analysis.extraPaths": ["${workspaceFolder}/api"],
+  "python.testing.pytestEnabled": false
+}
