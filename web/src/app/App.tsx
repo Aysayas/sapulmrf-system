@@ -2,6 +2,7 @@ import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-qu
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { ApiError } from '../api/client';
 import RolesPage from '../features/access/RolesPage';
+import ActivityPage from '../features/activity/ActivityPage';
 import LoginPage from '../features/auth/LoginPage';
 import ComingSoon from '../features/placeholder/ComingSoon';
 import SettingsLayout from '../features/settings/SettingsLayout';
@@ -37,7 +38,7 @@ export default function App() {
               <Route path="masterdata" element={<ComingSoon title="Master data" phase={2} />} />
               <Route path="devices" element={<ComingSoon title="IoT devices" phase={2} />} />
               <Route path="ranges" element={<ComingSoon title="Ranges and limits" phase={2} />} />
-              <Route path="activity" element={<ComingSoon title="Activity log" phase={1} />} />
+              <Route path="activity" element={<ActivityPage />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/admin" replace />} />

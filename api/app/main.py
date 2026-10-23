@@ -4,6 +4,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.access.router import router as access_router
+from app.activity.router import router as activity_router
 from app.auth.router import router as auth_router
 from app.core import errors
 from app.core.db import engine
@@ -14,6 +15,7 @@ errors.install(app)
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(access_router)
+app.include_router(activity_router)
 
 
 @app.get("/health")
