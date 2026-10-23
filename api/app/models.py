@@ -3,6 +3,8 @@ from app.access.models import StaffAccess
 from app.activity.models import ActivityLog
 from app.auth.models import Session
 from app.core.db import Base
+from app.masterdata.models import Material, SourceArea, StorageArea, WasteCategory
 from app.users.models import User
 
-__all__ = ["Base", "User", "Session", "StaffAccess", "ActivityLog"]
+__all__ = ["Base", "User", "Session", "StaffAccess", "ActivityLog", "WasteCategory", "SourceArea", "Material",
+           "StorageArea"]

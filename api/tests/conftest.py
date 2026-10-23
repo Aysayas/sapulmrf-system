@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.db import get_db
 from app.core.security import hash_password
 from app.main import app
+from app.masterdata.seed import seed
 from app.models import Base
 from app.users.models import User
 
@@ -27,6 +28,8 @@ def engine():
     eng = create_engine(TEST_URL)
     Base.metadata.drop_all(eng)
     Base.metadata.create_all(eng)
+    with eng.begin() as conn:
+        seed(conn)
     yield eng
     eng.dispose()
 
