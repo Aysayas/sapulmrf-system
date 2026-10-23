@@ -7,6 +7,7 @@ import LoginPage from '../features/auth/LoginPage';
 import DevicesPage from '../features/devices/DevicesPage';
 import MasterDataPage from '../features/masterdata/MasterDataPage';
 import ComingSoon from '../features/placeholder/ComingSoon';
+import RangesPage from '../features/ranges/RangesPage';
 import SettingsLayout from '../features/settings/SettingsLayout';
 import UsersPage from '../features/users/UsersPage';
 import AdminLayout from '../layout/AdminLayout';
@@ -39,7 +40,7 @@ export default function App() {
               <Route path="roles" element={<RolesPage />} />
               <Route path="masterdata" element={<MasterDataPage />} />
               <Route path="devices" element={<DevicesPage />} />
-              <Route path="ranges" element={<ComingSoon title="Ranges and limits" phase={2} />} />
+              <Route path="ranges" element={<RangesPage />} />
               <Route path="activity" element={<ActivityPage />} />
             </Route>
           </Route>

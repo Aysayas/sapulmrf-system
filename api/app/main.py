@@ -10,6 +10,7 @@ from app.core import errors
 from app.core.db import engine
 from app.devices.router import router as devices_router
 from app.masterdata.router import router as masterdata_router
+from app.settings.router import router as settings_router
 from app.users.router import router as users_router
 
 app = FastAPI(title="SapulMRF API", version="0.1.0")
@@ -20,6 +21,7 @@ app.include_router(access_router)
 app.include_router(activity_router)
 app.include_router(masterdata_router)
 app.include_router(devices_router)
+app.include_router(settings_router)
 
 
 @app.get("/health")

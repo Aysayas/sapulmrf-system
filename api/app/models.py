@@ -5,7 +5,8 @@ from app.auth.models import Session
 from app.core.db import Base
 from app.devices.models import Device
 from app.masterdata.models import Material, SourceArea, StorageArea, WasteCategory
+from app.settings.models import Settings
 from app.users.models import User
 
 __all__ = ["Base", "User", "Session", "StaffAccess", "ActivityLog", "WasteCategory", "SourceArea", "Material",
-           "StorageArea", "Device"]
+           "StorageArea", "Device", "Settings"]
