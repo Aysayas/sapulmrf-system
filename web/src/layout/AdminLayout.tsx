@@ -51,6 +51,7 @@ export default function AdminLayout() {
           <span className="text-sm text-muted">Barangay Sapul MRF</span>
           <button
             className="ml-auto flex items-center gap-2 rounded-lg px-2 py-1 text-left text-xs hover:bg-surface"
+            aria-label={`Account menu for ${me.name}`}
             aria-haspopup="menu"
             aria-expanded={menu}
             onClick={() => setMenu((m) => !m)}

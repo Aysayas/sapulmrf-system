@@ -42,3 +42,36 @@ jobs:
           node-version: "22"
       - run: npm install
       - run: npm run build
+
+  e2e:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    needs: [api, web]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write a CI-only .env
+        run: |
+          cp .env.example .env
+          sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=ci-$(openssl rand -hex 8)/" .env
+          sed -i "s/^E2E_ADMIN_PASSWORD=.*/E2E_ADMIN_PASSWORD=ci-$(openssl rand -hex 12)/" .env
+      - run: docker compose up -d --build --wait
+      - run: docker compose exec -T api alembic upgrade head
+      - name: Create the test admin
+        run: |
+          set -a; . ./.env; set +a
+          docker compose exec -T -e E2E_ADMIN_PASSWORD api python -c "import os; from app.core.db import SessionLocal; from app.cli import create_admin; create_admin(SessionLocal(), 'Test Admin', 'e2e.admin', os.environ['E2E_ADMIN_PASSWORD'])"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+        working-directory: web
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+      - run: npm run test:e2e -- --reporter=list
+        working-directory: web
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: web/playwright-report
+          retention-days: 7

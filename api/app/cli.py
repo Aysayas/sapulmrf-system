@@ -29,13 +29,28 @@ def create_admin(db: Session, name: str, username: str, password: str) -> User:
     return user
 
 
+def remove_test_users(db: Session) -> int:
+    """Deletes accounts made by the e2e tests (e2e.<role>.<id>). Keeps e2e.admin and every real account."""
+    users = db.scalars(select(User).where(User.username.like("e2e.%.%"))).all()
+    for u in users:
+        db.delete(u)
+    db.commit()
+    return len(users)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="command", required=True)
     ca = sub.add_parser("create-admin", help="create a Barangay Administrator account")
     ca.add_argument("--name", default=None)
     ca.add_argument("--username", default=None)
+    sub.add_parser("remove-test-users", help="delete the accounts the browser tests created")
     args = parser.parse_args(argv)
+
+    if args.command == "remove-test-users":
+        with SessionLocal() as db:
+            print(f"Removed {remove_test_users(db)} test account(s).")
+        return 0
 
     name = args.name or input("Full name: ").strip()
     username = args.username or input("Username: ").strip()

@@ -22,3 +22,8 @@ Thumbs.db
 
 # Files the device bridge couldn't delete directly get moved here
 _to_delete/
+
+# Playwright
+web/playwright-report/
+web/test-results/
+web/e2e/.auth/
