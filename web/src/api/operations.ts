@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import type { Outgoing } from './approvals';
 import { api } from './client';
 
 export interface Delivery {
@@ -57,6 +58,18 @@ export interface Overview {
   compost: BatchLive[];
   devices: { code: string; type: string; status: 'online' | 'offline' | 'never'; last_reading: Record<string, number | boolean | string> | null }[];
   latest_classification: Classification | null;
+  pending_approvals: number;
+  income_month: number;
+}
+export interface OutgoingView {
+  income_month: number;
+  sold_kg_month: number;
+  compost_kg_month: number;
+  disposed_kg_month: number;
+  pending: number;
+  compost_on_hand_kg: number;
+  income_6m: { month: string; income: number }[];
+  records: Outgoing[];
 }
 export interface Compliance {
   days: number;
@@ -108,4 +121,6 @@ export const useSorting = (days: number) =>
 export const useInventory = () => useQuery({ queryKey: ['ops', 'inventory'], queryFn: () => api<InventoryView>('/operations/inventory'), ...LIVE });
 export const useCompost = (batch?: string) =>
   useQuery({ queryKey: ['ops', 'compost', batch], queryFn: () => api<CompostView>(`/operations/compost?${qs({ batch })}`), ...LIVE });
-export const useCamera = () => useQuery({ queryKey: ['ops', 'camera'], queryFn: () => api<CameraView>('/operations/camera'), refetchInterval: 10_000 });
+export const useOutgoing = (days: number) =>
+  useQuery({ queryKey: ['ops', 'outgoing', days], queryFn: () => api<OutgoingView>(`/operations/outgoing?days=${days}`), ...LIVE });
+export const useCamera =() => useQuery({ queryKey: ['ops', 'camera'], queryFn: () => api<CameraView>('/operations/camera'), refetchInterval: 10_000 });

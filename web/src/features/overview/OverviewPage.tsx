@@ -5,6 +5,7 @@ import { FillBar, IntakeChart, Kpi } from '../../components/charts';
 import { Badge, PageHeader } from '../../components/ui';
 
 const kg = (n: number) => `${Math.round(n * 10) / 10} kg`;
+const peso = (n: number) => `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function OverviewPage() {
   const o = useOverview();
@@ -24,10 +25,14 @@ function Dashboard({ o }: { o: Overview }) {
     <div className="space-y-4">
       <div className="grid grid-cols-5 gap-4">
         <Kpi label="Received today" value={kg(o.today_kg)} sub={`${o.today_deliveries} deliveries`} />
-        <Kpi label="Awaiting segregation" value={String(o.awaiting_segregation)} sub="deliveries not yet checked" />
+        <Link to="/admin/approvals" className="rounded-xl hover:ring-2 hover:ring-leaf-300">
+          <Kpi label="Pending approvals" value={String(o.pending_approvals)} sub="requests and reviews waiting" />
+        </Link>
         <Kpi label="Segregation compliance" value={`${o.compliance_week_pct}%`} sub="last 7 days" />
         <Kpi label="In storage" value={kg(o.in_storage_kg)} sub={`${o.areas.length} storage areas`} />
-        <Kpi label="Active compost batches" value={String(o.active_batches)} sub={o.compost.filter((b) => b.in_range === false).length + ' out of range'} />
+        <Link to="/admin/operations/outgoing" className="rounded-xl hover:ring-2 hover:ring-leaf-300">
+          <Kpi label="Income this month" value={peso(o.income_month)} sub="approved sales" />
+        </Link>
       </div>
       <div className="grid grid-cols-[2fr_1fr] gap-4">
         <section aria-label="Waste received, last 14 days" className="rounded-xl border border-line bg-white p-4">

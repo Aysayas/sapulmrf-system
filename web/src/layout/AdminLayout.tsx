@@ -5,7 +5,7 @@ import { ROLE_LABEL, useLogout, useMe } from '../api/auth';
 
 const NAV = [
   { section: 'Monitor', items: [{ to: '/admin', label: 'Overview', end: true }, { to: '/admin/approvals', label: 'Approvals' }, { to: '/admin/operations', label: 'Operations', sub: [
-    ['intake', 'Intake'], ['segregation', 'Segregation'], ['sorting', 'Sorting'], ['inventory', 'Inventory'], ['compost', 'Compost'], ['camera', 'Live camera'],
+    ['intake', 'Intake'], ['segregation', 'Segregation'], ['sorting', 'Sorting'], ['inventory', 'Inventory'], ['compost', 'Compost'], ['outgoing', 'Outgoing'], ['camera', 'Live camera'],
   ] }] },
   { section: 'Analyze', items: [{ to: '/admin/insights', label: 'Insights' }] },
   { section: 'Manage', items: [{ to: '/admin/settings', label: 'Settings' }] },

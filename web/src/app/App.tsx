@@ -11,6 +11,7 @@ import CameraPage from '../features/operations/CameraPage';
 import CompostPage from '../features/operations/CompostPage';
 import IntakePage from '../features/operations/IntakePage';
 import InventoryPage from '../features/operations/InventoryPage';
+import OutgoingPage from '../features/operations/OutgoingPage';
 import SegregationPage from '../features/operations/SegregationPage';
 import SortingPage from '../features/operations/SortingPage';
 import OverviewPage from '../features/overview/OverviewPage';
@@ -47,6 +48,7 @@ export default function App() {
               <Route path="sorting" element={<SortingPage />} />
               <Route path="inventory" element={<InventoryPage />} />
               <Route path="compost" element={<CompostPage />} />
+              <Route path="outgoing" element={<OutgoingPage />} />
               <Route path="camera" element={<CameraPage />} />
             </Route>
             <Route path="insights" element={<ComingSoon title="Insights" phase={6} />} />

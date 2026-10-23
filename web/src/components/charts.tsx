@@ -34,6 +34,24 @@ export function IntakeChart({ data, height = 220 }: { data: { day: string; kg: n
   );
 }
 
+/** Income from approved sales per month. */
+export function IncomeChart({ data, height = 220 }: { data: { month: string; income: number }[]; height?: number }) {
+  const month = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('en-PH', { month: 'short', year: 'numeric' });
+  const peso = (n: number) => `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }} barCategoryGap={8}>
+        <CartesianGrid vertical={false} stroke={GRID} />
+        <XAxis dataKey="month" tickFormatter={month} tick={AXIS} axisLine={false} tickLine={false} />
+        <YAxis tick={AXIS} axisLine={false} tickLine={false} width={52} tickFormatter={(v: number) => `₱${v.toLocaleString()}`} />
+        <Tooltip cursor={{ fill: '#ddefe3', opacity: 0.6 }} content={({ active, payload }) =>
+          active && payload?.[0] ? <TipBox title={month(String(payload[0].payload.month))} value={`${peso(Number(payload[0].value))} income`} /> : null} />
+        <Bar dataKey="income" fill={SERIES} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
 /** One compost reading over time, with the configured range shaded. */
 export function ReadingChart({ data, field, unit, min, max, height = 200 }: {
   data: { at: string; temp_c: number; moisture_pct: number }[]; field: 'temp_c' | 'moisture_pct'; unit: string; min: number; max: number; height?: number;
