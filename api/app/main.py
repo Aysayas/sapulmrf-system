@@ -12,6 +12,7 @@ from app.compost.router import router as compost_router
 from app.core import errors
 from app.core.db import engine
 from app.devices.router import router as devices_router
+from app.insights.router import router as insights_router
 from app.intake.router import router as intake_router
 from app.masterdata.router import router as masterdata_router
 from app.operations.router import router as operations_router
@@ -34,6 +35,7 @@ app.include_router(compost_router)
 app.include_router(operations_router)
 app.include_router(approvals_router)
 app.include_router(alerts_router)
+app.include_router(insights_router)
 
 
 @app.get("/health")

@@ -59,8 +59,8 @@ def _features(series: list[float], t: int, day: date) -> list[float]:
     """Day t's inputs: weekday (one-hot), the 7- and 28-day averages before it, and a trend index (months)."""
     dow = [0.0] * 7
     dow[day.weekday()] = 1.0
-    ma7 = float(np.mean(series[max(0, t - 7):t]))
-    ma28 = float(np.mean(series[max(0, t - 28):t]))
+    ma7 = float(np.mean(series[max(0, t - 7) : t]))
+    ma28 = float(np.mean(series[max(0, t - 28) : t]))
     return [*dow, ma7, ma28, t / 30]
 
 
@@ -102,22 +102,36 @@ def make_forecasts(db: DbSession, made_on: date) -> int:
     for cat in categories(db):
         y = daily_kg(db, cat, start, end)
         for model, kgs in (("baseline", baseline(y)), ("ml", ridge(y, end))):
-            rows += [{"made_on": made_on, "for_day": made_on + timedelta(days=h), "category_id": cat, "model": model,
-                      "kg": kg} for h, kg in enumerate(kgs)]
-    added = db.scalars(insert(Forecast).values(rows).on_conflict_do_nothing(constraint="uq_forecasts")
-                       .returning(Forecast.id)).all()
+            rows += [
+                {"made_on": made_on, "for_day": made_on + timedelta(days=h), "category_id": cat, "model": model, "kg": kg}
+                for h, kg in enumerate(kgs)
+            ]
+    added = db.scalars(
+        insert(Forecast).values(rows).on_conflict_do_nothing(constraint="uq_forecasts").returning(Forecast.id)
+    ).all()
     db.commit()
     return len(added)
 
 
 def comparison(db: DbSession, category_id: int, model: str, start: date, end: date) -> list[tuple[date, float, float]]:
     """(day, predicted 1 day ahead, actual) for the days from start to end that have a forecast."""
-    predicted = dict(db.execute(select(Forecast.for_day, Forecast.kg).where(
-        Forecast.made_on == Forecast.for_day, Forecast.category_id == category_id, Forecast.model == model,
-        Forecast.for_day >= start, Forecast.for_day <= end)).all())
+    predicted = dict(
+        db.execute(
+            select(Forecast.for_day, Forecast.kg).where(
+                Forecast.made_on == Forecast.for_day,
+                Forecast.category_id == category_id,
+                Forecast.model == model,
+                Forecast.for_day >= start,
+                Forecast.for_day <= end,
+            )
+        ).all()
+    )
     actual = daily_kg(db, category_id, start, end)
-    return [(start + timedelta(days=i), predicted[start + timedelta(days=i)], kg)
-            for i, kg in enumerate(actual) if start + timedelta(days=i) in predicted]
+    return [
+        (start + timedelta(days=i), predicted[start + timedelta(days=i)], kg)
+        for i, kg in enumerate(actual)
+        if start + timedelta(days=i) in predicted
+    ]
 
 
 def mape(rows: list[tuple[date, float, float]]) -> float | None:

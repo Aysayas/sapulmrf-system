@@ -9,6 +9,7 @@ from app.approvals.models import AdjustmentRequest, Outgoing
 from app.approvals.schemas import AdjustmentIn, AdjustmentOut, ApprovalsOut, DecisionIn, OutgoingIn, OutgoingOut, ReviewIn
 from app.compost.models import CompostBatch
 from app.core.errors import AppError
+from app.insights.models import Flag
 from app.intake import service as intake
 from app.intake.models import Delivery
 from app.intake.schemas import DeliveryOut
@@ -209,7 +210,8 @@ def counts(db: DbSession) -> dict[str, int]:
     return {"adjustments": n(AdjustmentRequest.id, AdjustmentRequest.status == "pending"),
             "outgoing": n(Outgoing.id, Outgoing.status == "pending"),
             "weights": n(Delivery.id, *UNREVIEWED_WEIGHTS),
-            "classifications": n(Classification.id, *UNREVIEWED_CHANGES)}
+            "classifications": n(Classification.id, *UNREVIEWED_CHANGES),
+            "flagged": n(Flag.id, Flag.status == "open")}
 
 
 def pending(db: DbSession) -> ApprovalsOut:
