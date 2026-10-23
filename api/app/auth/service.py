@@ -14,7 +14,7 @@ from app.users.models import User
 def login(db: DbSession, username: str, password: str) -> tuple[User, str]:
     """Checks the password and opens a session. Returns the user and the cookie token."""
     now = datetime.now(UTC)
-    user = db.scalar(select(User).where(User.username == username.strip()))
+    user = db.scalar(select(User).where(User.username == username.strip().lower()))  # usernames are lowercase
 
     if user and user.locked_until and user.locked_until > now:
         minutes = max(1, round((user.locked_until - now).total_seconds() / 60))

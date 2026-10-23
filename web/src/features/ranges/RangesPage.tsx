@@ -60,21 +60,21 @@ function RangesForm({ ranges, areas }: { ranges: Ranges; areas: Item[] }) {
   return (
     <form noValidate onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <div className="grid grid-cols-3 gap-4">
-        <section className="rounded-xl border border-line bg-white p-4">
+        <section aria-label="Compost temperature" className="rounded-xl border border-line bg-white p-4">
           <h3 className="mb-3 text-sm font-bold">Compost temperature</h3>
           <div className="grid grid-cols-2 gap-3">
             {field('compost_temp_min', 'Minimum', '°C')}
             {field('compost_temp_max', 'Maximum', '°C')}
           </div>
         </section>
-        <section className="rounded-xl border border-line bg-white p-4">
+        <section aria-label="Compost moisture" className="rounded-xl border border-line bg-white p-4">
           <h3 className="mb-3 text-sm font-bold">Compost moisture</h3>
           <div className="grid grid-cols-2 gap-3">
             {field('moisture_min', 'Minimum', '%')}
             {field('moisture_max', 'Maximum', '%')}
           </div>
         </section>
-        <section className="rounded-xl border border-line bg-white p-4">
+        <section aria-label="Predictions" className="rounded-xl border border-line bg-white p-4">
           <h3 className="mb-3 text-sm font-bold">Predictions</h3>
           <div className="flex flex-col gap-3">
             {field('prediction_min_days', 'Days of records before showing predictions', 'days', '1')}
@@ -82,7 +82,7 @@ function RangesForm({ ranges, areas }: { ranges: Ranges; areas: Item[] }) {
           </div>
         </section>
       </div>
-      <section className="rounded-xl border border-line bg-white p-4">
+      <section aria-label="Storage capacity limits" className="rounded-xl border border-line bg-white p-4">
         <h3 className="mb-3 text-sm font-bold">Storage capacity limits</h3>
         {rows.fields.length === 0 ? (
           <p className="text-sm text-ink-2">No storage areas yet. Add them in Settings › Master data.</p>

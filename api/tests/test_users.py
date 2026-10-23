@@ -37,6 +37,12 @@ def test_bad_input_is_rejected(client, make_user, login):
     assert client.post("/users", json={**NEW, "username": "Has Spaces"}).status_code == 422
 
 
+def test_usernames_are_saved_in_lowercase(client, make_user, login):
+    as_admin(make_user, login)
+    assert client.post("/users", json={**NEW, "username": "RReyes"}).json()["username"] == "rreyes"
+    assert client.post("/users", json={**NEW, "username": "RREYES"}).status_code == 409
+
+
 def test_only_admins_manage_users(client, make_user, login):
     make_user("juan", role="operator")
     login("juan")

@@ -17,6 +17,11 @@ def test_login_sets_a_session_cookie_and_returns_the_user(client, make_user):
     assert client.get("/auth/me").json()["username"] == "msantos"
 
 
+def test_usernames_ignore_case_at_login(client, make_user):
+    make_user("aysaya", role="admin")
+    assert client.post("/auth/login", json={"username": " Aysaya ", "password": "password123"}).status_code == 200
+
+
 def test_wrong_password_and_unknown_user_get_the_same_answer(client, make_user):
     make_user("msantos")
     wrong = client.post("/auth/login", json={"username": "msantos", "password": "nope-nope"})

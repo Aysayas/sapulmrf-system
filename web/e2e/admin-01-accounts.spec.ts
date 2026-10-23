@@ -1,5 +1,5 @@
 import { expect, logIn, logOut, test } from './fixtures/test'
-import { newAccount } from './fixtures/users'
+import { admin, newAccount } from './fixtures/users'
 
 test('admin creates a staff user, grants a screen, checks the log, and logs out', async ({ adminPage: page }) => {
   const staff = newAccount('staff')
@@ -35,13 +35,12 @@ test('admin creates a staff user, grants a screen, checks the log, and logs out'
   await expect(page).toHaveURL(/\/login$/)
 })
 
-test('a duplicate username is shown on the field', async ({ adminPage: page }) => {
+test('a duplicate username is shown on the field, whatever its capitals', async ({ adminPage: page }) => {
   await page.goto('/admin/settings/users')
-  const existing = await page.getByRole('row').nth(1).getByRole('cell').nth(1).innerText()
   await page.getByRole('button', { name: '+ Add user' }).click()
   const drawer = page.getByRole('dialog', { name: 'Add user' })
   await drawer.getByLabel('Full name').fill('Duplicate Person')
-  await drawer.getByLabel('Username').fill(existing)
+  await drawer.getByLabel('Username').fill(admin.username.toUpperCase())
   await drawer.getByLabel('Temporary password').fill('test-password-1')
   await drawer.getByRole('button', { name: 'Create account' }).click()
   await expect(drawer.getByText('That username is taken.')).toBeVisible()

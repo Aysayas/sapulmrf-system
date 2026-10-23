@@ -5,18 +5,26 @@
 
 import argparse
 import getpass
+import re
 import sys
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.activity.service import log
 from app.core.db import SessionLocal
 from app.core.security import hash_password
+from app.devices.models import Device
+from app.masterdata.models import SourceArea, StorageArea
 from app.users.models import User
 
 
 def create_admin(db: Session, name: str, username: str, password: str) -> User:
+    username = username.strip().lower()  # same rule as the Users screen
+    if not re.fullmatch(r"[a-z0-9._-]{3,60}", username):
+        raise ValueError("Usernames are 3–60 characters: letters, numbers, dot, dash or underscore.")
+    if not name.strip():
+        raise ValueError("Enter a full name.")
     if len(password) < 8:
         raise ValueError("Use at least 8 characters.")
     if db.scalar(select(User).where(User.username == username)):
@@ -38,18 +46,29 @@ def remove_test_users(db: Session) -> int:
     return len(users)
 
 
+def remove_test_data(db: Session) -> dict[str, int]:
+    """Deletes what the e2e tests create: e2e.<role>.<id> users, 'e2e …' source and storage areas, E2E-… devices."""
+    counts = {"users": remove_test_users(db)}
+    for label, model in (("source areas", SourceArea), ("storage areas", StorageArea)):
+        counts[label] = db.execute(delete(model).where(func.lower(model.name).like("e2e %"))).rowcount
+    counts["devices"] = db.execute(delete(Device).where(Device.code.like("E2E-%"))).rowcount
+    db.commit()
+    return counts
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="command", required=True)
     ca = sub.add_parser("create-admin", help="create a Barangay Administrator account")
     ca.add_argument("--name", default=None)
     ca.add_argument("--username", default=None)
-    sub.add_parser("remove-test-users", help="delete the accounts the browser tests created")
+    sub.add_parser("remove-test-data", help="delete the users, areas and devices the browser tests created")
     args = parser.parse_args(argv)
 
-    if args.command == "remove-test-users":
+    if args.command == "remove-test-data":
         with SessionLocal() as db:
-            print(f"Removed {remove_test_users(db)} test account(s).")
+            counts = remove_test_data(db)
+        print("Removed test data: " + ", ".join(f"{n} {what}" for what, n in counts.items()))
         return 0
 
     name = args.name or input("Full name: ").strip()

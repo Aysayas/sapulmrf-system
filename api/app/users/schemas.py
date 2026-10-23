@@ -5,7 +5,8 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 Role = Literal["admin", "operator", "staff"]
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
-Username = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^[a-z0-9._-]{3,60}$")]
+# Lowercased before saving; the pattern accepts either case because Pydantic checks it before lowering.
+Username = Annotated[str, StringConstraints(strip_whitespace=True, to_lower=True, pattern=r"^[A-Za-z0-9._-]{3,60}$")]
 Password = Annotated[str, Field(min_length=8, max_length=128)]
 
 

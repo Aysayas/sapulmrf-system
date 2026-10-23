@@ -68,7 +68,7 @@ export default function UsersPage() {
 
 const base = {
   name: z.string().trim().min(1, 'Enter the full name.').max(120),
-  username: z.string().trim().regex(/^[a-z0-9._-]{3,60}$/, '3–60 characters: lowercase letters, numbers, dot, dash or underscore.'),
+  username: z.string().trim().toLowerCase().regex(/^[a-z0-9._-]{3,60}$/, '3–60 characters: letters, numbers, dot, dash or underscore.'),
   // Optional because a disabled field (your own role/active) submits as undefined; the API keeps the old value.
   role: z.enum(['admin', 'operator', 'staff']).optional(),
   active: z.boolean().optional(),
