@@ -33,3 +33,54 @@ def test_only_admins_read_the_log(client, make_user, login):
     make_user("juan", role="operator")
     login("juan")
     assert client.get("/activity").status_code == 403
+
+
+def test_date_range_is_inclusive_manila_days(client, make_user, login, db):
+    from app.operations.service import TZ
+
+    make_user("msantos", role="admin")
+    day = datetime(2026, 3, 10, tzinfo=TZ)
+    for label, at in [("before", day - timedelta(minutes=1)), ("start", day), ("end", day + timedelta(hours=23, minutes=59)),
+                      ("after", day + timedelta(days=1))]:
+        db.add(ActivityLog(user_id=None, action=label, at=at))
+    db.commit()
+    login("msantos")
+    got = client.get("/activity?from=2026-03-10&to=2026-03-10").json()
+    assert sorted(i["action"] for i in got) == ["end", "start"]
+    open_ended = client.get("/activity?from=2026-03-10").json()
+    assert sorted(i["action"] for i in open_ended if i["action"] in ("before", "after", "end")) == ["after", "end"]
+
+
+def test_category_filter_and_csv_match(client, make_user, login, db):
+    make_user("msantos", role="admin")
+    for action in ["Logged in", "Created user", "Approved outgoing sale", "Rejected inventory adjustment",
+                   "Exported income report as PDF", "Viewed intake report", "Recorded delivery", "Reported a problem"]:
+        db.add(ActivityLog(user_id=None, action=action))
+    db.commit()
+    login("msantos")
+
+    def actions(cat):
+        return {i["action"] for i in client.get(f"/activity?category={cat}&limit=500").json()
+                if i["action"] != "Logged in" or cat == "logins"}
+
+    assert actions("logins") == {"Logged in"}
+    assert actions("users") == {"Created user"}
+    assert actions("approvals") == {"Approved outgoing sale", "Rejected inventory adjustment"}
+    assert actions("reports") == {"Exported income report as PDF", "Viewed intake report"}
+    assert {"Recorded delivery", "Reported a problem"} <= actions("records")
+    assert not actions("records") & {"Created user", "Viewed intake report", "Approved outgoing sale"}
+    assert client.get("/activity?category=nonsense").status_code == 422
+
+    r = client.get("/activity/export?category=approvals")
+    assert r.headers["content-type"].startswith("text/csv") and "activity-log.csv" in r.headers["content-disposition"]
+    import csv
+    import io
+    rows = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig"))))
+    assert rows[0] == ["When", "Who", "Action", "Record"]
+    assert {row[2] for row in rows[1:]} == {"Approved outgoing sale", "Rejected inventory adjustment"}
+
+
+def test_export_is_admin_only(client, make_user, login):
+    make_user("juan", role="operator")
+    login("juan")
+    assert client.get("/activity/export").status_code == 403
