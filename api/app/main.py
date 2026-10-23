@@ -6,6 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.access.router import router as access_router
 from app.activity.router import router as activity_router
 from app.auth.router import router as auth_router
+from app.compost.router import router as compost_router
 from app.core import errors
 from app.core.db import engine
 from app.devices.router import router as devices_router
@@ -26,6 +27,7 @@ app.include_router(devices_router)
 app.include_router(settings_router)
 app.include_router(intake_router)
 app.include_router(sorting_router)
+app.include_router(compost_router)
 
 
 @app.get("/health")
