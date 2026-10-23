@@ -3,6 +3,8 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { ApiError } from '../api/client';
 import LoginPage from '../features/auth/LoginPage';
 import ComingSoon from '../features/placeholder/ComingSoon';
+import SettingsLayout from '../features/settings/SettingsLayout';
+import UsersPage from '../features/users/UsersPage';
 import AdminLayout from '../layout/AdminLayout';
 import RequireAdmin from './RequireAdmin';
 
@@ -27,8 +29,15 @@ export default function App() {
             <Route path="approvals" element={<ComingSoon title="Approvals" phase={4} />} />
             <Route path="operations" element={<ComingSoon title="Operations" phase={3} />} />
             <Route path="insights" element={<ComingSoon title="Insights" phase={6} />} />
-            <Route path="settings" element={<Navigate to="/admin/settings/users" replace />} />
-            <Route path="settings/:tab" element={<ComingSoon title="Settings" phase={1} />} />
+            <Route path="settings" element={<SettingsLayout />}>
+              <Route index element={<Navigate to="users" replace />} />
+              <Route path="users" element={<UsersPage />} />
+              <Route path="roles" element={<ComingSoon title="Roles and permissions" phase={1} />} />
+              <Route path="masterdata" element={<ComingSoon title="Master data" phase={2} />} />
+              <Route path="devices" element={<ComingSoon title="IoT devices" phase={2} />} />
+              <Route path="ranges" element={<ComingSoon title="Ranges and limits" phase={2} />} />
+              <Route path="activity" element={<ComingSoon title="Activity log" phase={1} />} />
+            </Route>
           </Route>
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Routes>
