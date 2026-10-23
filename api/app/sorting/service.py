@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.activity.service import log
 from app.core.errors import AppError
 from app.devices.models import Device
+from app.insights import flags
 from app.intake.models import Delivery, SegregationCheck
 from app.masterdata.models import Material, StorageArea
 from app.sorting.models import Classification, StockMovement
@@ -110,8 +111,9 @@ def sort_delivery(db: DbSession, data: SortIn, actor: User, at: datetime | None 
             m.at = at
         db.add(m)
     d.status = "sorted"
+    flags.check_gap(db, d)
     if not at:
-        parts = ", ".join(f"{_name(db, r.material_id)} {r.kg} kg" for r in data.rows)
+        parts =", ".join(f"{_name(db, r.material_id)} {r.kg} kg" for r in data.rows)
         log(db, actor.id, "Recorded sorted quantities", f"{d.code} · {parts}"[:255])
     db.commit()
     return d

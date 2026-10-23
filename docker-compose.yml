@@ -19,6 +19,7 @@ services:
 
   api:
     build: ./api
+    image: sapulmrf-api:dev  # worker and sim run this same image, so it is built and stored once
     environment:
       DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       WATCHFILES_FORCE_POLLING: "true"  # file changes from Windows don't reach the container as events
@@ -36,8 +37,10 @@ services:
       retries: 10
 
   worker:
-    # Runs the alert checks every 30 s (compost out of range, devices gone silent, storage almost full).
-    build: ./api
+    # Runs the alert checks every 30 s (compost out of range, devices gone silent, storage almost full)
+    # and saves the day's intake forecasts once a day.
+    image: sapulmrf-api:dev
+    pull_policy: never
     command: python -m app.alerts.worker
     restart: unless-stopped
     environment:
@@ -70,7 +73,8 @@ services:
   sim:
     # Stands in for the devices and an operator. Only runs when asked: docker compose --profile sim up -d sim
     profiles: ["sim"]
-    build: ./api
+    image: sapulmrf-api:dev
+    pull_policy: never
     command: python -m app.simulator run
     environment:
       DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}

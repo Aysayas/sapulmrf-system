@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.activity.service import log
 from app.core.errors import AppError
 from app.devices.models import Device
+from app.insights import flags
 from app.intake.models import Delivery, SegregationCheck
 from app.intake.schemas import DeliveryIn, DeliveryOut, SegregationIn, SegregationOut
 from app.masterdata.models import SourceArea, WasteCategory
@@ -56,6 +57,7 @@ def record_delivery(db: DbSession, data: DeliveryIn, actor: User, at: datetime |
     db.add(d)
     db.flush()
     d.code = f"D-{d.id:04d}"
+    flags.check_weight(db, d)
     if not at:
         note = " (corrected)" if corrected else ""
         log(db, actor.id, "Recorded delivery", f"{d.code} · {area.name} · {d.weight_kg} kg{note}")
