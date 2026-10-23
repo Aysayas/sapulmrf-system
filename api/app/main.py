@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.db import engine
+from app.core.db import engine
 
 app = FastAPI(title="SapulMRF API", version="0.1.0")
 
