@@ -42,7 +42,9 @@ def to_pdf(r: Report, by: str, at: datetime) -> bytes:
         Paragraph("&nbsp;&nbsp;&nbsp;".join(f"<b>{k}:</b> {v}" for k, v in r.summary), st["Normal"]),
         Spacer(1, 5 * mm),
     ]
-    data = [r.columns] + [[str(c) for c in row] for row in r.rows] if r.rows else [r.columns, ["No records in this range."]]
+    money = [i for i, h in enumerate(r.columns) if "PHP" in h]  # pesos always show two decimals
+    data = [r.columns] + [[f"{c:,.2f}" if i in money else str(c) for i, c in enumerate(row)] for row in r.rows] \
+        if r.rows else [r.columns, ["No records in this range."]]
     table = Table(data, repeatRows=1)
     style = [("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 9),
              ("LINEBELOW", (0, 0), (-1, 0), 1, colors.black), ("GRID", (0, 1), (-1, -1), 0.25, colors.grey),
