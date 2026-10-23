@@ -8,6 +8,7 @@ from app.activity.router import router as activity_router
 from app.auth.router import router as auth_router
 from app.core import errors
 from app.core.db import engine
+from app.devices.router import router as devices_router
 from app.masterdata.router import router as masterdata_router
 from app.users.router import router as users_router
 
@@ -18,6 +19,7 @@ app.include_router(users_router)
 app.include_router(access_router)
 app.include_router(activity_router)
 app.include_router(masterdata_router)
+app.include_router(devices_router)
 
 
 @app.get("/health")

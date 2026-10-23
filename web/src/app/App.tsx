@@ -4,6 +4,7 @@ import { ApiError } from '../api/client';
 import RolesPage from '../features/access/RolesPage';
 import ActivityPage from '../features/activity/ActivityPage';
 import LoginPage from '../features/auth/LoginPage';
+import DevicesPage from '../features/devices/DevicesPage';
 import MasterDataPage from '../features/masterdata/MasterDataPage';
 import ComingSoon from '../features/placeholder/ComingSoon';
 import SettingsLayout from '../features/settings/SettingsLayout';
@@ -37,7 +38,7 @@ export default function App() {
               <Route path="users" element={<UsersPage />} />
               <Route path="roles" element={<RolesPage />} />
               <Route path="masterdata" element={<MasterDataPage />} />
-              <Route path="devices" element={<ComingSoon title="IoT devices" phase={2} />} />
+              <Route path="devices" element={<DevicesPage />} />
               <Route path="ranges" element={<ComingSoon title="Ranges and limits" phase={2} />} />
               <Route path="activity" element={<ActivityPage />} />
             </Route>
