@@ -114,10 +114,10 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 - [ ] SMS or email delivery, once the server and a provider are chosen
 
 ### Phase 6: Insights with AI/ML (ADM-12, 13, 14, 15)
-- [ ] Unusual weights (z-score per purok) and received-vs-sorted gaps are flagged. Admin marks each one valid or incorrect
-- [ ] Intake forecast per category, plus the storage outlook ("Area B full in ~6 days"), shown only after N days of records
-- [ ] Suggested pickup or sale schedule, and predicted vs actual with the percentage error (Objective 5)
-- [ ] Swap in an ML model (scikit-learn/Prophet) behind the same endpoint once there's enough data, and compare its error with the stats baseline
+- [x] Unusual weights (z-score per purok) and received-vs-sorted gaps are flagged. Admin marks each one valid or incorrect (checked when the record is made; Approvals › Flagged records)
+- [x] Intake forecast per category, plus the storage outlook ("Area B full in ~6 days"), shown only after N days of records (Insights; N is `prediction_min_days`, 30)
+- [x] Suggested pickup or sale schedule, and predicted vs actual with the percentage error (Objective 5) (forecasts are saved daily, so the error is never hindsight)
+- [x] Swap in an ML model behind the same endpoint and compare its error with the stats baseline: done from the start. A scikit-learn Ridge model and the 7-day moving average both run, and the one with the lower 14-day error is used. Prophet was skipped (heavy install, not needed at this data size)
 
 ### Phase 7: Reports and audit (ADM-18, 20)
 - [ ] Intake, segregation, inventory, composting, outgoing and income reports by date range and purok, as PDF and CSV
@@ -133,7 +133,7 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 - The home server's CPU, RAM, OS and network reach (LAN only or internet). Blocks: Phase 8.
 - Where CV inference runs (on a device, on the server, or in the API container) and the model format. Blocks: Phase 8, and partly Phase 3's camera view.
 - Who builds the operator and staff sides, and when. Blocks: real (not simulated) data for approvals.
-- How many days of real records before switching from stats to ML. Blocks: Phase 6's last item.
+- ~~How many days of real records before switching from stats to ML~~ Answered in Phase 6: no fixed switch. Both models run once there are `prediction_min_days` (30) days of records, and whichever has the lower error over the last 14 days is used.
 - Whether to keep the prototype repo or fold it into `sapulmrf/docs`. Blocks: nothing.
 
 ## Out of scope (for this roadmap)

@@ -15,7 +15,8 @@ docker compose exec api python -m app.simulator remove                     # del
 What it does besides deliveries and readings:
 - **Saturday pickups** become sale requests (placeholder prices in `PRICES`, not real junkshop rates) and residual disposal requests. Finished compost is given out to purok gardens, sometimes sold.
 - **Recounts** every ~9 days become inventory adjustment requests, and 3% of weights are corrected at the scale.
-- **The backfill** approves (or, for some recounts, rejects) and reviews everything older than 3 days as the test admin `e2e.admin`, so it needs that account. Newer items wait in the Approvals inbox.
+- **The backfill** approves (or, for some recounts, rejects) and reviews everything older than 3 days as the test admin `e2e.admin`, so it needs that account. That includes deciding flagged records. Newer items wait in the Approvals inbox.
+- **Insights:** about 2% of weights are outliers and 3% of mixed deliveries lose some weight between intake and sorting, so the flags have something to find. The backfill also replays the daily forecasts, so Insights has predicted vs actual from the start. `remove` deletes the forecasts too; the worker rebuilds them from real records.
 - **The live loop** sends a sale, disposal or recount request about every 20 minutes.
 - **Disturbances:** now and then the live loop silences a compost sensor for ~5 minutes or overheats a batch for ~15, so the worker opens alerts and then resolves them. Stopping the sim makes all four `SIM-` devices "disconnected" after 2 minutes.
 
