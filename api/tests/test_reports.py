@@ -1,0 +1,188 @@
+import csv
+import io
+from datetime import UTC, datetime, timedelta
+
+import pytest
+
+from app.activity.models import ActivityLog
+from app.approvals import service as approvals
+from app.approvals.schemas import DecisionIn, OutgoingIn
+from app.compost.models import CompostBatch, CompostReading
+from app.intake.models import Delivery, SegregationCheck
+from app.operations.service import TZ
+from app.reports.models import ReportExport
+from app.sorting.models import StockMovement
+
+TODAY = datetime.now(TZ).date()
+
+
+def delivery(db, world, purok, kg, cond=None, at=None, cat="Recyclable"):
+    d = Delivery(code=f"D-{db.query(Delivery).count() + 1}", source_area_id=world[purok], category_id=world["cat"][cat],
+                 weight_kg=kg, weighed_by="scale", received_at=at or datetime.now(UTC))
+    db.add(d)
+    db.flush()
+    if cond:
+        db.add(SegregationCheck(delivery_id=d.id, condition=cond, wet_kg=0, dry_kg=kg))
+    db.commit()
+    return d
+
+
+def get(client, kind, frm=None, to=None, **extra):
+    q = {"from": str(frm or TODAY), "to": str(to or TODAY), **extra}
+    return client.get(f"/reports/{kind}", params=q)
+
+
+@pytest.fixture
+def admin(make_user, login):
+    u = make_user("maria", role="admin", name="Maria Santos")
+    login("maria")
+    return u
+
+
+def test_intake_and_segregation_match_hand_numbers(client, db, world, admin):
+    delivery(db, world, "purok1", 10.0, "segregated")
+    delivery(db, world, "purok1", 5.5, "mixed")
+    delivery(db, world, "purok2", 4.0, "segregated")
+    delivery(db, world, "purok2", 99.0, "segregated", at=datetime.now(UTC) - timedelta(days=5))  # outside the range
+
+    r = get(client, "intake").json()
+    assert r["summary"] == [["Deliveries", "3"], ["Total weight", "19.50 kg"]]
+    assert r["rows"] == [["Purok 1", "Recyclable", 2, 15.5], ["Purok 2", "Recyclable", 1, 4.0]]
+
+    r = get(client, "segregation").json()
+    assert r["rows"] == [["Purok 1", 2, 1, 50], ["Purok 2", 1, 1, 100]]
+    assert r["summary"][-1] == ["Compliance", "67%"]
+
+    only2 = get(client, "intake", area=world["purok2"]).json()
+    assert only2["rows"] == [["Purok 2", "Recyclable", 1, 4.0]] and "Purok 2" in only2["subtitle"]
+    assert get(client, "segregation", area=world["purok2"]).json()["rows"] == [["Purok 2", 1, 1, 100]]
+
+
+def test_range_edges_are_inclusive_manila_days(client, db, world, admin):
+    midnight = datetime(TODAY.year, TODAY.month, TODAY.day, tzinfo=TZ)
+    delivery(db, world, "purok1", 1.0, at=midnight)                                   # first moment of the day: in
+    delivery(db, world, "purok1", 2.0, at=midnight - timedelta(minutes=1))            # last minute of yesterday: out
+    delivery(db, world, "purok1", 4.0, at=midnight + timedelta(hours=23, minutes=59))  # last minute of the day: in
+    assert get(client, "intake").json()["rows"][0][3] == 5.0
+    assert get(client, "intake", frm=TODAY - timedelta(days=1)).json()["rows"][0][3] == 7.0
+
+
+def test_empty_range_and_bad_ranges(client, world, admin):
+    r = get(client, "intake")
+    assert r.status_code == 200 and r.json()["rows"] == [] and r.json()["total_rows"] == 0
+    assert get(client, "intake", frm=TODAY, to=TODAY - timedelta(days=1)).status_code == 422
+    assert get(client, "intake", frm=TODAY - timedelta(days=366)).status_code == 422
+    assert get(client, "intake", frm=TODAY - timedelta(days=365)).status_code == 200
+    assert get(client, "nonsense").status_code == 422
+    assert get(client, "intake", area=9999).status_code == 404
+
+
+def test_outgoing_and_income_count_approved_only(client, db, world, make_user, admin):
+    op = make_user("juan", role="operator")
+    db.add(StockMovement(material_id=world["mat"]["Plastic"], storage_area_id=world["area_a"], kg=500, kind="sorted"))
+    db.add(StockMovement(material_id=None, storage_area_id=world["area_d"], kg=100, kind="sorted"))
+    db.commit()
+
+    def sale(kg, price, decision=None):
+        o = approvals.request_outgoing(db, OutgoingIn(type="sale", material_id=world["mat"]["Plastic"], kg=kg, price_per_kg=price,
+                                                      storage_area_id=world["area_a"], recipient="Buyer A"), op)
+        if decision:
+            approvals.decide_outgoing(db, o.id, DecisionIn(decision=decision, comment="no"), admin)
+
+    sale(10, 12.0, "approve")
+    sale(20, 10.0, "approve")
+    sale(40, 10.0, "reject")
+    sale(50, 10.0)
+    d = approvals.request_outgoing(db, OutgoingIn(type="disposal", storage_area_id=world["area_d"], kg=60, recipient="ENRO"), op)
+    approvals.decide_outgoing(db, d.id, DecisionIn(decision="approve"), admin)
+
+    inc = get(client, "income").json()
+    assert inc["summary"] == [["Sales", "2"], ["Total income", "PHP 320.00"]]
+    assert [row[-1] for row in inc["rows"]] == [120.0, 200.0]
+    out = get(client, "outgoing").json()
+    assert out["summary"] == [["Sale", "30.00 kg"], ["Compost", "0.00 kg"], ["Residual disposal", "60.00 kg"]]
+    assert len(out["rows"]) == 3
+
+
+def test_inventory_ignores_range_and_matches_page(client, db, world, admin):
+    db.add(StockMovement(material_id=world["mat"]["Plastic"], storage_area_id=world["area_a"], kg=250, bags=5, kind="sorted"))
+    db.commit()
+    old = TODAY - timedelta(days=200)
+    r = get(client, "inventory", frm=old, to=old).json()
+    assert r["rows"] == [["Area A", "Plastic", 250.0, 5, 50]]
+    page = client.get("/operations/inventory").json()
+    assert r["summary"][0][1] == f"{sum(s['kg'] for s in page['stock']):,.2f} kg"
+
+
+def test_composting_lists_batches_in_range(client, db, admin):
+    now = datetime.now(UTC)
+    b = CompostBatch(code="B-7", start_kg=80, started_at=now - timedelta(days=3))
+    old = CompostBatch(code="B-1", start_kg=50, started_at=now - timedelta(days=90),
+                       finished_at=now - timedelta(days=60), produced_kg=20)
+    db.add_all([b, old])
+    db.flush()
+    db.add(CompostReading(batch_id=b.id, temp_c=55.04, moisture_pct=60.0))
+    db.commit()
+    r = get(client, "composting").json()
+    assert [row[0] for row in r["rows"]] == ["B-7"]
+    assert r["rows"][0][2:] == ["Active", 80.0, "", 55.0, 60.0]
+    wide = get(client, "composting", frm=TODAY - timedelta(days=100)).json()
+    assert [row[0] for row in wide["rows"]] == ["B-1", "B-7"] and wide["summary"][1] == ["Compost produced", "20.00 kg"]
+
+
+def test_csv_export_matches_preview_and_is_recorded(client, db, world, admin):
+    delivery(db, world, "purok1", 10.0, "segregated")
+    r = client.get("/reports/segregation/export", params={"from": str(TODAY), "to": str(TODAY), "format": "csv"})
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
+    assert f'segregation-report_{TODAY}_{TODAY}.csv' in r.headers["content-disposition"]
+    lines = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig"))))
+    header = lines.index(["Source area", "Deliveries", "Segregated", "Compliance (%)"])
+    preview = get(client, "segregation").json()
+    assert lines[header + 1:] == [[str(c) for c in row] for row in preview["rows"]]
+    assert db.query(ReportExport).count() == 1
+    assert db.query(ActivityLog).filter_by(action="Exported segregation report as CSV").count() == 1
+
+
+def test_pdf_export(client, db, world, admin):
+    delivery(db, world, "purok1", 10.0, "segregated")
+    for kind in ("intake", "segregation", "inventory", "composting", "outgoing", "income"):
+        r = client.get(f"/reports/{kind}/export", params={"from": str(TODAY), "to": str(TODAY), "format": "pdf"})
+        assert r.status_code == 200 and r.headers["content-type"] == "application/pdf", kind
+        assert r.content.startswith(b"%PDF") and len(r.content) > 1000, kind
+
+
+def test_preview_is_logged_and_recent_is_newest_first(client, db, world, admin):
+    get(client, "intake")
+    assert db.query(ActivityLog).filter_by(action="Viewed intake report").count() == 1
+    assert db.query(ReportExport).count() == 0
+    for kind in ("intake", "income"):
+        client.get(f"/reports/{kind}/export", params={"from": str(TODAY), "to": str(TODAY), "format": "csv"})
+    recent = client.get("/reports/recent").json()
+    assert [r["kind"] for r in recent] == ["income", "intake"]
+    assert recent[0]["by"] == "Maria Santos" and recent[0]["area"] == "All puroks" and recent[0]["title"] == "Income Report"
+
+
+def test_preview_is_capped_at_500_rows(client, db, world, admin):
+    from app.reports import service
+    from app.reports.builders import TITLES
+    from app.reports.schemas import Report
+
+    big = Report(kind="income", title=TITLES["income"], subtitle="", summary=[], columns=["n"], rows=[[i] for i in range(600)])
+    service.BUILDERS["income"], real = (lambda *a: big.model_copy()), service.BUILDERS["income"]
+    try:
+        r = get(client, "income").json()
+    finally:
+        service.BUILDERS["income"] = real
+    assert len(r["rows"]) == 500 and r["total_rows"] == 600
+
+
+def test_only_admins(client, make_user, login):
+    assert get(client, "intake").status_code == 401
+    make_user("juan", role="operator")
+    make_user("rosa", role="staff")
+    for who in ("juan", "rosa"):
+        login(who)
+        assert get(client, "intake").status_code == 403
+        assert client.get("/reports/recent").status_code == 403
+        export = client.get("/reports/intake/export", params={"from": str(TODAY), "to": str(TODAY), "format": "csv"})
+        assert export.status_code == 403

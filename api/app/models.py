@@ -10,6 +10,7 @@ from app.devices.models import Device
 from app.insights.models import Flag, Forecast
 from app.intake.models import Delivery, SegregationCheck
 from app.masterdata.models import Material, SourceArea, StorageArea, WasteCategory
+from app.reports.models import ReportExport
 from app.settings.models import Settings
 from app.sorting.models import Classification, StockMovement
 from app.users.models import User
@@ -17,4 +18,4 @@ from app.users.models import User
 __all__ = ["Base", "User", "Session", "StaffAccess", "ActivityLog", "WasteCategory", "SourceArea", "Material",
            "StorageArea", "Device", "Settings", "Delivery", "SegregationCheck", "Classification", "StockMovement",
            "CompostBatch", "CompostReading", "CompostActivity", "AdjustmentRequest", "Outgoing", "Alert", "ProblemReport",
-           "Flag", "Forecast"]
+           "Flag", "Forecast", "ReportExport"]

@@ -16,6 +16,7 @@ from app.insights.router import router as insights_router
 from app.intake.router import router as intake_router
 from app.masterdata.router import router as masterdata_router
 from app.operations.router import router as operations_router
+from app.reports.router import router as reports_router
 from app.settings.router import router as settings_router
 from app.sorting.router import router as sorting_router
 from app.users.router import router as users_router
@@ -36,6 +37,7 @@ app.include_router(operations_router)
 app.include_router(approvals_router)
 app.include_router(alerts_router)
 app.include_router(insights_router)
+app.include_router(reports_router)
 
 
 @app.get("/health")
