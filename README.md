@@ -31,6 +31,8 @@ docker compose exec -it api python -m app.cli create-admin
 ```
 Log in at http://localhost:5174 with that account. After pulling new code, run `alembic upgrade head` again.
 
+Usernames ignore capitals. IoT devices are registered in Settings › IoT devices; each gets a key, shown once, which the device sends in an `X-Device-Key` header to `POST /devices/heartbeat` to show as online.
+
 ## Daily commands
 ```
 docker compose ps                         status

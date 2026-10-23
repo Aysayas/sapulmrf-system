@@ -93,9 +93,9 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 - [x] Every login, logout, user change and access change is written to the activity log, with an admin screen to read it (approvals get logged when Phase 4 adds them)
 
 ### Phase 2: Setup data (ADM-04, 05, 06)
-- [ ] Waste categories (RA 9003), puroks/source areas, recyclable materials, and storage areas with capacity limits
-- [ ] Register IoT devices. Each gets a device key and shows online/offline from its heartbeat
-- [ ] Compost temperature and moisture ranges, storage alert levels, and the prediction start threshold (days of records)
+- [x] Waste categories (RA 9003, seeded), puroks/source areas, recyclable materials (the 4 CV ones, seeded), and storage areas with capacity limits. Deactivate instead of delete
+- [x] Register IoT devices. Each gets a device key (shown once, stored hashed) and shows online/offline from its heartbeat (`POST /devices/heartbeat`, `X-Device-Key` header, online = within 2 min)
+- [x] Compost temperature and moisture ranges, storage alert levels, the prediction start threshold (days of records), and anomaly sensitivity
 
 ### Phase 3: Simulators and live operations view (ADM-07, 08, 09, 19)
 - [ ] The `sim` service sends deliveries, segregation results, sorted quantities, compost readings, camera suggestions and heartbeats
