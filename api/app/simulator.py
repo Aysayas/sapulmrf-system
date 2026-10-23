@@ -513,6 +513,8 @@ def run(base: str, pace: float) -> None:
     mats = {m["name"]: m["id"] for m in op.call("GET", "/masterdata/materials")}
     profiles = purok_profiles([p["name"] for p in puroks])
     moist: dict[str, float] = {}
+    quiet: dict[str, float] = {}  # sensor → monotonic time its readings resume
+    hot: dict[str, float] = {}  # sensor → monotonic time its batch cools back down
     next_delivery = time.monotonic()
     next_readings = time.monotonic()
     print(f"Simulator running against {base} (pace ×{pace}). Ctrl+C or `docker compose stop sim` to stop.", flush=True)
@@ -531,8 +533,20 @@ def run(base: str, pace: float) -> None:
                             "POST", "/compost/batches", json={"start_kg": round(rnd.uniform(15, 25), 1), "sensor_id": ids[sensor]}
                         )
                         continue
+                    # now and then a sensor drops out for ~5 minutes, or a batch overheats for ~15, so alerts open and clear
+                    if now >= quiet.get(sensor, 0) and now >= hot.get(sensor, 0):
+                        if rnd.random() < 1 / 100:
+                            quiet[sensor] = now + 300 * pace
+                            print(f"{datetime.now():%H:%M:%S} disturbance: {sensor} silent for ~5 min", flush=True)
+                        elif rnd.random() < 1 / 100:
+                            hot[sensor] = now + 900 * pace
+                            print(f"{datetime.now():%H:%M:%S} disturbance: {b['code']} overheating for ~15 min", flush=True)
+                    if now < quiet.get(sensor, 0):
+                        continue
                     age = b["day"] - 1 + datetime.now().hour / 24
                     temp, m = compost_reading(rnd, age, moist.get(sensor, b["moisture_pct"]), hours=30 * pace / 3600)
+                    if now < hot.get(sensor, 0):
+                        temp = round(max(temp, 66) + rnd.uniform(3, 6), 1)
                     if m < 45:  # the operator waters a drying batch
                         op.call("POST", f"/compost/batches/{b['id']}/activities", json={"type": "watering"})
                         m += 8
