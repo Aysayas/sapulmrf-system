@@ -375,6 +375,11 @@ def backfill(db, days: int, seed: int = 11, now: datetime | None = None) -> dict
     ):
         c.review = "ok" if rnd_review.random() < 0.9 else "wrong"
         c.reviewed_by, c.reviewed_at = admin.id, c.confirmed_at + timedelta(days=1)
+    from app.insights.models import Flag
+
+    for f in db.scalars(select(Flag).join(Delivery).where(Delivery.recorded_by == user.id, Flag.found_at <= now - RECENT)):
+        f.status = "incorrect" if rnd_review.random() < 0.6 else "valid"
+        f.decided_by, f.decided_at = admin.id, f.found_at + timedelta(days=1)
     db.commit()
 
     # replay the worker's daily forecasts, so predicted vs actual has history (each uses only the days before it)

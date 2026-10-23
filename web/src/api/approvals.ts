@@ -39,7 +39,7 @@ export interface Outgoing extends Decided {
   area_after_kg: number | null;
   capacity_kg: number | null;
 }
-export type Counts = { adjustments: number; outgoing: number; weights: number; classifications: number };
+export type Counts = { adjustments: number; outgoing: number; weights: number; classifications: number; flagged: number };
 export interface Approvals {
   counts: Counts;
   adjustments: Adjustment[];

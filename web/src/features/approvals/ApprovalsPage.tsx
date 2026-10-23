@@ -4,6 +4,7 @@ import {
   OUTGOING_TYPE, useApprovals, useChangeReviews, useDecide, useReview, useWeightReviews,
   type Adjustment, type Counts, type Outgoing,
 } from '../../api/approvals';
+import { useDecideFlag, useFlags } from '../../api/insights';
 import { Badge, btn, Drawer, inputCls, PageHeader, Toast } from '../../components/ui';
 import { kg, peso, Table, when } from '../operations/shared';
 
@@ -12,6 +13,7 @@ const TABS: [keyof Counts, string][] = [
   ['adjustments', 'Adjustments'],
   ['weights', 'Corrected weights'],
   ['classifications', 'Corrected classifications'],
+  ['flagged', 'Flagged records'],
 ];
 const small = `${btn.base} ${btn.small}`;
 type Open = { kind: 'outgoing'; row: Outgoing } | { kind: 'adjustments'; row: Adjustment };
@@ -77,6 +79,7 @@ export default function ApprovalsPage() {
 
       {tab === 'weights' && <WeightReviews onDone={setToast} />}
       {tab === 'classifications' && <ChangeReviews onDone={setToast} />}
+      {tab === 'flagged' && <FlaggedRecords onDone={setToast} />}
 
       {open && <DecisionDrawer open={open} onClose={() => setOpen(null)} onDone={(m) => { setOpen(null); setToast(m); }} />}
       <Toast message={toast} />
@@ -181,6 +184,34 @@ function WeightReviews({ onDone }: { onDone: (m: string) => void }) {
         </tr>
       ))}
     </Table>
+  );
+}
+
+function FlaggedRecords({ onDone }: { onDone: (m: string) => void }) {
+  const list = useFlags();
+  const decide = useDecideFlag();
+  const mark = (id: number, code: string, d: 'valid' | 'incorrect') =>
+    decide.mutate({ id, decision: d }, { onSuccess: () => onDone(`${code} marked ${d}`) });
+  return (
+    <>
+      <p className="text-sm text-ink-2">Flagged records are never changed automatically. Mark each one valid or incorrect.</p>
+      <Table label="Flagged records" head={['Record', 'Source', 'Value', 'Expected', 'Why flagged', 'Your decision']}
+        state={{ isPending: list.isPending, error: list.error ?? decide.error, count: list.data?.length }} empty="No flagged records to review.">
+        {list.data?.map((f) => (
+          <tr key={f.id}>
+            <td className="font-semibold whitespace-nowrap">{f.code}<span className="block text-xs font-normal text-muted">{when(f.received_at)}</span></td>
+            <td>{f.source_area} · {f.category}</td>
+            <td className="whitespace-nowrap">{kg(f.value_kg)}{f.kind === 'gap' ? ' received' : ''}</td>
+            <td>{f.expected}</td>
+            <td><Badge kind="warn">{f.why}</Badge></td>
+            <td className="whitespace-nowrap">
+              <button className={`${small} ${btn.secondary}`} aria-label={`Mark ${f.code} valid`} disabled={decide.isPending} onClick={() => mark(f.id, f.code, 'valid')}>Valid</button>{' '}
+              <button className={`${small} ${btn.secondary}`} aria-label={`Mark ${f.code} incorrect`} disabled={decide.isPending} onClick={() => mark(f.id, f.code, 'incorrect')}>Incorrect</button>
+            </td>
+          </tr>
+        ))}
+      </Table>
+    </>
   );
 }
 

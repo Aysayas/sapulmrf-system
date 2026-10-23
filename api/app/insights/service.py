@@ -164,10 +164,10 @@ def flag_out(db: DbSession, f: Flag) -> s.FlagOut:
     d = db.get(Delivery, f.delivery_id)
     area = db.get(SourceArea, d.source_area_id).name
     if f.kind == "weight":
-        why, expected = "Unusual weight", f"Usual for {area}: {f.expected_low:g}–{f.expected_high:g} kg"
+        why, expected = "Unusual weight", f"Usual for {area}: {f.expected_low:.1f}–{f.expected_high:.1f} kg"
     else:
         why = f"Received vs sorted gap {abs(f.value_kg - f.expected_low):.1f} kg"
-        expected = f"Separated + sorted {f.expected_low:g} kg"
+        expected = f"Separated + sorted {f.expected_low:.1f} kg"
     by = db.get(User, f.decided_by) if f.decided_by else None
     return s.FlagOut(
         id=f.id,
