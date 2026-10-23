@@ -1,7 +1,10 @@
+from datetime import UTC, datetime
+
 import pytest
 from sqlalchemy import select
 
 from app.activity.models import ActivityLog
+from app.alerts.models import Alert, ProblemReport
 from app.approvals.models import AdjustmentRequest, Outgoing
 from app.cli import create_admin, remove_test_data, remove_test_users
 from app.core.security import verify_password
@@ -59,11 +62,16 @@ def test_remove_test_data_keeps_real_areas_and_devices(db, make_user):
                 StockMovement(material_id=None, storage_area_id=e2e_area, kg=5, kind="sorted"),
                 StockMovement(material_id=None, storage_area_id=real_area, kg=5, kind="sorted"),
                 Outgoing(code="O-9001", type="disposal", storage_area_id=e2e_area, kg=5, recipient="x"),
-                AdjustmentRequest(storage_area_id=e2e_area, system_kg=5, actual_kg=4, reason="x")])
+                AdjustmentRequest(storage_area_id=e2e_area, system_kg=5, actual_kg=4, reason="x"),
+                Alert(kind="storage", subject_id=e2e_area, title="e2e Area x1 almost full", opened_at=datetime.now(UTC)),
+                Alert(kind="storage", subject_id=real_area, title="Area A almost full", opened_at=datetime.now(UTC)),
+                ProblemReport(code="R-901", kind="record", record_ref="E2E-REC", details="x"),
+                ProblemReport(code="R-902", kind="record", record_ref="D-0139", details="real")])
     db.commit()
     counts = remove_test_data(db)
-    assert counts == {"users": 1, "deliveries": 1, "stock movements": 1, "requests": 2, "source areas": 1,
-                      "storage areas": 1, "devices": 1}
+    assert counts == {"users": 1, "deliveries": 1, "stock movements": 1, "requests": 2, "alerts": 1, "problem reports": 1,
+                      "source areas": 1, "storage areas": 1, "devices": 1}
+    assert db.scalars(select(ProblemReport.code)).all() == ["R-902"]
     assert db.scalars(select(Delivery.code)).all() == ["D-9002"]
     assert db.scalars(select(StockMovement.storage_area_id)).all() == [real_area]
     assert db.scalars(select(SourceArea.name)).all() == ["Purok 1"]

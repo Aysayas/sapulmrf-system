@@ -1,6 +1,6 @@
 """Admin commands. Run inside the api container:
 
-    docker compose exec api python -m app.cli create-admin
+docker compose exec api python -m app.cli create-admin
 """
 
 import argparse
@@ -8,10 +8,11 @@ import getpass
 import re
 import sys
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.activity.service import log
+from app.alerts.models import Alert, ProblemReport
 from app.approvals.models import AdjustmentRequest, Outgoing
 from app.core.db import SessionLocal
 from app.core.security import hash_password
@@ -51,14 +52,27 @@ def remove_test_users(db: Session) -> int:
 
 def remove_test_data(db: Session) -> dict[str, int]:
     """Deletes what the e2e tests create: e2e.<role>.<id> users, 'e2e …' source areas with their deliveries,
-    'e2e …' storage areas with their stock and requests, E2E-… devices."""
+    'e2e …' storage areas with their stock, requests and alerts, E2E-… devices, and problem reports about E2E-… records."""
     counts = {"users": remove_test_users(db)}
     e2e_puroks = select(SourceArea.id).where(func.lower(SourceArea.name).like("e2e %"))
     e2e_areas = select(StorageArea.id).where(func.lower(StorageArea.name).like("e2e %"))
     counts["deliveries"] = db.execute(delete(Delivery).where(Delivery.source_area_id.in_(e2e_puroks))).rowcount
     counts["stock movements"] = db.execute(delete(StockMovement).where(StockMovement.storage_area_id.in_(e2e_areas))).rowcount
-    counts["requests"] = sum(db.execute(delete(m).where(m.storage_area_id.in_(e2e_areas))).rowcount
-                             for m in (Outgoing, AdjustmentRequest))
+    counts["requests"] = sum(
+        db.execute(delete(m).where(m.storage_area_id.in_(e2e_areas))).rowcount for m in (Outgoing, AdjustmentRequest)
+    )
+    e2e_devices = select(Device.id).where(Device.code.like("E2E-%"))
+    counts["alerts"] = db.execute(
+        delete(Alert).where(
+            or_(
+                and_(Alert.kind == "storage", Alert.subject_id.in_(e2e_areas)),
+                and_(Alert.kind == "device", Alert.subject_id.in_(e2e_devices)),
+            )
+        )
+    ).rowcount
+    counts["problem reports"] = db.execute(
+        delete(ProblemReport).where(or_(ProblemReport.record_ref.like("E2E-%"), ProblemReport.device_id.in_(e2e_devices)))
+    ).rowcount
     for label, model in (("source areas", SourceArea), ("storage areas", StorageArea)):
         counts[label] = db.execute(delete(model).where(func.lower(model.name).like("e2e %"))).rowcount
     counts["devices"] = db.execute(delete(Device).where(Device.code.like("E2E-%"))).rowcount
