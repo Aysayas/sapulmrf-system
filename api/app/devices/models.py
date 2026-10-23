@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, String, func
+from sqlalchemy import JSON, CheckConstraint, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -21,4 +21,5 @@ class Device(Base):
     key_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     active: Mapped[bool] = mapped_column(default=True)
     last_seen_at: Mapped[datetime | None] = mapped_column(default=None)
+    last_reading: Mapped[dict | None] = mapped_column(JSON, default=None)  # for the live readout
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

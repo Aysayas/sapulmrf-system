@@ -73,3 +73,27 @@ def login(client):
         return r
 
     return do
+
+
+@pytest.fixture
+def world(db):
+    """A small MRF: two puroks, the seeded categories and materials, two storage areas."""
+    from sqlalchemy import select
+
+    from app.masterdata.models import Material, SourceArea, StorageArea, WasteCategory
+
+    p1, p2 = SourceArea(name="Purok 1"), SourceArea(name="Purok 2")
+    a_plastic = StorageArea(name="Area A", capacity_kg=500, alert_pct=90)
+    a_residual = StorageArea(name="Area D", capacity_kg=300, alert_pct=85)
+    db.add_all([p1, p2, a_plastic, a_residual])
+    db.commit()
+    cat = {c.name: c.id for c in db.scalars(select(WasteCategory))}
+    mat = {m.name: m.id for m in db.scalars(select(Material))}
+    return {"purok1": p1.id, "purok2": p2.id, "area_a": a_plastic.id, "area_d": a_residual.id, "cat": cat, "mat": mat}
+
+
+@pytest.fixture
+def as_operator(make_user, login):
+    u = make_user("juan", role="operator", name="Juan Dela Cruz")
+    login("juan")
+    return u

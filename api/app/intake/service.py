@@ -1,0 +1,85 @@
+from datetime import datetime
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session as DbSession
+
+from app.activity.service import log
+from app.core.errors import AppError
+from app.devices.models import Device
+from app.intake.models import Delivery, SegregationCheck
+from app.intake.schemas import DeliveryIn, DeliveryOut, SegregationIn, SegregationOut
+from app.masterdata.models import SourceArea, WasteCategory
+from app.users.models import User
+
+# Wet + dry may come out a little heavier than the bag was (wet waste, rounding), but not by this much.
+SEGREGATION_TOLERANCE = 1.10
+
+
+def out(db: DbSession, d: Delivery) -> DeliveryOut:
+    seg = db.scalar(select(SegregationCheck).where(SegregationCheck.delivery_id == d.id))
+    by = db.get(User, d.recorded_by) if d.recorded_by else None
+    return DeliveryOut(
+        id=d.id, code=d.code, received_at=d.received_at, source_area=db.get(SourceArea, d.source_area_id).name,
+        category=db.get(WasteCategory, d.category_id).name, weight_kg=d.weight_kg, weighed_by=d.weighed_by,
+        scale_kg=d.scale_kg, corrected=d.scale_kg is not None, correction_reason=d.correction_reason, status=d.status,
+        recorded_by=by.name if by else None,
+        segregation=SegregationOut(condition=seg.condition, wet_kg=seg.wet_kg, dry_kg=seg.dry_kg, note=seg.note,
+                                   checked_at=seg.checked_at) if seg else None,
+    )
+
+
+def _active(db: DbSession, model, item_id: int, what: str):
+    item = db.get(model, item_id)
+    if not item or not item.active:
+        raise AppError(422, f"Pick an active {what}.")
+    return item
+
+
+def record_delivery(db: DbSession, data: DeliveryIn, actor: User, at: datetime | None = None) -> Delivery:
+    """at is only passed by the history backfill; live records always use the server's clock."""
+    area = _active(db, SourceArea, data.source_area_id, "source area")
+    _active(db, WasteCategory, data.category_id, "waste category")
+    corrected = data.scale_kg is not None and abs(data.scale_kg - data.weight_kg) > 0.001
+    if corrected and not data.correction_reason:
+        raise AppError(422, "Say why you corrected the scale reading.")
+    if data.device_id is not None:
+        dev = db.get(Device, data.device_id)
+        if not dev or dev.type != "weighing_station":
+            raise AppError(422, "That isn't a registered weighing station.")
+    d = Delivery(
+        source_area_id=area.id, category_id=data.category_id, weight_kg=round(data.weight_kg, 2),
+        weighed_by=data.weighed_by, scale_kg=round(data.scale_kg, 2) if corrected else None,
+        correction_reason=data.correction_reason if corrected else None, recorded_by=actor.id, device_id=data.device_id,
+    )
+    if at:
+        d.received_at = at
+    db.add(d)
+    db.flush()
+    d.code = f"D-{d.id:04d}"
+    if not at:
+        note = " (corrected)" if corrected else ""
+        log(db, actor.id, "Recorded delivery", f"{d.code} · {area.name} · {d.weight_kg} kg{note}")
+    db.commit()
+    return d
+
+
+def record_segregation(db: DbSession, delivery_id: int, data: SegregationIn, actor: User,
+                       at: datetime | None = None) -> Delivery:
+    d = db.get(Delivery, delivery_id)
+    if not d:
+        raise AppError(404, "Delivery not found.")
+    if db.scalar(select(SegregationCheck.id).where(SegregationCheck.delivery_id == d.id)):
+        raise AppError(409, f"{d.code} already has a segregation check.")
+    if data.wet_kg + data.dry_kg > d.weight_kg * SEGREGATION_TOLERANCE + 0.5:
+        raise AppError(422, f"Wet and dry add up to more than the {d.weight_kg} kg received. Weigh them again.")
+    check = SegregationCheck(delivery_id=d.id, condition=data.condition, wet_kg=round(data.wet_kg, 2),
+                             dry_kg=round(data.dry_kg, 2), note=data.note, checked_by=actor.id)
+    if at:
+        check.checked_at = at
+    db.add(check)
+    d.status = "separated"
+    if not at:
+        record = f"{d.code} · {data.condition} · wet {check.wet_kg} kg · dry {check.dry_kg} kg"
+        log(db, actor.id, "Segregation check", record)
+    db.commit()
+    return d
