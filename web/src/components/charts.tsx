@@ -1,4 +1,4 @@
-import { Bar, BarChart, CartesianGrid, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { AreaFill } from '../api/operations';
 
 // One series per chart, so one hue (leaf 600) and no legend; the card title names the series (dataviz skill).
@@ -29,6 +29,36 @@ export function IntakeChart({ data, height = 220 }: { data: { day: string; kg: n
         <Tooltip cursor={{ fill: '#ddefe3', opacity: 0.6 }} content={({ active, payload }) =>
           active && payload?.[0] ? <TipBox title={day(String(payload[0].payload.day))} value={`${payload[0].value} kg received`} /> : null} />
         <Bar dataKey="kg" fill={SERIES} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+/** Daily kg: actual days solid, forecast days hatched in the same hue (one series, two states; the key says which). */
+export function ForecastChart({ actual, forecast, height = 240 }: { actual: { day: string; kg: number }[]; forecast: { day: string; kg: number }[]; height?: number }) {
+  const data = [...actual.map((d) => ({ ...d, predicted: false })), ...forecast.map((d) => ({ ...d, predicted: true }))];
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }} barCategoryGap={2}>
+        <defs>
+          <pattern id="forecast-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="6" height="6" fill="#ddefe3" />
+            <line x1="0" y1="0" x2="0" y2="6" stroke={SERIES} strokeWidth="3" />
+          </pattern>
+        </defs>
+        <CartesianGrid vertical={false} stroke={GRID} />
+        <XAxis dataKey="day" tickFormatter={day} tick={AXIS} axisLine={false} tickLine={false} minTickGap={18} />
+        <YAxis tick={AXIS} axisLine={false} tickLine={false} width={36} />
+        <Tooltip cursor={{ fill: '#ddefe3', opacity: 0.6 }} content={({ active, payload }) =>
+          active && payload?.[0] ? (
+            <TipBox title={day(String(payload[0].payload.day))}
+              value={`${payload[0].value} kg ${payload[0].payload.predicted ? 'predicted' : 'received'}`} />
+          ) : null} />
+        <Bar dataKey="kg" radius={[4, 4, 0, 0]} isAnimationActive={false}>
+          {data.map((d) => (
+            <Cell key={d.day} fill={d.predicted ? 'url(#forecast-hatch)' : SERIES} stroke={d.predicted ? SERIES : undefined} />
+          ))}
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   );

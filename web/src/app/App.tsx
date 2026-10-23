@@ -7,6 +7,7 @@ import ActivityPage from '../features/activity/ActivityPage';
 import AlertsPage from '../features/alerts/AlertsPage';
 import LoginPage from '../features/auth/LoginPage';
 import DevicesPage from '../features/devices/DevicesPage';
+import InsightsPage from '../features/insights/InsightsPage';
 import MasterDataPage from '../features/masterdata/MasterDataPage';
 import CameraPage from '../features/operations/CameraPage';
 import CompostPage from '../features/operations/CompostPage';
@@ -16,7 +17,6 @@ import OutgoingPage from '../features/operations/OutgoingPage';
 import SegregationPage from '../features/operations/SegregationPage';
 import SortingPage from '../features/operations/SortingPage';
 import OverviewPage from '../features/overview/OverviewPage';
-import ComingSoon from '../features/placeholder/ComingSoon';
 import RangesPage from '../features/ranges/RangesPage';
 import SettingsLayout from '../features/settings/SettingsLayout';
 import UsersPage from '../features/users/UsersPage';
@@ -53,7 +53,7 @@ export default function App() {
               <Route path="outgoing" element={<OutgoingPage />} />
               <Route path="camera" element={<CameraPage />} />
             </Route>
-            <Route path="insights" element={<ComingSoon title="Insights" phase={6} />} />
+            <Route path="insights" element={<InsightsPage />} />
             <Route path="settings" element={<SettingsLayout />}>
               <Route index element={<Navigate to="users" replace />} />
               <Route path="users" element={<UsersPage />} />
