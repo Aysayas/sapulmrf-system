@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     cookie_secure: bool = False  # True in production (HTTPS)
     lockout_attempts: int = 5
     lockout_minutes: int = 5
+    timezone: str = "Asia/Manila"  # "today" and daily totals follow the barangay's clock
 
 
 settings = Settings()
