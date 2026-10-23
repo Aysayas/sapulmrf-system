@@ -26,7 +26,7 @@ Run them from `web/`:
 | `npm run test:e2e:ui` | Open the visual runner to watch tests step by step |
 | `npm run test:e2e:report` | Open the report from the last run, with screenshots of failures |
 
-They test the real stack on http://localhost:5174, and run `docker compose up -d` first if it isn't up.
+They test the real stack on http://127.0.0.1:5174, and run `docker compose up -d` first if it isn't up.
 
 ### First time on a new computer
 

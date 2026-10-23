@@ -17,7 +17,7 @@ docker compose up -d
 
 | What | Where |
 |---|---|
-| Web app | http://localhost:5174 |
+| Web app | http://127.0.0.1:5174 |
 | API health | http://localhost:8001/health |
 | API docs | http://localhost:8001/docs |
 | Adminer (DB) | http://localhost:8081 (server `db`, user/password from `.env`) |
@@ -29,7 +29,7 @@ Then set up the database and your own administrator account (you'll be asked for
 docker compose exec api alembic upgrade head
 docker compose exec -it api python -m app.cli create-admin
 ```
-Log in at http://localhost:5174 with that account. After pulling new code, run `alembic upgrade head` again.
+Log in at http://127.0.0.1:5174 with that account. After pulling new code, run `alembic upgrade head` again.
 
 Usernames ignore capitals. IoT devices are registered in Settings › IoT devices; each gets a key, shown once, which the device sends in an `X-Device-Key` header to `POST /devices/heartbeat` to show as online.
 

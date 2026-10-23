@@ -10,7 +10,8 @@ export default defineConfig({
   retries: 0,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:5174',
+    // 127.0.0.1, not localhost: another Vite server can hold [::1]:5174, and localhost resolves there first.
+    baseURL: 'http://127.0.0.1:5174',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -29,7 +30,7 @@ export default defineConfig({
   webServer: {
     command: 'docker compose up -d',
     cwd: '..',
-    url: 'http://localhost:5174',
+    url: 'http://127.0.0.1:5174',
     reuseExistingServer: true,
     timeout: 180_000,
   },

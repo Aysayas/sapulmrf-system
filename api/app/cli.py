@@ -107,7 +107,7 @@ def main(argv: list[str] | None = None) -> int:
         except ValueError as e:
             print(e, file=sys.stderr)
             return 1
-    print(f"Administrator {username!r} created. Log in at http://localhost:5174")
+    print(f"Administrator {username!r} created. Log in at http://127.0.0.1:5174")
     return 0
 
 
