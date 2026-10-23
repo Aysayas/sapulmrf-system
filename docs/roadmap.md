@@ -81,7 +81,7 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 
 ### Phase 0: Workstation and skeleton (target: week 1)
 - [ ] Free up C: to 80 GB+ (you do this; the reclaimable space is measured in the 2026-10-23 session note)
-- [ ] Raise Docker to 6 CPUs / 8 GB: `.wslconfig` is updated. Takes effect after `wsl --shutdown` and restarting Docker Desktop
+- [x] Raise Docker to 6 CPUs / 8 GB (applied: `docker info` shows 6 CPUs / 8.3 GB)
 - [x] New repo `C:\dev\sapulmrf` (`api/`, `web/`, `sim/`, `docs/`). The prototype stays as the design reference. First commit `6f0e4aa`
 - [x] `docker compose up` brings up db, api, web and adminer. `/health` reports API and DB OK, and the web app shows the login page. Ports: web 5174, API 8001, Adminer 8081 (Vencio's already uses 5173/8000/8080)
 - [ ] CI runs the backend tests and the frontend build on every push. The workflow is written, but it only runs once the repo is on GitHub
