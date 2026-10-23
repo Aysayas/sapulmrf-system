@@ -376,6 +376,11 @@ def backfill(db, days: int, seed: int = 11, now: datetime | None = None) -> dict
         c.review = "ok" if rnd_review.random() < 0.9 else "wrong"
         c.reviewed_by, c.reviewed_at = admin.id, c.confirmed_at + timedelta(days=1)
     db.commit()
+
+    # replay the worker's daily forecasts, so predicted vs actual has history (each uses only the days before it)
+    from app.insights.forecast import make_forecasts
+
+    counts["forecasts"] = sum(make_forecasts(db, start_day + timedelta(days=i)) for i in range(1, days))  # up to today
     return counts
 
 
@@ -400,6 +405,7 @@ def remove(db) -> dict[str, int]:
     from app.approvals.models import AdjustmentRequest, Outgoing
     from app.compost.models import CompostBatch
     from app.devices.models import Device
+    from app.insights.models import Forecast
     from app.intake.models import Delivery
     from app.masterdata.models import SourceArea, StorageArea
     from app.sorting.models import Classification, StockMovement
@@ -435,6 +441,8 @@ def remove(db) -> dict[str, int]:
     db.execute(delete(ActivityLog).where(ActivityLog.user_id == user_id))
     counts["devices"] = db.execute(delete(Device).where(Device.id.in_(device_ids))).rowcount
     counts["users"] = db.execute(delete(User).where(User.id == user_id)).rowcount
+    # forecasts were built from the simulated history (flags went with their deliveries); the worker rebuilds from real data
+    counts["forecasts"] = db.execute(delete(Forecast)).rowcount
     db.commit()
     kept = 0
     for model in (SourceArea, StorageArea):
