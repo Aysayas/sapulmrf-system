@@ -17,6 +17,7 @@ What it does besides deliveries and readings:
 - **Recounts** every ~9 days become inventory adjustment requests, and 3% of weights are corrected at the scale.
 - **The backfill** approves (or, for some recounts, rejects) and reviews everything older than 3 days as the test admin `e2e.admin`, so it needs that account. Newer items wait in the Approvals inbox.
 - **The live loop** sends a sale, disposal or recount request about every 20 minutes.
+- **Disturbances:** now and then the live loop silences a compost sensor for ~5 minutes or overheats a batch for ~15, so the worker opens alerts and then resolves them. Stopping the sim makes all four `SIM-` devices "disconnected" after 2 minutes.
 
 Pace: set `SIM_PACE=0.5` in `.env` to run twice as fast. The default is a delivery every 1–2 minutes and readings every 30 s.
 

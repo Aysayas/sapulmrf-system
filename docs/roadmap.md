@@ -109,8 +109,9 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 - [ ] Operator screens to send adjustment and outgoing requests (the API and simulator stand in for now)
 
 ### Phase 5: Alerts (ADM-10)
-- [ ] Scheduled checks raise alerts for compost out of range, devices that stop reporting, and storage at its limit
-- [ ] Bell count, an alerts page, acknowledge, and the operator's problem reports
+- [x] Scheduled checks raise alerts for compost out of range, devices that stop reporting, and storage at its limit (the `worker` service, every 30 s; compost waits 10 minutes both ways; alerts resolve on their own)
+- [x] Bell count, an alerts page, acknowledge, and the operator's problem reports (reports through the API until the operator screens exist)
+- [ ] SMS or email delivery, once the server and a provider are chosen
 
 ### Phase 6: Insights with AI/ML (ADM-12, 13, 14, 15)
 - [ ] Unusual weights (z-score per purok) and received-vs-sorted gaps are flagged. Admin marks each one valid or incorrect

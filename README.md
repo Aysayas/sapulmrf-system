@@ -22,7 +22,7 @@ docker compose up -d
 | API docs | http://localhost:8001/docs |
 | Adminer (DB) | http://localhost:8081 (server `db`, user/password from `.env`) |
 
-The first `up` takes a few minutes while the web container installs npm packages.
+The first `up` takes a few minutes while the web container installs npm packages. The `worker` container runs the alert checks every 30 seconds (`docker compose logs -f worker` shows what it opens and resolves).
 
 Then set up the database and your own administrator account (you'll be asked for a password):
 ```
