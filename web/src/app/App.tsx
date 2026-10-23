@@ -22,7 +22,11 @@ import RangesPage from '../features/ranges/RangesPage';
 import SettingsLayout from '../features/settings/SettingsLayout';
 import UsersPage from '../features/users/UsersPage';
 import AdminLayout from '../layout/AdminLayout';
-import RequireAdmin from './RequireAdmin';
+import OperatorLayout from '../layout/OperatorLayout';
+import OpAlertsPage from '../features/operator/AlertsPage';
+import OpOutgoingPage from '../features/operator/OutgoingPage';
+import OpStoragePage from '../features/operator/StoragePage';
+import RequireRole from './RequireRole';
 
 const queryClient: QueryClient = new QueryClient({
   queryCache: new QueryCache({
@@ -40,7 +44,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/admin" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
+          <Route path="/admin" element={<RequireRole role="admin"><AdminLayout /></RequireRole>}>
             <Route index element={<OverviewPage />} />
             <Route path="approvals" element={<ApprovalsPage />} />
             <Route path="alerts" element={<AlertsPage />} />
@@ -66,7 +70,13 @@ export default function App() {
               <Route path="activity" element={<ActivityPage />} />
             </Route>
           </Route>
-          <Route path="*" element={<Navigate to="/admin" replace />} />
+          <Route path="/op" element={<RequireRole role="operator"><OperatorLayout /></RequireRole>}>
+            <Route index element={<Navigate to="storage" replace />} />
+            <Route path="storage" element={<OpStoragePage />} />
+            <Route path="outgoing" element={<OpOutgoingPage />} />
+            <Route path="alerts" element={<OpAlertsPage />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>

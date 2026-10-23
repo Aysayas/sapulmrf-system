@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Navigate, useNavigate } from 'react-router';
 import { z } from 'zod';
-import { useLogin, useMe } from '../../api/auth';
+import { HOME, useLogin, useMe } from '../../api/auth';
 
 const BALES = 'https://images.unsplash.com/photo-1764529310915-f73129d29c22?w=1800&q=70&auto=format&fit=crop';
 
@@ -28,9 +28,9 @@ export default function LoginPage() {
       .catch(() => setApi('unreachable'));
   }, []);
 
-  if (me.data) return <Navigate to="/admin" replace />;
+  if (me.data) return <Navigate to={HOME[me.data.role]} replace />;
 
-  const onSubmit = (f: Form) => login.mutate(f, { onSuccess: () => navigate('/admin', { replace: true }) });
+  const onSubmit = (f: Form) => login.mutate(f, { onSuccess: (u) => navigate(HOME[u.role], { replace: true }) });
   const field = 'rounded-lg border border-edge px-3 py-2 font-normal outline-leaf-700';
 
   return (

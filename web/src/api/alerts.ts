@@ -58,3 +58,17 @@ export function useResolveProblem() {
     onSuccess: refresh,
   });
 }
+
+// ---- operator side ----
+
+export const useMyProblems = () =>
+  useQuery({ queryKey: ['alerts', 'problems', 'mine'], queryFn: () => api<Problem[]>('/problems/mine'), ...LIVE });
+
+export function useReportProblem() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: (body: { kind: Problem['kind']; device_id: number | null; record_ref: string; details: string }) =>
+      api<Problem>('/problems', { method: 'POST', body }),
+    onSuccess: refresh,
+  });
+}

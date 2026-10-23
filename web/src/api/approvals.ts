@@ -75,3 +75,26 @@ export function useReview() {
     onSuccess: refresh,
   });
 }
+
+// ---- operator side ----
+
+export const useMyAdjustments = () =>
+  useQuery({ queryKey: ['approvals', 'mine'], queryFn: () => api<Adjustment[]>('/inventory/adjustments/mine'), refetchInterval: 30_000 });
+
+export function useRequestAdjustment() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: (body: { material_id: number | null; storage_area_id: number; actual_kg: number; reason: string; details: string }) =>
+      api<Adjustment>('/inventory/adjustments', { method: 'POST', body }),
+    onSuccess: refresh,
+  });
+}
+
+export function useRequestOutgoing() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: (body: { type: Outgoing['type']; material_id: number | null; storage_area_id: number | null; kg: number; recipient: string; price_per_kg: number | null }) =>
+      api<Outgoing>('/outgoing', { method: 'POST', body }),
+    onSuccess: refresh,
+  });
+}

@@ -19,6 +19,9 @@ export const ROLE_LABEL: Record<Role, string> = {
   staff: 'Authorized Barangay Staff',
 };
 
+/** Where each role lands after login. Staff screens aren't built yet; RequireRole shows them a notice. */
+export const HOME: Record<Role, string> = { admin: '/admin', operator: '/op', staff: '/admin' };
+
 /** The logged-in user, or null when there is no session. */
 export function useMe() {
   return useQuery({

@@ -66,12 +66,14 @@ def test_remove_test_data_keeps_real_areas_and_devices(db, make_user):
                 Alert(kind="storage", subject_id=e2e_area, title="e2e Area x1 almost full", opened_at=datetime.now(UTC)),
                 Alert(kind="storage", subject_id=real_area, title="Area A almost full", opened_at=datetime.now(UTC)),
                 ProblemReport(code="R-901", kind="record", record_ref="E2E-REC", details="x"),
-                ProblemReport(code="R-902", kind="record", record_ref="D-0139", details="real")])
+                ProblemReport(code="R-902", kind="record", record_ref="D-0139", details="real"),
+                ProblemReport(code="R-903", kind="record", record_ref="D-9001", details="about an e2e delivery"),
+                ProblemReport(code="R-904", kind="record", record_ref="D-9002", details="about a real delivery")])
     db.commit()
     counts = remove_test_data(db)
-    assert counts == {"users": 1, "deliveries": 1, "stock movements": 1, "requests": 2, "alerts": 1, "problem reports": 1,
+    assert counts == {"users": 1, "deliveries": 1, "stock movements": 1, "requests": 2, "alerts": 1, "problem reports": 2,
                       "source areas": 1, "storage areas": 1, "devices": 1}
-    assert db.scalars(select(ProblemReport.code)).all() == ["R-902"]
+    assert sorted(db.scalars(select(ProblemReport.code)).all()) == ["R-902", "R-904"]
     assert db.scalars(select(Delivery.code)).all() == ["D-9002"]
     assert db.scalars(select(StockMovement.storage_area_id)).all() == [real_area]
     assert db.scalars(select(SourceArea.name)).all() == ["Purok 1"]

@@ -52,16 +52,22 @@ def remove_test_users(db: Session) -> int:
 
 def remove_test_data(db: Session) -> dict[str, int]:
     """Deletes what the e2e tests create: e2e.<role>.<id> users, 'e2e …' source areas with their deliveries,
-    'e2e …' storage areas with their stock, requests and alerts, E2E-… devices, and problem reports about E2E-… records."""
+    'e2e …' storage areas with their stock, requests and alerts, E2E-… devices, and problem reports about E2E-… devices
+    or about those e2e deliveries."""
     counts = {"users": remove_test_users(db)}
     e2e_puroks = select(SourceArea.id).where(func.lower(SourceArea.name).like("e2e %"))
     e2e_areas = select(StorageArea.id).where(func.lower(StorageArea.name).like("e2e %"))
+    e2e_devices = select(Device.id).where(Device.code.like("E2E-%"))
+    e2e_codes = select(Delivery.code).where(Delivery.source_area_id.in_(e2e_puroks))  # before the deliveries go
+    counts["problem reports"] = db.execute(
+        delete(ProblemReport).where(or_(ProblemReport.record_ref.like("E2E-%"), ProblemReport.record_ref.in_(e2e_codes),
+                                        ProblemReport.device_id.in_(e2e_devices)))
+    ).rowcount
     counts["deliveries"] = db.execute(delete(Delivery).where(Delivery.source_area_id.in_(e2e_puroks))).rowcount
     counts["stock movements"] = db.execute(delete(StockMovement).where(StockMovement.storage_area_id.in_(e2e_areas))).rowcount
     counts["requests"] = sum(
         db.execute(delete(m).where(m.storage_area_id.in_(e2e_areas))).rowcount for m in (Outgoing, AdjustmentRequest)
     )
-    e2e_devices = select(Device.id).where(Device.code.like("E2E-%"))
     counts["alerts"] = db.execute(
         delete(Alert).where(
             or_(
@@ -69,9 +75,6 @@ def remove_test_data(db: Session) -> dict[str, int]:
                 and_(Alert.kind == "device", Alert.subject_id.in_(e2e_devices)),
             )
         )
-    ).rowcount
-    counts["problem reports"] = db.execute(
-        delete(ProblemReport).where(or_(ProblemReport.record_ref.like("E2E-%"), ProblemReport.device_id.in_(e2e_devices)))
     ).rowcount
     for label, model in (("source areas", SourceArea), ("storage areas", StorageArea)):
         counts[label] = db.execute(delete(model).where(func.lower(model.name).like("e2e %"))).rowcount

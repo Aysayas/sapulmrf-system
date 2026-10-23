@@ -5,7 +5,7 @@ export const when = (iso: string) =>
 export const kg = (n: number) => `${(Math.round(n * 10) / 10).toLocaleString()} kg`;
 export const peso = (n: number) => `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export function Period<T extends number | undefined>({ value, options, onChange }: { value: T; options: readonly (readonly [string, T])[]; onChange: (v: T) => void }) {
+export function Period<T extends number | string | undefined>({ value, options, onChange }: { value: T; options: readonly (readonly [string, T])[]; onChange: (v: T) => void }) {
   return (
     <div role="group" aria-label="Period" className="inline-flex self-start overflow-hidden rounded-lg border border-leaf-700 whitespace-nowrap">
       {options.map(([label, d]) => (
