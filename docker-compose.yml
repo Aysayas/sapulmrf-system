@@ -54,6 +54,24 @@ services:
       timeout: 5s
       retries: 30
 
+  sim:
+    # Stands in for the devices and an operator. Only runs when asked: docker compose --profile sim up -d sim
+    profiles: ["sim"]
+    build: ./api
+    command: python -m app.simulator run
+    environment:
+      DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      API_BASE: http://api:8000
+      E2E_ADMIN_USERNAME: ${E2E_ADMIN_USERNAME:-}
+      E2E_ADMIN_PASSWORD: ${E2E_ADMIN_PASSWORD:-}
+      SIM_PACE: ${SIM_PACE:-1}
+    volumes:
+      - ./api:/app
+      - sim_state:/state
+    depends_on:
+      api:
+        condition: service_healthy
+
   adminer:
     image: adminer:4
     environment:
@@ -66,3 +84,4 @@ services:
 volumes:
   db_data:
   web_node_modules:
+  sim_state:

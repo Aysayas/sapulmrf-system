@@ -1,10 +1,22 @@
-# Simulators (Phase 3)
+# Simulator
 
-These stand in for Rhendel's hardware until it's ready. They will send:
-- deliveries
-- scale and compost readings
-- camera classification results
-- device heartbeats
-- operator actions (so the admin side has records to approve)
+The simulator stands in for Rhendel's devices and for an MRF operator until the real ones exist. Its code lives in `api/app/simulator.py`; the `sim` service runs that module from the api image.
 
-They'll use the device-reading and CV-result contracts in `../docs/roadmap.md`. Nothing is built yet.
+```
+docker compose --profile sim run --rm sim python -m app.simulator setup    # once: sim.operator + SIM- devices
+docker compose exec api python -m app.simulator backfill --days 40         # optional: 40 days of history
+docker compose --profile sim up -d sim                                     # live: deliveries, readings, camera
+docker compose --profile sim stop sim                                      # pause it
+docker compose exec api python -m app.simulator remove                     # delete everything simulated
+```
+
+`setup` uses the test admin from `.env` (`E2E_ADMIN_USERNAME` / `E2E_ADMIN_PASSWORD`). It saves a fresh operator password and the device keys in the `sim_state` volume.
+
+Pace: set `SIM_PACE=0.5` in `.env` to run twice as fast. The default is a delivery every 1–2 minutes and readings every 30 s.
+
+What's tagged as simulated, so `remove` can find it:
+- the user `sim.operator`
+- devices `SIM-…`
+- puroks and storage areas named `Demo …`, made only when no real ones exist yet
+
+Real records are never touched.
