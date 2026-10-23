@@ -2,6 +2,7 @@ import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-qu
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { ApiError } from '../api/client';
 import RolesPage from '../features/access/RolesPage';
+import ApprovalsPage from '../features/approvals/ApprovalsPage';
 import ActivityPage from '../features/activity/ActivityPage';
 import LoginPage from '../features/auth/LoginPage';
 import DevicesPage from '../features/devices/DevicesPage';
@@ -38,7 +39,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/admin" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
             <Route index element={<OverviewPage />} />
-            <Route path="approvals" element={<ComingSoon title="Approvals" phase={4} />} />
+            <Route path="approvals" element={<ApprovalsPage />} />
             <Route path="operations">
               <Route index element={<Navigate to="intake" replace />} />
               <Route path="intake" element={<IntakePage />} />

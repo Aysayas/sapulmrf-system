@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 export const when = (iso: string) =>
   new Date(iso).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 export const kg = (n: number) => `${(Math.round(n * 10) / 10).toLocaleString()} kg`;
+export const peso = (n: number) => `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function Period<T extends number | undefined>({ value, options, onChange }: { value: T; options: readonly (readonly [string, T])[]; onChange: (v: T) => void }) {
   return (

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { useApprovals } from '../api/approvals';
 import { ROLE_LABEL, useLogout, useMe } from '../api/auth';
 
 const NAV = [
@@ -16,6 +17,8 @@ export default function AdminLayout() {
   const logout = useLogout();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const counts = useApprovals().data?.counts;
+  const waiting = counts ? Object.values(counts).reduce((a, b) => a + b, 0) : 0;
   const [menu, setMenu] = useState(false);
   const initials = me.name.split(' ').map((w) => w[0]).slice(0, 2).join('');
 
@@ -42,6 +45,9 @@ export default function AdminLayout() {
                 >
                   <span className="size-4 rounded border-[1.5px] border-current opacity-70" aria-hidden />
                   {i.label}
+                  {i.to === '/admin/approvals' && waiting > 0 && (
+                    <span className="ml-auto rounded-full bg-leaf-600 px-2 text-xs font-bold text-white" aria-label={`${waiting} waiting`}>{waiting}</span>
+                  )}
                 </NavLink>
                 {i.sub && pathname.startsWith(i.to) &&
                   i.sub.map(([path, label]) => (
