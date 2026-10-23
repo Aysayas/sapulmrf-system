@@ -30,3 +30,7 @@ web/e2e/.auth/
 
 # graphify knowledge-graph cache (local tool output)
 graphify-out/
+
+# Compiler output written next to the sources (tsc without noEmit)
+web/src/**/*.js
+*.tsbuildinfo
