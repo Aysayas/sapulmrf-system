@@ -6,6 +6,8 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session as DbSession
 
+from app.approvals import service as approvals
+from app.approvals.models import Outgoing
 from app.compost import service as compost
 from app.compost.models import CompostBatch, CompostReading
 from app.core.config import settings
@@ -299,4 +301,46 @@ def overview(db: DbSession) -> s.Overview:
         compost=live,
         devices=devs,
         latest_classification=sorting.out(db, latest) if latest else None,
+        pending_approvals=sum(approvals.counts(db).values()),
+        income_month=income_since(db, month_start()),
+    )
+
+
+# ---- outgoing and income ----
+
+
+def month_start(months_back: int = 0) -> datetime:
+    """The first moment of this month (or months_back earlier), barangay time."""
+    today = datetime.now(TZ).date()
+    y, m = divmod(today.year * 12 + today.month - 1 - months_back, 12)
+    return datetime(y, m + 1, 1, tzinfo=TZ)
+
+
+APPROVED_SALE = (Outgoing.status == "approved", Outgoing.total.is_not(None))
+
+
+def income_since(db: DbSession, start: datetime) -> float:
+    q = select(func.coalesce(func.sum(Outgoing.total), 0)).where(*APPROVED_SALE, Outgoing.decided_at >= start)
+    return float(db.scalar(q))
+
+
+def outgoing_view(db: DbSession, days: int) -> s.OutgoingView:
+    start = month_start()
+    kg = dict(db.execute(select(Outgoing.type, func.sum(Outgoing.kg))
+                         .where(Outgoing.status == "approved", Outgoing.decided_at >= start).group_by(Outgoing.type)).all())
+    month = func.date_trunc("month", func.timezone(settings.timezone, Outgoing.decided_at))
+    by_month = {m.date(): float(v) for m, v in db.execute(
+        select(month, func.sum(Outgoing.total)).where(*APPROVED_SALE, Outgoing.decided_at >= month_start(5)).group_by(month))}
+    months = [month_start(i).date() for i in range(5, -1, -1)]
+    rows = db.scalars(select(Outgoing).where(Outgoing.requested_at >= since(days))
+                      .order_by(Outgoing.requested_at.desc(), Outgoing.id.desc()).limit(100))
+    return s.OutgoingView(
+        income_month=income_since(db, start),
+        sold_kg_month=round(float(kg.get("sale", 0)), 2),
+        compost_kg_month=round(float(kg.get("compost", 0)), 2),
+        disposed_kg_month=round(float(kg.get("disposal", 0)), 2),
+        pending=db.scalar(select(func.count(Outgoing.id)).where(Outgoing.status == "pending")),
+        compost_on_hand_kg=approvals.compost_on_hand(db),
+        income_6m=[s.MonthIncome(month=m, income=round(by_month.get(m, 0.0), 2)) for m in months],
+        records=[approvals.outgoing_out(db, o) for o in rows],
     )

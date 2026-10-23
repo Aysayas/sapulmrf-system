@@ -2,6 +2,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel
 
+from app.approvals.schemas import OutgoingOut
 from app.compost.schemas import BatchOut
 from app.sorting.schemas import ClassificationOut
 
@@ -123,3 +124,23 @@ class Overview(BaseModel):
     compost: list[BatchLive]
     devices: list[DeviceLive]
     latest_classification: ClassificationOut | None
+    pending_approvals: int
+    income_month: float
+
+
+class MonthIncome(BaseModel):
+    month: date  # the first day of the month
+    income: float
+
+
+class OutgoingView(BaseModel):
+    """This month counts what was approved this month (barangay time); income is approved sales only."""
+
+    income_month: float
+    sold_kg_month: float
+    compost_kg_month: float
+    disposed_kg_month: float
+    pending: int
+    compost_on_hand_kg: float
+    income_6m: list[MonthIncome]
+    records: list[OutgoingOut]

@@ -62,6 +62,11 @@ def camera(db: DbSession = Depends(get_db), _: User = Depends(camera_viewer)):
     return service.camera(db)
 
 
+@router.get("/operations/outgoing", response_model=s.OutgoingView)
+def outgoing(days: int = Query(31, ge=1, le=366), db: DbSession = Depends(get_db), _: User = Depends(anyone)):
+    return service.outgoing_view(db, days)
+
+
 @router.get("/overview", response_model=s.Overview)
 def overview(db: DbSession = Depends(get_db), _: User = Depends(anyone)):
     return service.overview(db)

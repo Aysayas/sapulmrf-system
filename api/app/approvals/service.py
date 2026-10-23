@@ -203,13 +203,18 @@ def review_change(db: DbSession, classification_id: int, data: ReviewIn, actor: 
     return c
 
 
+def counts(db: DbSession) -> dict[str, int]:
+    """What waits for the admin, per inbox tab."""
+    n = lambda col, *where: db.scalar(select(func.count(col)).where(*where))  # noqa: E731
+    return {"adjustments": n(AdjustmentRequest.id, AdjustmentRequest.status == "pending"),
+            "outgoing": n(Outgoing.id, Outgoing.status == "pending"),
+            "weights": n(Delivery.id, *UNREVIEWED_WEIGHTS),
+            "classifications": n(Classification.id, *UNREVIEWED_CHANGES)}
+
+
 def pending(db: DbSession) -> ApprovalsOut:
     adjustments = db.scalars(select(AdjustmentRequest).where(AdjustmentRequest.status == "pending")
                              .order_by(AdjustmentRequest.requested_at)).all()
     outgoing = db.scalars(select(Outgoing).where(Outgoing.status == "pending").order_by(Outgoing.requested_at)).all()
-    weights = db.scalar(select(func.count(Delivery.id)).where(*UNREVIEWED_WEIGHTS))
-    changes = db.scalar(select(func.count(Classification.id)).where(*UNREVIEWED_CHANGES))
-    return ApprovalsOut(counts={"adjustments": len(adjustments), "outgoing": len(outgoing),
-                                "weights": weights, "classifications": changes},
-                        adjustments=[adjustment_out(db, r) for r in adjustments],
+    return ApprovalsOut(counts=counts(db), adjustments=[adjustment_out(db, r) for r in adjustments],
                         outgoing=[outgoing_out(db, o) for o in outgoing])
