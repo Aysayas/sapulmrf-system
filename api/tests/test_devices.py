@@ -69,7 +69,7 @@ def test_codes_are_unique_and_types_are_checked(client, make_user, login):
 def test_only_admins_manage_devices(client, make_user, login):
     make_user("juan", role="operator")
     login("juan")
-    assert client.get("/devices").status_code == 403
+    assert client.get("/devices").status_code == 200  # listing is open to operators (problem reports)
     assert client.post("/devices", json=SCALE).status_code == 403
 
 

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -220,3 +220,11 @@ def pending(db: DbSession) -> ApprovalsOut:
     outgoing = db.scalars(select(Outgoing).where(Outgoing.status == "pending").order_by(Outgoing.requested_at)).all()
     return ApprovalsOut(counts=counts(db), adjustments=[adjustment_out(db, r) for r in adjustments],
                         outgoing=[outgoing_out(db, o) for o in outgoing])
+
+
+def my_adjustments(db: DbSession, actor: User, days: int) -> list[AdjustmentOut]:
+    rows = db.scalars(select(AdjustmentRequest)
+                      .where(AdjustmentRequest.requested_by == actor.id,
+                             AdjustmentRequest.requested_at >= datetime.now(UTC) - timedelta(days=days))
+                      .order_by(AdjustmentRequest.requested_at.desc(), AdjustmentRequest.id.desc()).limit(100))
+    return [adjustment_out(db, r) for r in rows]

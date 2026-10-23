@@ -1,6 +1,6 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session as DbSession
 
 from app.alerts import service
@@ -37,6 +37,11 @@ def acknowledge(alert_id: int, db: DbSession = Depends(get_db), actor: User = De
 @router.post("/problems", response_model=ProblemOut, status_code=201)
 def report_problem(body: ProblemIn, db: DbSession = Depends(get_db), actor: User = Depends(operator_only)):
     return service.problem_out(db, service.report_problem(db, body, actor))
+
+
+@router.get("/problems/mine", response_model=list[ProblemOut])
+def my_problems(days: int = Query(30, ge=1, le=366), db: DbSession = Depends(get_db), actor: User = Depends(operator_only)):
+    return service.my_problems(db, actor, days)
 
 
 @router.get("/problems", response_model=list[ProblemOut])

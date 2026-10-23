@@ -145,3 +145,10 @@ def resolve_problem(db: DbSession, report_id: int, data: ResolveIn, actor: User)
     log(db, actor.id, "Resolved problem report", f"{r.code} · {r.note}")
     db.commit()
     return r
+
+
+def my_problems(db: DbSession, actor: User, days: int) -> list[ProblemOut]:
+    q = (select(ProblemReport)
+         .where(ProblemReport.reported_by == actor.id, ProblemReport.reported_at >= datetime.now(UTC) - timedelta(days=days))
+         .order_by(ProblemReport.reported_at.desc(), ProblemReport.id.desc()))
+    return [problem_out(db, r) for r in db.scalars(q.limit(100))]

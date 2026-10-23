@@ -13,6 +13,7 @@ from app.users.models import User
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 admin_only = require_role("admin")
+can_list = require_role("admin", "operator")  # operators pick a device when reporting a problem
 
 
 @router.post("/heartbeat", response_model=Heartbeat)
@@ -40,7 +41,7 @@ def cv_suggestion(body: SuggestionIn, x_device_key: str | None = Header(None), d
 
 
 @router.get("", response_model=list[DeviceOut])
-def list_devices(db: DbSession = Depends(get_db), _: User = Depends(admin_only)):
+def list_devices(db: DbSession = Depends(get_db), _: User = Depends(can_list)):
     return service.list_devices(db)
 
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session as DbSession
 
 from app.approvals import service
@@ -19,6 +19,11 @@ admin_only = require_role("admin")
 @router.post("/inventory/adjustments", response_model=AdjustmentOut, status_code=201)
 def request_adjustment(body: AdjustmentIn, db: DbSession = Depends(get_db), actor: User = Depends(operator_only)):
     return service.adjustment_out(db, service.request_adjustment(db, body, actor))
+
+
+@router.get("/inventory/adjustments/mine", response_model=list[AdjustmentOut])
+def my_adjustments(days: int = Query(30, ge=1, le=366), db: DbSession = Depends(get_db), actor: User = Depends(operator_only)):
+    return service.my_adjustments(db, actor, days)
 
 
 @router.post("/outgoing", response_model=OutgoingOut, status_code=201)
