@@ -1,7 +1,7 @@
 # Phase 6 plan: insights with AI/ML
 
 ## Context
-Phase 5 is done in `C:\dev\sapulmrf` (111 API tests, 15 browser tests, worker and live sim running). Phase 6 is the AI/ML part the capstone has to show:
+Phase 5 is done in `C:\dev\sapulmrf` (111 API tests, 15 browser tests, worker and live sim running). The repo is on GitHub (`Aysayas/sapulmrf-system`, private), and VS Code uses `api/.venv`. This plan was approved before; this is the same plan with the disk note updated. Phase 6 is the AI/ML part the capstone has to show:
 - **ADM-12:** review flagged unusual records.
 - **ADM-13:** predicted waste intake and predicted storage status.
 - **ADM-14:** suggested pickup or sale schedule.
@@ -33,7 +33,8 @@ My calls (override any):
 - **Camera accuracy card on Insights:** suggestions kept unchanged, and the changes the admin marked "wrong" (from the Phase 4 marks), over the last 30 days.
 - **Saving forecasts:** the worker saves forecasts once a Manila day, the first time it runs after midnight, and does nothing more that day. `simulator remove` also deletes forecasts, since they were built on simulated data; the worker rebuilds them from real records.
 - **Who sees what:** admins and operators see Predictions; staff need the existing `predictions` grant. Only admins see and decide flags.
-- **Disk (C: has 6.6 GB free):** scikit-learn and numpy add about 150 MB to the API image. `api`, `worker` and `sim` will share one image (`image: sapulmrf-api:dev`), so it is built once, not three times.
+- **Disk (C: had 19 GB free on the last check, up from 6.6 GB):** scikit-learn and numpy add about 150 MB to the API image. `api`, `worker` and `sim` will share one image (`image: sapulmrf-api:dev`), so it is built once, not three times.
+- **Editor venv:** add numpy and scikit-learn to `api/.venv` too (the README command), so VS Code resolves the new imports.
 
 ## Backend (router → service → models + schemas)
 | Module | Tables | Routes |
