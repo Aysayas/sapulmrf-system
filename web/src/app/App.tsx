@@ -6,6 +6,7 @@ import ActivityPage from '../features/activity/ActivityPage';
 import LoginPage from '../features/auth/LoginPage';
 import DevicesPage from '../features/devices/DevicesPage';
 import MasterDataPage from '../features/masterdata/MasterDataPage';
+import OverviewPage from '../features/overview/OverviewPage';
 import ComingSoon from '../features/placeholder/ComingSoon';
 import RangesPage from '../features/ranges/RangesPage';
 import SettingsLayout from '../features/settings/SettingsLayout';
@@ -30,7 +31,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/admin" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
-            <Route index element={<ComingSoon title="MRF overview" phase={3} />} />
+            <Route index element={<OverviewPage />} />
             <Route path="approvals" element={<ComingSoon title="Approvals" phase={4} />} />
             <Route path="operations" element={<ComingSoon title="Operations" phase={3} />} />
             <Route path="insights" element={<ComingSoon title="Insights" phase={6} />} />
