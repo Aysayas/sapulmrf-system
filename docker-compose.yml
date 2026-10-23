@@ -21,6 +21,7 @@ services:
     build: ./api
     environment:
       DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      WATCHFILES_FORCE_POLLING: "true"  # file changes from Windows don't reach the container as events
     ports:
       - "127.0.0.1:${API_PORT:-8001}:8000"
     volumes:
