@@ -1,0 +1,24 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.venv/
+
+# Node
+node_modules/
+web/dist/
+
+# Logs, OS, IDE
+*.log
+Thumbs.db
+.DS_Store
+.idea/
+
+# Files the device bridge couldn't delete directly get moved here
+_to_delete/

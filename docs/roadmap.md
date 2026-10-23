@@ -1,0 +1,141 @@
+# SapulMRF Admin Side Roadmap
+_Updated 2026-10-23_
+
+## Destination
+By the end of this semester, the **Barangay Administrator side** of SapulMRF runs on a real backend and database, on local Docker. It covers all 21 admin requirements (ADM-01 to ADM-21) and shows the four emerging technologies (AI, ML, IoT, computer vision) with live data. Until Rhendel's devices and CV model are ready, that data comes from simulators. Isiah builds it. The designs already exist in `C:\dev\sapulmrf-prototype` (wireframes, mockups, working HTML prototype). After the semester, the same Docker stack moves to the group's home server.
+
+## Decisions so far
+- **Python everywhere: a FastAPI backend that also runs the ML and CV logic.** ML and CV libraries are native to Python, so there's one backend language. (source: user, round 2)
+- **PostgreSQL.** It's good for time-series sensor readings and analytics queries, and works well with Python. (user, round 2)
+- **React frontend.** It's the frontend in the chosen option, and the team already knows React from Vencio's. (user, round 2; memory/projects/vencios)
+- **The system must show four emerging technologies: AI, ML, IoT, CV.** This is a capstone requirement as the user stated it. (user, round 1)
+- **No required language or framework from the course or panel.** (user, round 1)
+- **Local Docker for development; the group's own home server for production.** No paid hosting. (user, round 3)
+- **Isiah builds the admin side alone this semester, both frontend and backend.** Christina isn't on the admin frontend this time, so there's no hand-off and one person owns the API contract on both ends. (user, round 3 and follow-up)
+- **Rhendel owns the hardware side: IoT devices, CV model training and the server.** So the admin side needs clear data contracts with him. (user, round 4)
+- **Predictions start as statistics and become ML later.** Moving averages, storage outlook and z-score anomaly flags come first, because no real MRF data exists yet. scikit-learn/Prophet models come once records pile up. (user, round 4)
+- **Simulators in Docker stand in for the devices and the CV model.** They're swapped for Rhendel's real ones later. (user, round 5)
+- **Scope: all 21 admin requirements, laid out in detail.** (user, round 5: "be detailed about this")
+- **Containers use Python 3.12, not the laptop's Python 3.14.** Many ML libraries don't support 3.14 yet. (verified: `python --version` = 3.14.4)
+
+## Resources
+
+### Your laptop (scanned 2026-10-23)
+| Item | Found | Verdict / action |
+|---|---|---|
+| CPU | Ryzen 7 7735HS, 8 cores / 16 threads | Plenty |
+| RAM | 16 GB (only 2.1 GB free at scan time) | OK. Close heavy apps while the stack runs |
+| GPU | RTX 4050 Laptop, 6 GB (driver 582.05) | Enough for small model training (Rhendel's call) |
+| Disk C: | **33 GB free of 475 GB** | **Biggest risk.** Free up to 80 GB+ before pulling ML images; datasets and Postgres volumes grow |
+| Docker | Engine 29.6.2, Compose v5.3.1, WSL2 | Installed. **Limited to 4 CPUs / 5.8 GB.** Raise it to 6 CPUs / 8 GB in `%UserProfile%\.wslconfig` |
+| Node / Git | Node 25.8.1, Git 2.55 | OK. The web container pins Node 22 LTS |
+
+### Docker services (local `docker compose`)
+| Service | Image / tool | Why |
+|---|---|---|
+| `db` | `postgres:16` + named volume | Main database: records, readings, audit log |
+| `api` | `python:3.12-slim` + FastAPI, Uvicorn | Admin API, auth, stats/ML jobs, reports |
+| `web` | `node:22` + Vite dev server | React admin app with hot reload |
+| `sim` | `python:3.12-slim`, small script | Fake scale, compost sensors, camera suggestions, device heartbeats, and operator actions so approvals have data |
+| `adminer` (or pgAdmin) | `adminer` | Look inside the database while developing |
+| `mosquitto` *(only if MQTT is picked)* | `eclipse-mosquitto:2` | IoT message broker; see fog of war |
+
+### Backend libraries (Python, `api`)
+- **FastAPI, Uvicorn:** the API and the auto-generated `/docs` test page.
+- **SQLAlchemy 2, Alembic, psycopg:** database models and migrations.
+- **Pydantic v2:** request and response validation.
+- **pwdlib (argon2) or passlib/bcrypt, plus PyJWT or signed session cookies:** login and roles (ADM-01, 02, 03, 21).
+- **pandas and numpy now, scikit-learn and Prophet later:** forecasts and anomaly flags (ADM-12 to 15).
+- **APScheduler (or a FastAPI background task):** periodic checks for alerts and predictions.
+- **WeasyPrint or ReportLab, plus the csv module:** PDF and CSV reports (ADM-18).
+- **pytest, httpx, Ruff:** tests and lint.
+
+### Frontend libraries (`web`)
+- **React, TypeScript, Vite, Tailwind CSS v4:** same as Vencio's. Port the colours and type from `mockup.css`.
+- **React Router, TanStack Query:** pages and data fetching/caching.
+- **react-hook-form + zod:** forms and validation.
+- **Recharts (or Chart.js):** intake chart, compost readings, forecast.
+- **Playwright:** end-to-end tests (the `e2e-setup` skill sets it up the same way as Vencio's).
+
+### Tools and accounts
+- VS Code with the Python/Pylance, Ruff, ESLint, Prettier, Docker and Tailwind extensions.
+- A GitHub private repo under Aysayas (not created yet), with CI running the tests.
+- FastAPI's `/docs` page, or Bruno/Postman, for trying the API.
+- No paid services needed.
+
+### Learning (official docs)
+- FastAPI tutorial (fastapi.tiangolo.com)
+- SQLAlchemy 2.0 unified tutorial and Alembic tutorial
+- Docker Compose docs, and Docker Desktop WSL2 GPU support (for Rhendel)
+- PostgreSQL docs on time-series indexing
+- TanStack Query, React Router, Tailwind v4
+- scikit-learn time series and anomaly detection (for the ML-later step)
+
+### Things to agree with Rhendel (contracts)
+- **Device reading:** `{device_id, kind: scale|compost|heartbeat, value(s), unit, read_at}`, sent with a per-device key (ADM-05).
+- **CV result:** `{image_id, label: plastic|paper|cardboard|metal, confidence, model_version, taken_at}`.
+- **Server:** the home server's CPU, RAM, OS and network (LAN only, or reachable from the barangay hall?).
+
+## Phases
+Each phase ends in something you can demo in the browser. The ADM numbers are from the Notice of Title Approval.
+
+### Phase 0: Workstation and skeleton (target: week 1)
+- [ ] Free up C: to 80 GB+, and raise Docker to 6 CPUs / 8 GB
+- [ ] New repo `C:\dev\sapulmrf` (`api/`, `web/`, `sim/`, `docs/`). The prototype stays as the design reference
+- [ ] `docker compose up` brings up db, api, web and adminer. `/health` reports API and DB OK, and the web app shows the login page
+- [ ] CI runs the backend tests and the frontend build on every push
+
+### Phase 1: Accounts and access (ADM-01, 02, 03, 21, 20 logging)
+- [ ] Admin logs in and out with a hashed password. Sessions expire
+- [ ] Admin creates, edits and disables users in the 3 roles. Usernames are unique
+- [ ] Admin grants the staff "according to authorization" screens per person
+- [ ] Every create, edit, approval and login is written to the activity log
+
+### Phase 2: Setup data (ADM-04, 05, 06)
+- [ ] Waste categories (RA 9003), puroks/source areas, recyclable materials, and storage areas with capacity limits
+- [ ] Register IoT devices. Each gets a device key and shows online/offline from its heartbeat
+- [ ] Compost temperature and moisture ranges, storage alert levels, and the prediction start threshold (days of records)
+
+### Phase 3: Simulators and live operations view (ADM-07, 08, 09, 19)
+- [ ] The `sim` service sends deliveries, segregation results, sorted quantities, compost readings, camera suggestions and heartbeats
+- [ ] Admin sees intake, sorting and inventory records, segregation compliance per purok, and compost batches with live readings
+- [ ] Overview dashboard: today's totals, storage capacity, compost status, device status and the last camera result
+
+### Phase 4: Approvals and reviews (ADM-11, 16, 17)
+- [ ] One approvals inbox covering inventory adjustments and outgoing transactions. Approving changes stock; rejecting doesn't
+- [ ] Review corrected weights and corrected CV classifications
+- [ ] Income from recyclables (and compost, if priced) shown from approved sales only
+
+### Phase 5: Alerts (ADM-10)
+- [ ] Scheduled checks raise alerts for compost out of range, devices that stop reporting, and storage at its limit
+- [ ] Bell count, an alerts page, acknowledge, and the operator's problem reports
+
+### Phase 6: Insights with AI/ML (ADM-12, 13, 14, 15)
+- [ ] Unusual weights (z-score per purok) and received-vs-sorted gaps are flagged. Admin marks each one valid or incorrect
+- [ ] Intake forecast per category, plus the storage outlook ("Area B full in ~6 days"), shown only after N days of records
+- [ ] Suggested pickup or sale schedule, and predicted vs actual with the percentage error (Objective 5)
+- [ ] Swap in an ML model (scikit-learn/Prophet) behind the same endpoint once there's enough data, and compare its error with the stats baseline
+
+### Phase 7: Reports and audit (ADM-18, 20)
+- [ ] Intake, segregation, inventory, composting, outgoing and income reports by date range and purok, as PDF and CSV
+- [ ] Activity log screen with filters by user and date
+
+### Phase 8: Hand-off to the real hardware and server (after the core is done)
+- [ ] Replace `sim` with Rhendel's devices and CV service, using the agreed contracts
+- [ ] Production compose profile on the home server: reverse proxy, HTTPS, nightly `pg_dump` backup
+
+## Not yet specified (fog of war)
+- The exact end-of-semester date and the Capstone 1 defense date. Blocks: setting phase targets.
+- How devices connect: MQTT broker or HTTP POST. Blocks: Phase 3 simulator transport and Phase 8 (the sim speaks HTTP until this is decided).
+- The home server's CPU, RAM, OS and network reach (LAN only or internet). Blocks: Phase 8.
+- Where CV inference runs (on a device, on the server, or in the API container) and the model format. Blocks: Phase 8, and partly Phase 3's camera view.
+- Who builds the operator and staff sides, and when. Blocks: real (not simulated) data for approvals.
+- How many days of real records before switching from stats to ML. Blocks: Phase 6's last item.
+- Whether to keep the prototype repo or fold it into `sapulmrf/docs`. Blocks: nothing.
+
+## Out of scope (for this roadmap)
+- **Operator and staff screens:** this roadmap is the admin side only.
+- **IoT firmware, sensor wiring, CV model training:** Rhendel's work.
+- **SMS or email notifications:** alerts are in-system only, per the approved Limitations.
+- **Accounting:** income tracking is not an accounting system, per the Limitations.
+- **Paid cloud hosting:** production runs on the group's home server.

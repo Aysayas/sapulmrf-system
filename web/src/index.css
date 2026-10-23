@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+/* Design tokens from the approved mockup (sapulmrf-prototype/mockup/mockup.css): leaf-green seed #1D6B47. */
+@theme {
+  --font-sans: "Atkinson Hyperlegible Next", "Segoe UI", Arial, sans-serif;
+  --color-leaf-900: #0f3b2a;
+  --color-leaf-800: #164f37;
+  --color-leaf-700: #1d6b47;
+  --color-leaf-600: #2e8b5e;
+  --color-leaf-300: #a9d4b8;
+  --color-leaf-100: #ddefe3;
+  --color-kraft: #8a5a22;
+  --color-kraft-100: #f4e7d4;
+  --color-warn: #8a4b00;
+  --color-warn-100: #fcefd8;
+  --color-crit: #b42318;
+  --color-crit-100: #fde7e5;
+  --color-info: #1f5c86;
+  --color-info-100: #e3eef6;
+  --color-ink: #17241e;
+  --color-ink-2: #4a5a52;
+  --color-muted: #5f6e66;
+  --color-line: #d6e1da;
+  --color-edge: #bfd0c5;
+  --color-surface: #f1f7f2;
+  --color-surface-2: #e4efe7;
+}
+
+body {
+  @apply bg-surface text-ink font-sans;
+  font-variant-numeric: tabular-nums;
+}
