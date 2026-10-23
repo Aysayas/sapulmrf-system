@@ -10,7 +10,7 @@ Requirements covered:
 - **OPR-20:** report a device problem or an incorrect record (`08b`).
 - **OPR-01, OPR-22** (part): an operator logs in and out on the web.
 
-Status: **draft, waiting for your go-ahead.** Nothing is built yet.
+Status: **built** (2026-10-23). Approved as drafted: only these screens, phone first, with My requests and My reports. Results and changes are at the end.
 
 What already exists:
 - **API, ready:** `POST /inventory/adjustments`, `POST /outgoing`, `POST /problems` (operator only); `GET /operations/inventory` and `GET /operations/outgoing` (admins and operators); `GET /alerts`, `GET /alerts/summary` and `POST /alerts/{id}/acknowledge` (operators allowed); `GET /masterdata/*` (any logged-in user).
@@ -92,3 +92,12 @@ No migrations: every table already has `requested_by` / `reported_by`.
 - **Offline recording (OPR-09)** and the PIN sign-in (that is the IoT floor station).
 - **Editing or cancelling** a request after it is sent.
 - **Staff screens.**
+
+## What changed while building
+- **No new sheet component:** the existing `Drawer` already fills the screen on a phone (`max-w-full`), so it is used as is. On a laptop it opens at the right edge, outside the centred column.
+- **`GET /devices` opens to admins and operators only** (`require_role`), not `viewer()`, so staff stay out.
+- **The old test `test_only_admins_manage_devices`** now expects an operator to list devices (200) and still not register one (403).
+- **Alerts tabs are Open, Acknowledged and Resolved** (the API's states), not "All".
+- **`remove-test-data` also deletes problem reports about e2e deliveries.** Before, it only caught `E2E-…` references, so the operator test would have left reports behind.
+- **The `Period` toggle** (`features/operations/shared.tsx`) now takes string values as well as numbers.
+- **Results:** 149 API tests and 19 browser tests (18 desktop, 1 phone) pass; Ruff, `tsc -b` and `npm run build` are clean. Screenshots at 390 × 844 (Storage, the adjustment sheet with errors, the new sale with live total, Alerts, the device report) and at 1440 × 900 (the centred column) were checked against the wireframes.

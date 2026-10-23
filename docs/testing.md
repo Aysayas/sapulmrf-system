@@ -78,7 +78,7 @@ web/e2e/
 ├── fixtures/         logIn / logOut helpers, the adminPage fixture, test accounts
 ├── smoke.spec.ts     login page, redirect when logged out, wrong password
 ├── admin-NN-name.spec.ts     admin screens (desktop size)
-└── operator-NN-name.spec.ts  operator screens (phone size, 390 × 844; none yet)
+└── operator-NN-name.spec.ts  operator screens (phone size, 390 × 844)
 ```
 
 Files whose name starts with `operator` run at phone size. All others run at desktop size (1440 × 900).
@@ -95,3 +95,5 @@ test('admin sees the users list', async ({ adminPage: page }) => {
 ```
 
 Find elements the way a user would: `getByRole`, `getByLabel`, `getByText`. Never use CSS classes. Import `test` and `expect` from `./fixtures/test`.
+
+`operator-01-requests.spec.ts` makes its own e2e purok, area, operator and stock, so it needs no backfill. It checks the admin side through the API. `remove-test-data` also clears the problem reports it sends about its e2e delivery.

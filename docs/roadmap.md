@@ -106,11 +106,11 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 - [x] One approvals inbox covering inventory adjustments and outgoing transactions. Approving changes stock; rejecting doesn't (stock is re-checked at approval; compost on hand is tracked from finished batches)
 - [x] Review corrected weights and corrected CV classifications (OK / ask to recheck, OK / wrong: marks only, for Phase 6's accuracy numbers)
 - [x] Income from recyclables (and compost, if priced) shown from approved sales only (Operations › Outgoing, and the Overview)
-- [ ] Operator screens to send adjustment and outgoing requests (the API and simulator stand in for now)
+- [x] Operator screens to send adjustment and outgoing requests (phone first, at `/op`: Storage, Outgoing and Alerts, with My requests and My reports; see `docs/operator-requests-plan.md`. The other operator screens are still to come)
 
 ### Phase 5: Alerts (ADM-10)
 - [x] Scheduled checks raise alerts for compost out of range, devices that stop reporting, and storage at its limit (the `worker` service, every 30 s; compost waits 10 minutes both ways; alerts resolve on their own)
-- [x] Bell count, an alerts page, acknowledge, and the operator's problem reports (reports through the API until the operator screens exist)
+- [x] Bell count, an alerts page, acknowledge, and the operator's problem reports (operators send them from `/op/alerts`)
 - [ ] SMS or email delivery, once the server and a provider are chosen
 
 ### Phase 6: Insights with AI/ML (ADM-12, 13, 14, 15)
