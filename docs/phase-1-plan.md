@@ -1,5 +1,5 @@
 # Phase 1 plan: accounts and access
-_Drafted 2026-10-23. Needs a go-ahead before any code._
+_Drafted and built 2026-10-23. **Done:** 29 API tests and 6 browser tests pass._
 
 **Covers:** ADM-01 (log in), ADM-02 (manage accounts), ADM-03 (roles and permissions), ADM-21 (log out securely) and the logging half of ADM-20 (activity log).
 

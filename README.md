@@ -24,6 +24,13 @@ docker compose up -d
 
 The first `up` takes a few minutes while the web container installs npm packages.
 
+Then set up the database and your own administrator account (you'll be asked for a password):
+```
+docker compose exec api alembic upgrade head
+docker compose exec -it api python -m app.cli create-admin
+```
+Log in at http://localhost:5174 with that account. After pulling new code, run `alembic upgrade head` again.
+
 ## Daily commands
 ```
 docker compose ps                         status
@@ -38,4 +45,10 @@ docker compose down                       stop (data is kept in the db_data volu
 - `api/`: FastAPI app (`app/`), Alembic migrations (`migrations/`), tests (`tests/`)
 - `web/`: React admin app. Design tokens live in `src/index.css`.
 - `sim/`: device, camera and operator simulators (Phase 3)
-- `docs/roadmap.md`: the plan
+- `docs/roadmap.md`: the plan. `docs/phase-1-plan.md`: what Phase 1 built. `docs/testing.md`: how to run and write tests.
+
+## Tests
+```
+docker compose exec api pytest          API tests (own _test database)
+cd web && npm run test:e2e              browser tests (see docs/testing.md for first-time setup)
+```

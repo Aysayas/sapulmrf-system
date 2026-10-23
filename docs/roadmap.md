@@ -87,10 +87,10 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 - [ ] CI runs the backend tests and the frontend build on every push. The workflow is written, but it only runs once the repo is on GitHub
 
 ### Phase 1: Accounts and access (ADM-01, 02, 03, 21, 20 logging)
-- [ ] Admin logs in and out with a hashed password. Sessions expire
-- [ ] Admin creates, edits and disables users in the 3 roles. Usernames are unique
-- [ ] Admin grants the staff "according to authorization" screens per person
-- [ ] Every create, edit, approval and login is written to the activity log
+- [x] Admin logs in and out with a hashed password (argon2). Sessions are server-side, in an httpOnly cookie, and expire after 8 h. 5 wrong passwords lock the account for 5 min
+- [x] Admin creates, edits and disables users in the 3 roles. Usernames are unique. Admins can't disable or demote themselves
+- [x] Admin grants the staff "according to authorization" screens per person (all off until granted)
+- [x] Every login, logout, user change and access change is written to the activity log, with an admin screen to read it (approvals get logged when Phase 4 adds them)
 
 ### Phase 2: Setup data (ADM-04, 05, 06)
 - [ ] Waste categories (RA 9003), puroks/source areas, recyclable materials, and storage areas with capacity limits
