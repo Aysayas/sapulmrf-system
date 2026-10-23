@@ -7,7 +7,7 @@ By the end of this semester, the **Barangay Administrator side** of SapulMRF run
 ## Decisions so far
 - **Python everywhere: a FastAPI backend that also runs the ML and CV logic.** ML and CV libraries are native to Python, so there's one backend language. (source: user, round 2)
 - **PostgreSQL.** It's good for time-series sensor readings and analytics queries, and works well with Python. (user, round 2)
-- **React frontend.** It's the frontend in the chosen option, and the team already knows React from Vencio's. (user, round 2; memory/projects/vencios)
+- **React frontend (Vue considered and set aside).** It's the frontend in the chosen option, and the team already knows React from Vencio's. The user is learning both React and Vue at school, so Vue offers no extra benefit, and switching would mean re-picking the libraries while FastAPI is still new. (user, round 2 and 2026-10-23 follow-up)
 - **The system must show four emerging technologies: AI, ML, IoT, CV.** This is a capstone requirement as the user stated it. (user, round 1)
 - **No required language or framework from the course or panel.** (user, round 1)
 - **Local Docker for development; the group's own home server for production.** No paid hosting. (user, round 3)
