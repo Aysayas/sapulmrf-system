@@ -6,6 +6,12 @@ import ActivityPage from '../features/activity/ActivityPage';
 import LoginPage from '../features/auth/LoginPage';
 import DevicesPage from '../features/devices/DevicesPage';
 import MasterDataPage from '../features/masterdata/MasterDataPage';
+import CameraPage from '../features/operations/CameraPage';
+import CompostPage from '../features/operations/CompostPage';
+import IntakePage from '../features/operations/IntakePage';
+import InventoryPage from '../features/operations/InventoryPage';
+import SegregationPage from '../features/operations/SegregationPage';
+import SortingPage from '../features/operations/SortingPage';
 import OverviewPage from '../features/overview/OverviewPage';
 import ComingSoon from '../features/placeholder/ComingSoon';
 import RangesPage from '../features/ranges/RangesPage';
@@ -33,7 +39,15 @@ export default function App() {
           <Route path="/admin" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
             <Route index element={<OverviewPage />} />
             <Route path="approvals" element={<ComingSoon title="Approvals" phase={4} />} />
-            <Route path="operations" element={<ComingSoon title="Operations" phase={3} />} />
+            <Route path="operations">
+              <Route index element={<Navigate to="intake" replace />} />
+              <Route path="intake" element={<IntakePage />} />
+              <Route path="segregation" element={<SegregationPage />} />
+              <Route path="sorting" element={<SortingPage />} />
+              <Route path="inventory" element={<InventoryPage />} />
+              <Route path="compost" element={<CompostPage />} />
+              <Route path="camera" element={<CameraPage />} />
+            </Route>
             <Route path="insights" element={<ComingSoon title="Insights" phase={6} />} />
             <Route path="settings" element={<SettingsLayout />}>
               <Route index element={<Navigate to="users" replace />} />

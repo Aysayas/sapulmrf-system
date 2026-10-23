@@ -84,7 +84,7 @@ export function CameraTile({ c, large = false }: { c: Classification | null; lar
       <div className="flex items-center gap-3 bg-black/40 px-3 py-2 text-xs">
         <span className="flex items-center gap-1.5 font-bold tracking-wide"><span className="size-2 rounded-full bg-[#f04438]" />LATEST</span>
         <span>Sorting area camera</span>
-        <Link to="/admin/operations/camera" className="ml-auto underline">Open live camera</Link>
+        {!large && <Link to="/admin/operations/camera" className="ml-auto underline">Open live camera</Link>}
       </div>
       <div className={`relative flex-1 bg-cover bg-center ${large ? 'min-h-[420px]' : 'min-h-[200px]'}`}
         style={c?.image_url ? { backgroundImage: `linear-gradient(rgba(10,30,20,.15),rgba(10,30,20,.15)), url(${c.image_url})` } : undefined}>

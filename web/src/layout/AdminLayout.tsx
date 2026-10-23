@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { ROLE_LABEL, useLogout, useMe } from '../api/auth';
 
 const NAV = [
-  { section: 'Monitor', items: [{ to: '/admin', label: 'Overview', end: true }, { to: '/admin/approvals', label: 'Approvals' }, { to: '/admin/operations', label: 'Operations' }] },
+  { section: 'Monitor', items: [{ to: '/admin', label: 'Overview', end: true }, { to: '/admin/approvals', label: 'Approvals' }, { to: '/admin/operations', label: 'Operations', sub: [
+    ['intake', 'Intake'], ['segregation', 'Segregation'], ['sorting', 'Sorting'], ['inventory', 'Inventory'], ['compost', 'Compost'], ['camera', 'Live camera'],
+  ] }] },
   { section: 'Analyze', items: [{ to: '/admin/insights', label: 'Insights' }] },
   { section: 'Manage', items: [{ to: '/admin/settings', label: 'Settings' }] },
 ];
@@ -13,6 +15,7 @@ export default function AdminLayout() {
   const me = useMe().data!;
   const logout = useLogout();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [menu, setMenu] = useState(false);
   const initials = me.name.split(' ').map((w) => w[0]).slice(0, 2).join('');
 
@@ -29,17 +32,30 @@ export default function AdminLayout() {
           <nav key={g.section} aria-label={g.section}>
             <div className="px-2 pt-3.5 pb-1.5 text-xs font-semibold text-[#9dbfab]">{g.section}</div>
             {g.items.map((i) => (
-              <NavLink
-                key={i.to}
-                to={i.to}
-                end={i.end}
-                className={({ isActive }) =>
-                  `flex items-center gap-2.5 rounded-md p-2 font-medium ${isActive ? 'bg-leaf-100 font-bold text-leaf-900' : 'hover:bg-white/10'}`
-                }
-              >
-                <span className="size-4 rounded border-[1.5px] border-current opacity-70" aria-hidden />
-                {i.label}
-              </NavLink>
+              <div key={i.to}>
+                <NavLink
+                  to={i.to}
+                  end={i.end}
+                  className={({ isActive }) =>
+                    `flex items-center gap-2.5 rounded-md p-2 font-medium ${isActive && !i.sub ? 'bg-leaf-100 font-bold text-leaf-900' : isActive ? 'font-bold' : 'hover:bg-white/10'}`
+                  }
+                >
+                  <span className="size-4 rounded border-[1.5px] border-current opacity-70" aria-hidden />
+                  {i.label}
+                </NavLink>
+                {i.sub && pathname.startsWith(i.to) &&
+                  i.sub.map(([path, label]) => (
+                    <NavLink
+                      key={path}
+                      to={`${i.to}/${path}`}
+                      className={({ isActive }) =>
+                        `my-0.5 ml-6 block rounded-md px-2 py-1.5 text-sm ${isActive ? 'bg-leaf-100 font-bold text-leaf-900' : 'hover:bg-white/10'}`
+                      }
+                    >
+                      {label}
+                    </NavLink>
+                  ))}
+              </div>
             ))}
           </nav>
         ))}

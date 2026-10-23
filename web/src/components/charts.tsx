@@ -46,7 +46,7 @@ export function ReadingChart({ data, field, unit, min, max, height = 200 }: {
       <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid vertical={false} stroke={GRID} />
         <ReferenceArea y1={min} y2={max} fill="#ddefe3" fillOpacity={0.6} ifOverflow="extendDomain"
-          label={{ value: `range ${min}–${max}${unit}`, position: 'insideTopRight', fontSize: 10, fill: '#1d6b47' }} />
+          label={{ value: `range ${min}–${max}${unit}`, position: 'insideBottomRight', fontSize: 10, fill: '#1d6b47' }} />
         <XAxis dataKey="at" tickFormatter={time} tick={AXIS} axisLine={false} tickLine={false} minTickGap={40} />
         <YAxis domain={[lo, hi]} tick={AXIS} axisLine={false} tickLine={false} width={44} unit={unit} />
         <Tooltip content={({ active, payload }) =>
