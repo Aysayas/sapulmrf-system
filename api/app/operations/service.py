@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session as DbSession
 
+from app.alerts import service as alerts
 from app.approvals import service as approvals
 from app.approvals.models import Outgoing
 from app.compost import service as compost
@@ -303,6 +304,8 @@ def overview(db: DbSession) -> s.Overview:
         latest_classification=sorting.out(db, latest) if latest else None,
         pending_approvals=sum(approvals.counts(db).values()),
         income_month=income_since(db, month_start()),
+        open_alerts=alerts.summary(db, with_reports=False).by_kind,
+        alert_batch_ids=sorted(alerts.open_alert_subjects(db, "compost")),
     )
 
 

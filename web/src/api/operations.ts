@@ -60,6 +60,8 @@ export interface Overview {
   latest_classification: Classification | null;
   pending_approvals: number;
   income_month: number;
+  open_alerts: Partial<Record<'compost' | 'device' | 'storage', number>>;
+  alert_batch_ids: number[];
 }
 export interface OutgoingView {
   income_month: number;

@@ -126,6 +126,8 @@ class Overview(BaseModel):
     latest_classification: ClassificationOut | None
     pending_approvals: int
     income_month: float
+    open_alerts: dict[str, int]  # per kind, open (not yet cleared)
+    alert_batch_ids: list[int]  # compost batches with an open alert
 
 
 class MonthIncome(BaseModel):

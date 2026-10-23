@@ -59,6 +59,8 @@ def test_summary_counts_by_kind_and_lists_the_latest(client, db, make_user, logi
     s = client.get("/alerts/summary").json()
     assert s["open_alerts"] == 2 and s["by_kind"] == {"compost": 1, "storage": 1} and s["unacknowledged"] == 2
     assert [i["title"] for i in s["latest"]] == ["Area B almost full", "Compost B-04 above range"]
+    o = client.get("/overview").json()
+    assert o["open_alerts"] == {"compost": 1, "storage": 1} and o["alert_batch_ids"] == [4]
 
 
 def test_operators_report_problems_and_admins_resolve_them(client, db, make_user, login):

@@ -4,6 +4,7 @@ import { ApiError } from '../api/client';
 import RolesPage from '../features/access/RolesPage';
 import ApprovalsPage from '../features/approvals/ApprovalsPage';
 import ActivityPage from '../features/activity/ActivityPage';
+import AlertsPage from '../features/alerts/AlertsPage';
 import LoginPage from '../features/auth/LoginPage';
 import DevicesPage from '../features/devices/DevicesPage';
 import MasterDataPage from '../features/masterdata/MasterDataPage';
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="/admin" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
             <Route index element={<OverviewPage />} />
             <Route path="approvals" element={<ApprovalsPage />} />
+            <Route path="alerts" element={<AlertsPage />} />
             <Route path="operations">
               <Route index element={<Navigate to="intake" replace />} />
               <Route path="intake" element={<IntakePage />} />

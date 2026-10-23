@@ -5,7 +5,8 @@ import { FillBar, IntakeChart, Kpi } from '../../components/charts';
 import { Badge, PageHeader } from '../../components/ui';
 
 const kg = (n: number) => `${Math.round(n * 10) / 10} kg`;
-const peso = (n: number) => `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;  // whole pesos fit the tile; Outgoing shows centavos
+const ALERT_WORD = { compost: ['compost', 'compost'], device: ['device', 'devices'], storage: ['storage area', 'storage areas'] } as const;
 
 export default function OverviewPage() {
   const o = useOverview();
@@ -21,9 +22,10 @@ export default function OverviewPage() {
 }
 
 function Dashboard({ o }: { o: Overview }) {
+  const alertTotal = Object.values(o.open_alerts).reduce((a, b) => a + (b ?? 0), 0);
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-6 gap-4">
         <Kpi label="Received today" value={kg(o.today_kg)} sub={`${o.today_deliveries} deliveries`} />
         <Link to="/admin/approvals" className="rounded-xl hover:ring-2 hover:ring-leaf-300">
           <Kpi label="Pending approvals" value={String(o.pending_approvals)} sub="requests and reviews waiting" />
@@ -32,6 +34,10 @@ function Dashboard({ o }: { o: Overview }) {
         <Kpi label="In storage" value={kg(o.in_storage_kg)} sub={`${o.areas.length} storage areas`} />
         <Link to="/admin/operations/outgoing" className="rounded-xl hover:ring-2 hover:ring-leaf-300">
           <Kpi label="Income this month" value={peso(o.income_month)} sub="approved sales" />
+        </Link>
+        <Link to="/admin/alerts" className="rounded-xl hover:ring-2 hover:ring-leaf-300">
+          <Kpi label="Open alerts" value={String(alertTotal)}
+            sub={alertTotal ? Object.entries(o.open_alerts).map(([k, n]) => `${n} ${ALERT_WORD[k as keyof typeof ALERT_WORD][n === 1 ? 0 : 1]}`).join(' · ') : 'all clear'} />
         </Link>
       </div>
       <div className="grid grid-cols-[2fr_1fr] gap-4">
@@ -58,7 +64,9 @@ function Dashboard({ o }: { o: Overview }) {
                 <span className="font-semibold">{b.code}</span>
                 <span className="text-ink-2">Day {b.day}</span>
                 <span className="ml-auto">{b.temp_c ?? '—'} °C · {b.moisture_pct ?? '—'}%</span>
-                {b.in_range === false ? <Badge kind="crit">Out of range</Badge> : b.in_range ? <Badge kind="ok">In range</Badge> : <Badge kind="dash">No reading</Badge>}
+                {o.alert_batch_ids.includes(b.id) ? <Link to="/admin/alerts"><Badge kind="crit">⚠ Alert</Badge></Link>
+                  : b.in_range === false ? <Badge kind="warn">Out of range</Badge>
+                  : b.in_range ? <Badge kind="ok">In range</Badge> : <Badge kind="dash">No reading</Badge>}
               </li>
             ))}
           </ul>

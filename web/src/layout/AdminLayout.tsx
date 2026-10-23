@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { useAlertSummary } from '../api/alerts';
 import { useApprovals } from '../api/approvals';
 import { ROLE_LABEL, useLogout, useMe } from '../api/auth';
 
 const NAV = [
-  { section: 'Monitor', items: [{ to: '/admin', label: 'Overview', end: true }, { to: '/admin/approvals', label: 'Approvals' }, { to: '/admin/operations', label: 'Operations', sub: [
+  { section: 'Monitor', items: [{ to: '/admin', label: 'Overview', end: true }, { to: '/admin/approvals', label: 'Approvals' }, { to: '/admin/alerts', label: 'Alerts' }, { to: '/admin/operations', label: 'Operations', sub: [
     ['intake', 'Intake'], ['segregation', 'Segregation'], ['sorting', 'Sorting'], ['inventory', 'Inventory'], ['compost', 'Compost'], ['outgoing', 'Outgoing'], ['camera', 'Live camera'],
   ] }] },
   { section: 'Analyze', items: [{ to: '/admin/insights', label: 'Insights' }] },
@@ -18,7 +19,11 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const counts = useApprovals().data?.counts;
-  const waiting = counts ? Object.values(counts).reduce((a, b) => a + b, 0) : 0;
+  const alerts = useAlertSummary().data;
+  const badges: Record<string, [number, string]> = {
+    '/admin/approvals': [counts ? Object.values(counts).reduce((a, b) => a + b, 0) : 0, 'bg-leaf-600'],
+    '/admin/alerts': [alerts ? alerts.unacknowledged + alerts.open_reports : 0, 'bg-crit'],
+  };
   const [menu, setMenu] = useState(false);
   const initials = me.name.split(' ').map((w) => w[0]).slice(0, 2).join('');
 
@@ -45,8 +50,10 @@ export default function AdminLayout() {
                 >
                   <span className="size-4 rounded border-[1.5px] border-current opacity-70" aria-hidden />
                   {i.label}
-                  {i.to === '/admin/approvals' && waiting > 0 && (
-                    <span className="ml-auto rounded-full bg-leaf-600 px-2 text-xs font-bold text-white" aria-label={`${waiting} waiting`}>{waiting}</span>
+                  {badges[i.to]?.[0] > 0 && (
+                    <span className={`ml-auto rounded-full px-2 text-xs font-bold text-white ${badges[i.to][1]}`} aria-label={`${badges[i.to][0]} waiting`}>
+                      {badges[i.to][0]}
+                    </span>
                   )}
                 </NavLink>
                 {i.sub && pathname.startsWith(i.to) &&
@@ -71,8 +78,9 @@ export default function AdminLayout() {
       <div className="flex min-w-0 flex-col">
         <header className="relative flex h-14 items-center gap-4 border-b border-line bg-white px-6">
           <span className="text-sm text-muted">Barangay Sapul MRF</span>
+          <Bell />
           <button
-            className="ml-auto flex items-center gap-2 rounded-lg px-2 py-1 text-left text-xs hover:bg-surface"
+            className="flex items-center gap-2 rounded-lg px-2 py-1 text-left text-xs hover:bg-surface"
             aria-label={`Account menu for ${me.name}`}
             aria-haspopup="menu"
             aria-expanded={menu}
@@ -101,6 +109,37 @@ export default function AdminLayout() {
           <Outlet />
         </main>
       </div>
+    </div>
+  );
+}
+
+/** Open alerts plus open problem reports, with the latest few. A count of open items, not per-person read state. */
+function Bell() {
+  const s = useAlertSummary().data;
+  const [open, setOpen] = useState(false);
+  const n = s ? s.open_alerts + s.open_reports : 0;
+  return (
+    <div className="relative ml-auto">
+      <button className="relative grid size-9 place-items-center rounded-lg hover:bg-surface" aria-haspopup="menu" aria-expanded={open}
+        aria-label={`Alerts and problem reports, ${n} open`} onClick={() => setOpen((o) => !o)}>
+        <svg viewBox="0 0 24 24" className="size-5 fill-none stroke-ink-2 stroke-2" aria-hidden>
+          <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        {n > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-4 rounded-full bg-crit px-1 text-[10px] leading-4 font-bold text-white">{n}</span>}
+      </button>
+      {open && (
+        <div role="menu" aria-label="Open alerts and reports" className="absolute top-11 right-0 z-10 w-80 rounded-xl bg-white p-2 shadow-xl ring-1 ring-line">
+          {s?.latest.length ? s.latest.map((i) => (
+            <Link key={`${i.type}${i.id}`} role="menuitem" to={`/admin/alerts?tab=${i.type === 'report' ? 'reports' : 'open'}`} onClick={() => setOpen(false)}
+              className="block rounded-md px-3 py-2 hover:bg-surface">
+              <span className="block text-sm font-semibold">{i.title}</span>
+              <span className="block truncate text-xs text-muted">{i.details}</span>
+            </Link>
+          )) : <p className="px-3 py-2 text-sm text-ink-2">Nothing open. Everything is within its limits.</p>}
+          <Link role="menuitem" to="/admin/alerts" onClick={() => setOpen(false)}
+            className="mt-1 block border-t border-line px-3 pt-2 pb-1 text-sm font-semibold text-leaf-700 underline">See all alerts</Link>
+        </div>
+      )}
     </div>
   );
 }
