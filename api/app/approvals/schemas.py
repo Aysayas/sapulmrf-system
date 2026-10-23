@@ -45,6 +45,10 @@ class DecisionIn(BaseModel):
         return self
 
 
+class ReviewIn(BaseModel):
+    review: Literal["ok", "recheck", "wrong"]  # weights take ok/recheck, classifications ok/wrong
+
+
 class Decided(BaseModel):
     status: str
     requested_by: str | None

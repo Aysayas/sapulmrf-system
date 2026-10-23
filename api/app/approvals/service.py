@@ -6,15 +6,18 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.activity.service import log
 from app.approvals.models import AdjustmentRequest, Outgoing
-from app.approvals.schemas import AdjustmentIn, AdjustmentOut, ApprovalsOut, DecisionIn, OutgoingIn, OutgoingOut
+from app.approvals.schemas import AdjustmentIn, AdjustmentOut, ApprovalsOut, DecisionIn, OutgoingIn, OutgoingOut, ReviewIn
 from app.compost.models import CompostBatch
 from app.core.errors import AppError
+from app.intake import service as intake
+from app.intake.models import Delivery
+from app.intake.schemas import DeliveryOut
 from app.masterdata.models import Material, StorageArea
-from app.sorting.models import StockMovement
+from app.sorting import service as sorting
+from app.sorting.models import Classification, StockMovement
+from app.sorting.schemas import ClassificationOut
 from app.sorting.service import material_bags, material_kg, stock_kg
 from app.users.models import User
-
-TYPE_LABEL = {"sale": "sale", "compost": "compost", "disposal": "disposal"}
 
 
 def _name(db: DbSession, user_id: int | None) -> str | None:
@@ -147,17 +150,66 @@ def decide_outgoing(db: DbSession, outgoing_id: int, data: DecisionIn, actor: Us
                              bags=-min(bags, round(bags * o.kg / available)), kind="outgoing", by=actor.id,
                              note=o.code, at=o.decided_at))
     if not at:
-        verb = f"{'Approved' if o.status == 'approved' else 'Rejected'} outgoing {TYPE_LABEL[o.type]}"
+        verb = f"{'Approved' if o.status == 'approved' else 'Rejected'} outgoing {o.type}"
         money = f" · ₱{o.total}" if o.total is not None else ""
         log(db, actor.id, verb, f"{o.code} · {o.kg} kg · {o.recipient}{money} {o.comment}".strip())
     db.commit()
     return o
 
 
+# ---- reviews of operator corrections ----
+
+UNREVIEWED_WEIGHTS = (Delivery.scale_kg.is_not(None), Delivery.review.is_(None))
+UNREVIEWED_CHANGES = (Classification.changed.is_(True), Classification.review.is_(None))
+
+
+def weights_to_review(db: DbSession, limit: int = 100) -> list[DeliveryOut]:
+    rows = db.scalars(select(Delivery).where(*UNREVIEWED_WEIGHTS).order_by(Delivery.received_at.desc()).limit(limit))
+    return [intake.out(db, d) for d in rows]
+
+
+def changes_to_review(db: DbSession, limit: int = 100) -> list[ClassificationOut]:
+    rows = db.scalars(select(Classification).where(*UNREVIEWED_CHANGES)
+                      .order_by(Classification.confirmed_at.desc()).limit(limit))
+    return [sorting.out(db, c) for c in rows]
+
+
+def _mark(row, data: ReviewIn, allowed: tuple[str, str], actor: User, what: str) -> None:
+    if data.review not in allowed:
+        raise AppError(422, f"Mark a {what} as {' or '.join(allowed)}.")
+    if row.review:
+        raise AppError(409, f"This {what} was already reviewed.")
+    row.review, row.reviewed_by, row.reviewed_at = data.review, actor.id, datetime.now(UTC)
+
+
+def review_weight(db: DbSession, delivery_id: int, data: ReviewIn, actor: User) -> Delivery:
+    d = db.get(Delivery, delivery_id)
+    if not d or d.scale_kg is None:
+        raise AppError(404, "No corrected weight with that id.")
+    _mark(d, data, ("ok", "recheck"), actor, "corrected weight")
+    log(db, actor.id, "Reviewed corrected weight", f"{d.code} · scale {d.scale_kg} → {d.weight_kg} kg · {d.review}")
+    db.commit()
+    return d
+
+
+def review_change(db: DbSession, classification_id: int, data: ReviewIn, actor: User) -> Classification:
+    c = db.get(Classification, classification_id)
+    if not c or not c.changed:
+        raise AppError(404, "No changed classification with that id.")
+    _mark(c, data, ("ok", "wrong"), actor, "changed classification")
+    final = "Not recyclable" if c.not_recyclable else sorting._name(db, c.final_material_id)
+    log(db, actor.id, "Reviewed changed classification", f"{sorting._name(db, c.suggested_material_id)} → {final} · {c.review}")
+    db.commit()
+    return c
+
+
 def pending(db: DbSession) -> ApprovalsOut:
     adjustments = db.scalars(select(AdjustmentRequest).where(AdjustmentRequest.status == "pending")
                              .order_by(AdjustmentRequest.requested_at)).all()
     outgoing = db.scalars(select(Outgoing).where(Outgoing.status == "pending").order_by(Outgoing.requested_at)).all()
-    return ApprovalsOut(counts={"adjustments": len(adjustments), "outgoing": len(outgoing)},
+    weights = db.scalar(select(func.count(Delivery.id)).where(*UNREVIEWED_WEIGHTS))
+    changes = db.scalar(select(func.count(Classification.id)).where(*UNREVIEWED_CHANGES))
+    return ApprovalsOut(counts={"adjustments": len(adjustments), "outgoing": len(outgoing),
+                                "weights": weights, "classifications": changes},
                         adjustments=[adjustment_out(db, r) for r in adjustments],
                         outgoing=[outgoing_out(db, o) for o in outgoing])
