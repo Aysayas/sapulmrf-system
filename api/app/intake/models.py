@@ -14,6 +14,7 @@ class Delivery(Base):
         CheckConstraint("weighed_by IN ('scale', 'manual')", name="ck_deliveries_weighed_by"),
         CheckConstraint("status IN ('awaiting', 'separated', 'sorted')", name="ck_deliveries_status"),
         CheckConstraint("weight_kg > 0", name="ck_deliveries_weight"),
+        CheckConstraint("review IN ('ok', 'recheck')", name="ck_deliveries_review"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -28,6 +29,10 @@ class Delivery(Base):
     status: Mapped[str] = mapped_column(String(10), default="awaiting", index=True)
     recorded_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     device_id: Mapped[int | None] = mapped_column(ForeignKey("devices.id", ondelete="SET NULL"), default=None)
+    # The admin's review of a corrected weight: ok or recheck. A mark only; the weight stays as recorded.
+    review: Mapped[str | None] = mapped_column(String(8), default=None)
+    reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), default=None)
+    reviewed_at: Mapped[datetime | None] = mapped_column(default=None)
 
 
 class SegregationCheck(Base):

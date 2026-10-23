@@ -1,0 +1,91 @@
+from datetime import datetime
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, Field, StringConstraints, model_validator
+
+Text = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
+Required = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+
+
+class AdjustmentIn(BaseModel):
+    material_id: int | None  # None means residual
+    storage_area_id: int
+    actual_kg: Annotated[float, Field(ge=0, le=50000)]
+    reason: Required
+    details: Text = ""
+
+
+class OutgoingIn(BaseModel):
+    type: Literal["sale", "compost", "disposal"]
+    material_id: int | None = None
+    storage_area_id: int | None = None
+    kg: Annotated[float, Field(gt=0, le=50000)]
+    recipient: Required
+    price_per_kg: Annotated[float, Field(gt=0, le=100000)] | None = None
+
+    @model_validator(mode="after")
+    def fits_the_type(self):
+        if self.type == "sale" and (self.material_id is None or self.storage_area_id is None or self.price_per_kg is None):
+            raise ValueError("A sale needs the material, the storage area it leaves from, and the price per kg.")
+        if self.type == "disposal" and (self.storage_area_id is None or self.material_id is not None or self.price_per_kg):
+            raise ValueError("Residual for disposal needs its storage area, and has no material or price.")
+        if self.type == "compost" and (self.material_id is not None or self.storage_area_id is not None):
+            raise ValueError("Compost comes from finished batches, not from a storage area.")
+        return self
+
+
+class DecisionIn(BaseModel):
+    decision: Literal["approve", "reject"]
+    comment: Text = ""
+
+    @model_validator(mode="after")
+    def reject_needs_a_reason(self):
+        if self.decision == "reject" and not self.comment:
+            raise ValueError("Say why you are rejecting it.")
+        return self
+
+
+class Decided(BaseModel):
+    status: str
+    requested_by: str | None
+    decided_by: str | None
+    decided_at: datetime | None
+    comment: str
+
+
+class AdjustmentOut(Decided):
+    id: int
+    requested_at: datetime
+    material: str
+    area: str
+    system_kg: float
+    actual_kg: float
+    reason: str
+    details: str
+    current_kg: float  # the ledger now; approving sets it to actual_kg
+    area_kg: float
+    area_after_kg: float
+    capacity_kg: int
+
+
+class OutgoingOut(Decided):
+    id: int
+    code: str
+    requested_at: datetime
+    type: str
+    material: str
+    area: str | None
+    kg: float
+    recipient: str
+    price_per_kg: float | None
+    total: float | None
+    available_kg: float  # in that area (or compost on hand) right now
+    area_kg: float | None
+    area_after_kg: float | None
+    capacity_kg: int | None
+
+
+class ApprovalsOut(BaseModel):
+    counts: dict[str, int]
+    adjustments: list[AdjustmentOut]
+    outgoing: list[OutgoingOut]

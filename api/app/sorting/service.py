@@ -71,6 +71,21 @@ def stock_kg(db: DbSession, storage_area_id: int) -> float:
     return round(float(db.scalar(q)), 2)
 
 
+def _of(material_id: int | None, storage_area_id: int):
+    same = StockMovement.material_id.is_(None) if material_id is None else StockMovement.material_id == material_id
+    return same, StockMovement.storage_area_id == storage_area_id
+
+
+def material_kg(db: DbSession, material_id: int | None, storage_area_id: int) -> float:
+    """Current kg of one material (None = residual) in one area."""
+    q = select(func.coalesce(func.sum(StockMovement.kg), 0.0)).where(*_of(material_id, storage_area_id))
+    return round(float(db.scalar(q)), 2)
+
+
+def material_bags(db: DbSession, material_id: int | None, storage_area_id: int) -> int:
+    return int(db.scalar(select(func.coalesce(func.sum(StockMovement.bags), 0)).where(*_of(material_id, storage_area_id))))
+
+
 def sort_delivery(db: DbSession, data: SortIn, actor: User, at: datetime | None = None) -> Delivery:
     d = db.get(Delivery, data.delivery_id)
     if not d:

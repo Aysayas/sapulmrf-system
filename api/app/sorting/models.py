@@ -10,6 +10,7 @@ class Classification(Base):
     """A camera suggestion, and the operator's decision once confirmed (pending while confirmed_at is null)."""
 
     __tablename__ = "classifications"
+    __table_args__ = (CheckConstraint("review IN ('ok', 'wrong')", name="ck_classifications_review"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     suggested_at: Mapped[datetime] = mapped_column(server_default=func.now(), index=True)
@@ -24,6 +25,10 @@ class Classification(Base):
     reason: Mapped[str] = mapped_column(String(200), default="")
     confirmed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), default=None)
     confirmed_at: Mapped[datetime | None] = mapped_column(default=None, index=True)
+    # The admin's review of an operator's change: ok (the change was right) or wrong. A mark only.
+    review: Mapped[str | None] = mapped_column(String(8), default=None)
+    reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), default=None)
+    reviewed_at: Mapped[datetime | None] = mapped_column(default=None)
 
 
 class StockMovement(Base):
