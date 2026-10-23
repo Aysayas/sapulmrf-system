@@ -1,8 +1,10 @@
 from datetime import UTC, datetime
 
+import pytest
 from sqlalchemy import func, select
 
 from app import simulator
+from app.approvals.models import AdjustmentRequest, Outgoing
 from app.compost.models import CompostReading
 from app.devices.models import Device
 from app.intake.models import Delivery
@@ -14,17 +16,26 @@ NOW = datetime(2026, 10, 23, 8, 0, tzinfo=UTC)  # 16:00 in Manila
 
 
 def test_backfill_makes_days_of_history_and_remove_takes_it_all_back(db, world, make_user):
+    make_user("e2e.admin", role="admin")
     real_op = make_user("juan", role="operator")
     real = Delivery(source_area_id=world["purok1"], category_id=world["cat"]["Residual"], weight_kg=3, weighed_by="manual",
                     recorded_by=real_op.id, code="D-REAL")
-    db.add(real)
+    db.add_all([real, Outgoing(code="O-REAL", type="compost", kg=5, recipient="Purok 1", requested_by=real_op.id)])
     db.commit()
 
-    counts = simulator.backfill(db, days=8, now=NOW)
-    assert counts["deliveries"] >= 8 * 10 and counts["readings"] > 0 and counts["batches"] >= 1
+    counts = simulator.backfill(db, days=15, now=NOW)
+    assert counts["deliveries"] >= 15 * 10 and counts["readings"] > 0 and counts["batches"] >= 1
     manila_day = func.date(func.timezone("Asia/Manila", Delivery.received_at))
     days = db.scalar(select(func.count(func.distinct(manila_day))).where(Delivery.code != "D-REAL"))
-    assert days == 8
+    assert days == 15
+    # Saturday pickups became approved sales with income; recounts became adjustments
+    assert counts["outgoing"] >= 1 and counts["adjustments"] == 2
+    assert db.scalar(select(func.sum(Outgoing.total)).where(Outgoing.status == "approved")) > 0
+    assert db.scalar(select(func.count()).where(StockMovement.kind == "outgoing")) >= 1
+    # older corrections were reviewed, the last three days' wait for the admin
+    unreviewed = db.scalars(select(Classification.confirmed_at).where(Classification.changed.is_(True),
+                                                                      Classification.review.is_(None))).all()
+    assert unreviewed and min(unreviewed) > NOW - simulator.RECENT
     assert db.scalar(select(func.count()).where(Classification.confirmed_at.is_(None))) == 0
     assert db.scalar(select(func.count()).select_from(CompostReading)) == counts["readings"]
     # the world's real areas were used, so no demo areas were made
@@ -39,10 +50,18 @@ def test_backfill_makes_days_of_history_and_remove_takes_it_all_back(db, world, 
     assert db.scalar(select(func.count()).select_from(Delivery)) == 1  # the real one is untouched
     assert not db.scalar(select(Device.id).where(Device.code.like("SIM-%")))
     assert not db.scalar(select(User.id).where(User.username == simulator.SIM_USER))
-    assert db.scalar(select(func.count()).select_from(StockMovement)) == 0
+    assert db.scalar(select(func.count()).select_from(StockMovement)) == 0  # including the rows the admin's approvals wrote
+    assert db.scalars(select(Outgoing.code)).all() == ["O-REAL"]
+    assert db.scalar(select(func.count()).select_from(AdjustmentRequest)) == 0
 
 
-def test_backfill_makes_demo_areas_only_when_there_are_none(db):
+def test_backfill_needs_the_test_admin(db, world):
+    with pytest.raises(RuntimeError, match="test admin"):
+        simulator.backfill(db, days=1, now=NOW)
+
+
+def test_backfill_makes_demo_areas_only_when_there_are_none(db, make_user):
+    make_user("e2e.admin", role="admin")
     simulator.backfill(db, days=1, now=NOW)
     assert db.scalar(select(func.count()).where(SourceArea.name.like("Demo Purok %"))) == 7
     assert db.scalar(select(func.count()).where(StorageArea.name.like("Demo Area %"))) == 4

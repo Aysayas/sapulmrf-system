@@ -44,6 +44,11 @@ PHOTOS = {  # same Unsplash stock photos as the mockup, until the real camera ex
     "Metal": "https://images.unsplash.com/photo-1561503412-852800622772?w=900&q=60&auto=format&fit=crop",
 }
 STATE = Path(os.environ.get("SIM_STATE", "/state/sim.json"))
+PRICES = {"Plastic": 12.0, "Paper": 4.0, "Cardboard": 3.5, "Metal": 25.0}  # placeholder ₱ per kg, not real junkshop rates
+BUYERS = ["Buyer A Junkshop", "Buyer B Recycling"]
+ADJUST_REASONS = ["Wet bags removed as residual", "Recount after pickup", "Torn bag, spilled"]
+CORRECTIONS = ["Bag touched the edge", "Scale not zeroed"]
+RECENT = timedelta(days=3)  # backfilled requests and corrections newer than this stay waiting for the admin
 
 
 # ---------------------------------------------------------------- behaviour shared by backfill and live
@@ -129,6 +134,19 @@ def _db_entities(db):
     return user, devices
 
 
+def _approver(db):
+    """Backfilled approvals and reviews are made as the test admin, never a real person."""
+    from sqlalchemy import select
+
+    from app.users.models import User
+
+    name = os.environ.get("E2E_ADMIN_USERNAME", "e2e.admin")
+    admin = db.scalar(select(User).where(User.username == name, User.role == "admin"))
+    if not admin:
+        raise RuntimeError(f"Create the test admin {name!r} first (docs/testing.md): the backfill decides old requests as it.")
+    return admin
+
+
 def area_for(areas: list, material: str | None):
     """The storage area whose name mentions the material (residual → 'Residual'), else the first one."""
     key = {"Cardboard": "Paper"}.get(material, material) if material else "Residual"
@@ -139,30 +157,45 @@ def backfill(db, days: int, seed: int = 11, now: datetime | None = None) -> dict
     """Writes `days` days of history (ending now) through the same service functions the API uses."""
     from sqlalchemy import select
 
+    from app.approvals import service as approvals
+    from app.approvals.schemas import AdjustmentIn, DecisionIn, OutgoingIn
     from app.compost import service as compost
     from app.compost.schemas import ActivityIn, BatchIn, ReadingIn
     from app.core.config import settings
     from app.intake import service as intake
+    from app.intake.models import Delivery
     from app.intake.schemas import DeliveryIn, SegregationIn
     from app.masterdata.models import Material, SourceArea, StorageArea, WasteCategory
     from app.sorting import service as sorting
-    from app.sorting.models import StockMovement
+    from app.sorting.models import Classification
     from app.sorting.schemas import ConfirmIn, SortIn, SuggestionIn
 
     rnd = random.Random(seed)
     tz = ZoneInfo(settings.timezone)
     now = now or datetime.now(UTC)
+    admin = _approver(db)
     user, devices = _db_entities(db)
     puroks = list(db.scalars(select(SourceArea).where(SourceArea.active)))
     areas = list(db.scalars(select(StorageArea).where(StorageArea.active)))
     cats = {c.name: c.id for c in db.scalars(select(WasteCategory))}
     mats = {m.name: m.id for m in db.scalars(select(Material))}
     profiles = purok_profiles([p.name for p in puroks])
-    counts = {"deliveries": 0, "classifications": 0, "readings": 0, "batches": 0}
+    names = {v: k for k, v in mats.items()}
+    counts = {"deliveries": 0, "classifications": 0, "readings": 0, "batches": 0, "outgoing": 0, "adjustments": 0}
     sensors = [devices["SIM-CS-01"], devices["SIM-CS-02"]]
     batches: dict[str, object] = {}
     moist: dict[int, float] = {}
     wet_pool = 0.0
+
+    def decide(decide_fn, row, t: datetime, reject: bool = False) -> None:
+        if t > now - RECENT:
+            return  # recent ones wait in the inbox
+        data = DecisionIn(decision="reject", comment="Count again") if reject else DecisionIn(decision="approve")
+        decide_fn(db, row.id, data, admin, at=t + timedelta(hours=2))
+
+    def give_out(data: OutgoingIn, t: datetime) -> None:
+        decide(approvals.decide_outgoing, approvals.request_outgoing(db, data, user, at=t), t)
+        counts["outgoing"] += 1
 
     start_day = now.astimezone(tz).date() - timedelta(days=days - 1)
     for i in range(days):
@@ -176,14 +209,20 @@ def backfill(db, days: int, seed: int = 11, now: datetime | None = None) -> dict
             usual, seg_rate = profiles[p.name]
             category = rnd.choices(["Mixed household", "Biodegradable", "Recyclable", "Residual"], [75, 10, 10, 5])[0]
             kg = delivery_weight(rnd, usual)
+            fix = (
+                {"scale_kg": round(kg + rnd.uniform(0.1, 0.5), 2), "correction_reason": rnd.choice(CORRECTIONS)}
+                if rnd.random() < 0.03
+                else {}
+            )
             d = intake.record_delivery(
                 db,
                 DeliveryIn(
                     source_area_id=p.id,
                     category_id=cats[category],
                     weight_kg=kg,
-                    weighed_by="scale" if rnd.random() > 0.05 else "manual",
+                    weighed_by="scale" if fix or rnd.random() > 0.05 else "manual",
                     device_id=devices["SIM-WS-01"].id,
+                    **fix,
                 ),
                 user,
                 at=t,
@@ -227,26 +266,49 @@ def backfill(db, days: int, seed: int = 11, now: datetime | None = None) -> dict
                 rows.append({"material_id": None, "bags": 1, "kg": residual, "storage_area_id": area_for(areas, None).id})
             sorting.sort_delivery(db, SortIn(delivery_id=d.id, rows=rows), user, at=sorted_at)
 
-        # weekly pickup keeps storage realistic; Phase 4 will record these as approved outgoing transactions
-        if day.weekday() == 5:
+        # Saturday pickup: recyclables sold to a junkshop, residual to the city truck, from areas over 45% full
+        pickup = opening + timedelta(hours=8)
+        if day.weekday() == 5 and pickup <= now:
             for a in areas:
                 if sorting.stock_kg(db, a.id) <= a.capacity_kg * 0.45:
                     continue
-                for material_id, kg, bags in _stock_by_material(db, a.id):
-                    if kg > 0:
-                        db.add(
-                            StockMovement(
-                                material_id=material_id,
-                                storage_area_id=a.id,
-                                kg=-round(kg * 0.6, 2),
-                                bags=-round(bags * 0.6),
-                                kind="outgoing",
-                                by=user.id,
-                                note="Simulated pickup",
-                                at=opening + timedelta(hours=8),
-                            )
+                for material_id, kg, _ in _stock_by_material(db, a.id):
+                    if kg <= 1:
+                        continue
+                    share = round(kg * 0.6, 2)
+                    give_out(
+                        OutgoingIn(
+                            type="sale",
+                            material_id=material_id,
+                            storage_area_id=a.id,
+                            kg=share,
+                            recipient=rnd.choice(BUYERS),
+                            price_per_kg=PRICES[names[material_id]],
                         )
-            db.commit()
+                        if material_id
+                        else OutgoingIn(type="disposal", storage_area_id=a.id, kg=share, recipient="City ENRO truck"),
+                        pickup,
+                    )
+
+        # every ~9 days the operator recounts one pile; the admin rejects about one in four
+        recount = opening + timedelta(hours=6)
+        if i % 9 == 4 and recount <= now:
+            piles = [(a, m, kg) for a in areas for m, kg, _ in _stock_by_material(db, a.id) if kg > 5]
+            if piles:
+                a, m, kg = rnd.choice(piles)
+                r = approvals.request_adjustment(
+                    db,
+                    AdjustmentIn(
+                        material_id=m,
+                        storage_area_id=a.id,
+                        reason=rnd.choice(ADJUST_REASONS),
+                        actual_kg=round(kg * rnd.uniform(0.94, 0.99), 2),
+                    ),
+                    user,
+                    at=recount,
+                )
+                decide(approvals.decide_adjustment, r, recount, reject=rnd.random() < 0.25)
+                counts["adjustments"] += 1
 
         # compost: start a batch on a free sensor every ~6 days from the wet waste collected, readings every 30 min
         for sensor in sensors:
@@ -259,6 +321,16 @@ def backfill(db, days: int, seed: int = 11, now: datetime | None = None) -> dict
                     user,
                     at=opening + timedelta(hours=1),
                 )
+                if opening + timedelta(hours=5) <= now:  # most of it goes to purok gardens, sometimes sold
+                    give_out(
+                        OutgoingIn(
+                            type="compost",
+                            kg=round(b.produced_kg * 0.7, 1),
+                            recipient=f"{rnd.choice(puroks).name} gardens",
+                            price_per_kg=5.0 if rnd.random() < 0.4 else None,
+                        ),
+                        opening + timedelta(hours=5),
+                    )
                 b = None
             if (not b or b.finished_at) and wet_pool > 40 and (i % 6 == sensors.index(sensor) * 3):
                 b = compost.start_batch(
@@ -286,6 +358,24 @@ def backfill(db, days: int, seed: int = 11, now: datetime | None = None) -> dict
                 compost.log_activity(
                     db, b.id, ActivityIn(type="turning"), user, at=datetime(day.year, day.month, day.day, 9, tzinfo=tz)
                 )
+
+    # the admin has already reviewed older corrections; recent ones wait in the inbox
+    rnd_review = random.Random(seed + 1)
+    for d in db.scalars(
+        select(Delivery).where(
+            Delivery.recorded_by == user.id, Delivery.scale_kg.is_not(None), Delivery.received_at <= now - RECENT
+        )
+    ):
+        d.review = "ok" if rnd_review.random() < 0.85 else "recheck"
+        d.reviewed_by, d.reviewed_at = admin.id, d.received_at + timedelta(days=1)
+    for c in db.scalars(
+        select(Classification).where(
+            Classification.confirmed_by == user.id, Classification.changed.is_(True), Classification.confirmed_at <= now - RECENT
+        )
+    ):
+        c.review = "ok" if rnd_review.random() < 0.9 else "wrong"
+        c.reviewed_by, c.reviewed_at = admin.id, c.confirmed_at + timedelta(days=1)
+    db.commit()
     return counts
 
 
@@ -303,10 +393,11 @@ def _stock_by_material(db, area_id: int) -> list[tuple[int | None, float, int]]:
 
 def remove(db) -> dict[str, int]:
     """Deletes everything the simulator made. Demo areas still used by real records are kept and reported."""
-    from sqlalchemy import delete, or_, select
+    from sqlalchemy import and_, delete, false, or_, select
     from sqlalchemy.exc import IntegrityError
 
     from app.activity.models import ActivityLog
+    from app.approvals.models import AdjustmentRequest, Outgoing
     from app.compost.models import CompostBatch
     from app.devices.models import Device
     from app.intake.models import Delivery
@@ -314,20 +405,36 @@ def remove(db) -> dict[str, int]:
     from app.sorting.models import Classification, StockMovement
     from app.users.models import User
 
-    user_id = db.scalar(select(User.id).where(User.username == SIM_USER))
+    # -1 when there is no sim user, so "== user_id" never turns into "IS NULL" and catches real rows
+    user_id = db.scalar(select(User.id).where(User.username == SIM_USER)) or -1
     device_ids = list(db.scalars(select(Device.id).where(Device.code.like("SIM-%"))))
     counts = {}
     counts["classifications"] = db.execute(
         delete(Classification).where(or_(Classification.device_id.in_(device_ids), Classification.confirmed_by == user_id))
     ).rowcount
-    counts["stock movements"] = db.execute(delete(StockMovement).where(StockMovement.by == user_id)).rowcount
+    # approvals of the sim's requests were written by an admin, so find those ledger rows by their request
+    codes = list(db.scalars(select(Outgoing.code).where(Outgoing.requested_by == user_id)))
+    adjusted = [
+        f"Adjustment #{i}:%" for i in db.scalars(select(AdjustmentRequest.id).where(AdjustmentRequest.requested_by == user_id))
+    ]
+    counts["stock movements"] = db.execute(
+        delete(StockMovement).where(
+            or_(
+                StockMovement.by == user_id,
+                and_(StockMovement.kind == "outgoing", StockMovement.note.in_(codes)),
+                and_(StockMovement.kind == "adjustment", or_(false(), *[StockMovement.note.like(p) for p in adjusted])),
+            )
+        )
+    ).rowcount
+    counts["outgoing records"] = db.execute(delete(Outgoing).where(Outgoing.requested_by == user_id)).rowcount
+    counts["adjustments"] = db.execute(delete(AdjustmentRequest).where(AdjustmentRequest.requested_by == user_id)).rowcount
     counts["deliveries"] = db.execute(delete(Delivery).where(Delivery.recorded_by == user_id)).rowcount
     counts["compost batches"] = db.execute(
         delete(CompostBatch).where(or_(CompostBatch.started_by == user_id, CompostBatch.sensor_id.in_(device_ids)))
     ).rowcount
     db.execute(delete(ActivityLog).where(ActivityLog.user_id == user_id))
     counts["devices"] = db.execute(delete(Device).where(Device.id.in_(device_ids))).rowcount
-    counts["users"] = db.execute(delete(User).where(User.id == user_id)).rowcount if user_id else 0
+    counts["users"] = db.execute(delete(User).where(User.id == user_id)).rowcount
     db.commit()
     kept = 0
     for model in (SourceArea, StorageArea):
@@ -438,6 +545,8 @@ def run(base: str, pace: float) -> None:
                 next_readings = now + 30 * pace
             if now >= next_delivery:
                 _one_delivery(op, rnd, keys, ids, puroks, profiles, cats, mats, areas)
+                if rnd.random() < 0.08:  # about every 20 minutes, something for the admin's inbox
+                    _one_request(op, rnd, mats, areas)
                 next_delivery = now + rnd.uniform(60, 120) * pace
         except Exception as e:  # keep going; the API may be restarting
             print(f"{datetime.now():%H:%M:%S} {e}", file=sys.stderr, flush=True)
@@ -449,7 +558,12 @@ def _one_delivery(op, rnd, keys, ids, puroks, profiles, cats, mats, areas):
     usual, seg_rate = profiles[p["name"]]
     category = rnd.choices(["Mixed household", "Biodegradable", "Recyclable", "Residual"], [75, 10, 10, 5])[0]
     kg = delivery_weight(rnd, usual)
-    op.call("POST", "/devices/readings", keys["SIM-WS-01"], json={"kg": kg, "stable": True})
+    fix = (
+        {"scale_kg": round(kg + rnd.uniform(0.1, 0.5), 2), "correction_reason": rnd.choice(CORRECTIONS)}
+        if rnd.random() < 0.03
+        else {}
+    )
+    op.call("POST", "/devices/readings", keys["SIM-WS-01"], json={"kg": fix.get("scale_kg", kg), "stable": True})
     d = op.call(
         "POST",
         "/deliveries",
@@ -459,6 +573,7 @@ def _one_delivery(op, rnd, keys, ids, puroks, profiles, cats, mats, areas):
             "weight_kg": kg,
             "weighed_by": "scale",
             "device_id": ids["SIM-WS-01"],
+            **fix,
         },
     )
     wet, dry = split_wet_dry(rnd, kg, category)
@@ -490,6 +605,49 @@ def _one_delivery(op, rnd, keys, ids, puroks, profiles, cats, mats, areas):
         rows.append({"material_id": None, "bags": 1, "kg": residual, "storage_area_id": area_for(areas, None).id})
     op.call("POST", "/sorting", json={"delivery_id": d["id"], "rows": rows})
     print(f"{datetime.now():%H:%M:%S} {d['code']} {p['name']} {kg} kg {condition}", flush=True)
+
+
+def _one_request(op, rnd, mats, areas):
+    """A recount, a sale or a disposal from a random pile, waiting for the admin."""
+    piles = [r for r in op.call("GET", "/operations/inventory")["stock"] if r["kg"] > 5]
+    if not piles:
+        return
+    pile = rnd.choice(piles)
+    area = next(a for a in areas if a.name == pile["area"])
+    material_id = mats.get(pile["material"])  # "Residual" is not a material: None
+    if rnd.random() < 0.25:
+        body = {
+            "material_id": material_id,
+            "storage_area_id": area.id,
+            "reason": rnd.choice(ADJUST_REASONS),
+            "actual_kg": round(pile["kg"] * rnd.uniform(0.95, 0.99), 2),
+        }
+        op.call("POST", "/inventory/adjustments", json=body)
+    elif material_id:
+        op.call(
+            "POST",
+            "/outgoing",
+            json={
+                "type": "sale",
+                "material_id": material_id,
+                "storage_area_id": area.id,
+                "kg": round(pile["kg"] * 0.5, 2),
+                "recipient": rnd.choice(BUYERS),
+                "price_per_kg": PRICES[pile["material"]],
+            },
+        )
+    else:
+        op.call(
+            "POST",
+            "/outgoing",
+            json={
+                "type": "disposal",
+                "storage_area_id": area.id,
+                "kg": round(pile["kg"] * 0.5, 2),
+                "recipient": "City ENRO truck",
+            },
+        )
+    print(f"{datetime.now():%H:%M:%S} request: {pile['material']} in {pile['area']}", flush=True)
 
 
 def main(argv: list[str] | None = None) -> int:
