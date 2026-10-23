@@ -2,11 +2,13 @@ import pytest
 from sqlalchemy import select
 
 from app.activity.models import ActivityLog
+from app.approvals.models import AdjustmentRequest, Outgoing
 from app.cli import create_admin, remove_test_data, remove_test_users
 from app.core.security import verify_password
 from app.devices.models import Device
 from app.intake.models import Delivery
 from app.masterdata.models import SourceArea, StorageArea, WasteCategory
+from app.sorting.models import StockMovement
 from app.users.models import User
 
 
@@ -51,11 +53,18 @@ def test_remove_test_data_keeps_real_areas_and_devices(db, make_user):
     db.flush()
     cat = db.scalar(select(WasteCategory.id))
     e2e_purok, real_purok = (db.scalar(select(SourceArea.id).where(SourceArea.name == n)) for n in ("e2e Purok x1", "Purok 1"))
+    e2e_area, real_area = (db.scalar(select(StorageArea.id).where(StorageArea.name == n)) for n in ("e2e Area x1", "Area A"))
     db.add_all([Delivery(code="D-9001", source_area_id=e2e_purok, category_id=cat, weight_kg=5, weighed_by="manual"),
-                Delivery(code="D-9002", source_area_id=real_purok, category_id=cat, weight_kg=5, weighed_by="manual")])
+                Delivery(code="D-9002", source_area_id=real_purok, category_id=cat, weight_kg=5, weighed_by="manual"),
+                StockMovement(material_id=None, storage_area_id=e2e_area, kg=5, kind="sorted"),
+                StockMovement(material_id=None, storage_area_id=real_area, kg=5, kind="sorted"),
+                Outgoing(code="O-9001", type="disposal", storage_area_id=e2e_area, kg=5, recipient="x"),
+                AdjustmentRequest(storage_area_id=e2e_area, system_kg=5, actual_kg=4, reason="x")])
     db.commit()
     counts = remove_test_data(db)
-    assert counts == {"users": 1, "deliveries": 1, "source areas": 1, "storage areas": 1, "devices": 1}
+    assert counts == {"users": 1, "deliveries": 1, "stock movements": 1, "requests": 2, "source areas": 1,
+                      "storage areas": 1, "devices": 1}
     assert db.scalars(select(Delivery.code)).all() == ["D-9002"]
+    assert db.scalars(select(StockMovement.storage_area_id)).all() == [real_area]
     assert db.scalars(select(SourceArea.name)).all() == ["Purok 1"]
     assert db.scalars(select(Device.code)).all() == ["WS-01"]

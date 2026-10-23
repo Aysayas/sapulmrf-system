@@ -12,11 +12,13 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.activity.service import log
+from app.approvals.models import AdjustmentRequest, Outgoing
 from app.core.db import SessionLocal
 from app.core.security import hash_password
 from app.devices.models import Device
 from app.intake.models import Delivery
 from app.masterdata.models import SourceArea, StorageArea
+from app.sorting.models import StockMovement
 from app.users.models import User
 
 
@@ -49,10 +51,14 @@ def remove_test_users(db: Session) -> int:
 
 def remove_test_data(db: Session) -> dict[str, int]:
     """Deletes what the e2e tests create: e2e.<role>.<id> users, 'e2e …' source areas with their deliveries,
-    'e2e …' storage areas, E2E-… devices."""
+    'e2e …' storage areas with their stock and requests, E2E-… devices."""
     counts = {"users": remove_test_users(db)}
     e2e_puroks = select(SourceArea.id).where(func.lower(SourceArea.name).like("e2e %"))
+    e2e_areas = select(StorageArea.id).where(func.lower(StorageArea.name).like("e2e %"))
     counts["deliveries"] = db.execute(delete(Delivery).where(Delivery.source_area_id.in_(e2e_puroks))).rowcount
+    counts["stock movements"] = db.execute(delete(StockMovement).where(StockMovement.storage_area_id.in_(e2e_areas))).rowcount
+    counts["requests"] = sum(db.execute(delete(m).where(m.storage_area_id.in_(e2e_areas))).rowcount
+                             for m in (Outgoing, AdjustmentRequest))
     for label, model in (("source areas", SourceArea), ("storage areas", StorageArea)):
         counts[label] = db.execute(delete(model).where(func.lower(model.name).like("e2e %"))).rowcount
     counts["devices"] = db.execute(delete(Device).where(Device.code.like("E2E-%"))).rowcount

@@ -91,8 +91,9 @@ function DecisionDrawer({ open, onClose, onDone }: { open: Open; onClose: () => 
   const name = kind === 'outgoing' ? `${row.code} · ${OUTGOING_TYPE[row.type]}` : `Adjustment · ${row.material}, ${row.area}`;
   const short = kind === 'outgoing' && row.available_kg < row.kg;
 
+  const [needReason, setNeedReason] = useState(false);
   const send = (decision: 'approve' | 'reject') =>
-    decide.mutate({ kind, id: row.id, decision, comment: comment.trim() }, {
+    decision === 'reject' && !comment.trim() ? setNeedReason(true) : decide.mutate({ kind, id: row.id, decision, comment: comment.trim() }, {
       onSuccess: () => onDone(decision === 'reject' ? `${kind === 'outgoing' ? row.code : 'Adjustment'} rejected` : approvedMessage(open)),
     });
 
@@ -134,8 +135,10 @@ function DecisionDrawer({ open, onClose, onDone }: { open: Open; onClose: () => 
       <p className={`rounded-lg px-3 py-2 text-sm ${short ? 'bg-crit-100 text-crit' : 'bg-surface'}`}>{afterApproval(open)}</p>
       <label className="text-sm font-semibold">
         Comment <span className="font-normal text-muted">(optional; say why if you reject)</span>
-        <textarea className={`${inputCls} mt-1`} rows={3} maxLength={200} value={comment} onChange={(e) => setComment(e.target.value)} />
+        <textarea className={`${inputCls} mt-1`} rows={3} maxLength={200} value={comment} aria-invalid={needReason && !comment.trim()}
+          onChange={(e) => setComment(e.target.value)} />
       </label>
+      {needReason && !comment.trim() && <p role="alert" className="text-sm text-crit">Say why you are rejecting it.</p>}
       {decide.error && <p role="alert" className="text-sm text-crit">{decide.error.message}</p>}
     </Drawer>
   );
