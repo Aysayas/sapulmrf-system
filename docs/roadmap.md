@@ -98,14 +98,15 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 - [x] Compost temperature and moisture ranges, storage alert levels, the prediction start threshold (days of records), and anomaly sensitivity
 
 ### Phase 3: Simulators and live operations view (ADM-07, 08, 09, 19)
-- [x] The `sim` service sends deliveries, segregation results, sorted quantities, compost readings, camera suggestions and heartbeats (built into `api/app/simulator.py`, with a 40-day backfill; pickups are `outgoing` ledger rows until Phase 4 records sales)
+- [x] The `sim` service sends deliveries, segregation results, sorted quantities, compost readings, camera suggestions and heartbeats (built into `api/app/simulator.py`, with a 40-day backfill; since Phase 4 its pickups are sale and disposal requests)
 - [x] Admin sees intake, sorting and inventory records, segregation compliance per purok, and compost batches with live readings
 - [x] Overview dashboard: today's totals, storage capacity, compost status, device status and the last camera result (approvals, income and alerts KPIs wait for Phases 4–5; awaiting segregation, in storage and active batches stand in)
 
 ### Phase 4: Approvals and reviews (ADM-11, 16, 17)
-- [ ] One approvals inbox covering inventory adjustments and outgoing transactions. Approving changes stock; rejecting doesn't
-- [ ] Review corrected weights and corrected CV classifications
-- [ ] Income from recyclables (and compost, if priced) shown from approved sales only
+- [x] One approvals inbox covering inventory adjustments and outgoing transactions. Approving changes stock; rejecting doesn't (stock is re-checked at approval; compost on hand is tracked from finished batches)
+- [x] Review corrected weights and corrected CV classifications (OK / ask to recheck, OK / wrong: marks only, for Phase 6's accuracy numbers)
+- [x] Income from recyclables (and compost, if priced) shown from approved sales only (Operations › Outgoing, and the Overview)
+- [ ] Operator screens to send adjustment and outgoing requests (the API and simulator stand in for now)
 
 ### Phase 5: Alerts (ADM-10)
 - [ ] Scheduled checks raise alerts for compost out of range, devices that stop reporting, and storage at its limit
