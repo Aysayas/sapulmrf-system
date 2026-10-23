@@ -47,7 +47,7 @@ By the end of this semester, the **Barangay Administrator side** of SapulMRF run
 - **pwdlib (argon2) or passlib/bcrypt, plus PyJWT or signed session cookies:** login and roles (ADM-01, 02, 03, 21).
 - **pandas and numpy now, scikit-learn and Prophet later:** forecasts and anomaly flags (ADM-12 to 15).
 - **APScheduler (or a FastAPI background task):** periodic checks for alerts and predictions.
-- **WeasyPrint or ReportLab, plus the csv module:** PDF and CSV reports (ADM-18).
+- **ReportLab, plus the csv module:** PDF and CSV reports (ADM-18). WeasyPrint was set aside in Phase 7: it needs Pango/Cairo system libraries in the image.
 - **pytest, httpx, Ruff:** tests and lint.
 
 ### Frontend libraries (`web`)
@@ -120,8 +120,8 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 - [x] Swap in an ML model behind the same endpoint and compare its error with the stats baseline: done from the start. A scikit-learn Ridge model and the 7-day moving average both run, and the one with the lower 14-day error is used. Prophet was skipped (heavy install, not needed at this data size)
 
 ### Phase 7: Reports and audit (ADM-18, 20)
-- [ ] Intake, segregation, inventory, composting, outgoing and income reports by date range and purok, as PDF and CSV
-- [ ] Activity log screen with filters by user and date
+- [x] Intake, segregation, inventory, composting, outgoing and income reports by date range and purok, as PDF and CSV (Insights › Reports; the purok filter applies to intake and segregation, inventory is stock as of now; "Excel" is CSV; export history is kept, and Download rebuilds the file from current data)
+- [x] Activity log screen with filters by user and date (plus a custom date range, action groups and Export CSV; report views and exports are logged)
 
 ### Phase 8: Hand-off to the real hardware and server (after the core is done)
 - [ ] Replace `sim` with Rhendel's devices and CV service, using the agreed contracts

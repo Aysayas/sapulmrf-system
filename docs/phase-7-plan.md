@@ -5,7 +5,7 @@ Phases 0–6 are done and committed (last commit `5a67360`). Phase 7 covers two 
 - **ADM-18:** generate intake, segregation, inventory, composting, outgoing material and income reports, by date range and purok, as PDF and CSV.
 - **ADM-20:** monitor system activity.
 
-Status: **draft, waiting for your go-ahead.** Nothing is built yet.
+Status: **built** (2026-10-23). Approved as drafted: ReportLab, CSV for Excel, export history only. Differences from the draft are listed at the end.
 
 What already exists:
 - The Activity log page (Settings › Activity log) already filters by user and by period (Today / This week / This month / All) and shows When, Who, Action, Record. What is missing from the wireframe and roadmap: a custom date range, an action filter, and export. It also does not yet log report views or exports.
@@ -105,3 +105,9 @@ My calls (override any):
 - Storing the exported files themselves, or `.xlsx` output.
 - Charts inside the PDFs.
 - Operator screens for requests and problem reports (still the separate open item).
+
+## What changed while building
+- The Format choice moved off the choose screen: Preview first, then Export PDF or Export CSV (as in wireframe `05b`). Recent reports re-downloads in the format first used.
+- The activity action filter's fifth group is "Records and setup": everything that isn't a login, user/access change, approval/review or report.
+- Re-downloading from Recent reports counts as a new export (a new history row and log row).
+- Results: 145 API tests and 18 browser tests pass; Ruff clean; `npm run build` passes. The segregation report for the last 30 days matched the Segregation page (424 deliveries, 294 segregated, 69%).
