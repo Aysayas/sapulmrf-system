@@ -20,3 +20,17 @@ export async function api<T>(path: string, options: { method?: string; body?: un
   }
   return data as T;
 }
+
+/** Fetches a file from the API and hands it to the browser as a download (the session cookie goes along). */
+export async function download(path: string): Promise<void> {
+  const res = await fetch(`/api${path}`, { credentials: 'include' });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, typeof data.detail === 'string' ? data.detail : 'The download failed.');
+  }
+  const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? 'download';
+  const url = URL.createObjectURL(await res.blob());
+  const a = Object.assign(document.createElement('a'), { href: url, download: name });
+  a.click();
+  URL.revokeObjectURL(url);
+}

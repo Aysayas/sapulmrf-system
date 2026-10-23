@@ -8,6 +8,7 @@ import AlertsPage from '../features/alerts/AlertsPage';
 import LoginPage from '../features/auth/LoginPage';
 import DevicesPage from '../features/devices/DevicesPage';
 import InsightsPage from '../features/insights/InsightsPage';
+import ReportsPage from '../features/reports/ReportsPage';
 import MasterDataPage from '../features/masterdata/MasterDataPage';
 import CameraPage from '../features/operations/CameraPage';
 import CompostPage from '../features/operations/CompostPage';
@@ -54,6 +55,7 @@ export default function App() {
               <Route path="camera" element={<CameraPage />} />
             </Route>
             <Route path="insights" element={<InsightsPage />} />
+            <Route path="reports" element={<ReportsPage />} />
             <Route path="settings" element={<SettingsLayout />}>
               <Route index element={<Navigate to="users" replace />} />
               <Route path="users" element={<UsersPage />} />

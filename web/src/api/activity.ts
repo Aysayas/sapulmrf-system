@@ -10,9 +10,19 @@ export interface Activity {
   record: string;
 }
 
-export function useActivity(filters: { userId?: number; days?: number }) {
+export type ActivityCategory = '' | 'logins' | 'users' | 'approvals' | 'reports' | 'records';
+export interface ActivityFilters { userId?: number; days?: number; from?: string; to?: string; category?: ActivityCategory }
+
+export function activityQuery(f: ActivityFilters) {
   const q = new URLSearchParams();
-  if (filters.userId) q.set('user_id', String(filters.userId));
-  if (filters.days) q.set('days', String(filters.days));
-  return useQuery({ queryKey: ['activity', filters], queryFn: () => api<Activity[]>(`/activity?${q}`) });
+  if (f.userId) q.set('user_id', String(f.userId));
+  if (f.days) q.set('days', String(f.days));
+  if (f.from) q.set('from', f.from);
+  if (f.to) q.set('to', f.to);
+  if (f.category) q.set('category', f.category);
+  return q;
+}
+
+export function useActivity(filters: ActivityFilters) {
+  return useQuery({ queryKey: ['activity', filters], queryFn: () => api<Activity[]>(`/activity?${activityQuery(filters)}`) });
 }
