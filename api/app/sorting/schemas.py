@@ -1,0 +1,47 @@
+from datetime import datetime
+from typing import Annotated
+
+from pydantic import BaseModel, Field, StringConstraints
+
+Text = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
+
+
+class SuggestionIn(BaseModel):
+    """What the camera sends (the CV-result contract in docs/roadmap.md)."""
+
+    label: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)]
+    confidence: Annotated[float, Field(ge=0, le=1)]
+    model_version: Annotated[str, StringConstraints(max_length=40)] = ""
+    image_url: Annotated[str, StringConstraints(max_length=500)] = ""
+
+
+class ConfirmIn(BaseModel):
+    final_material_id: int | None = None  # leave out to accept the suggestion as it is
+    not_recyclable: bool = False
+    reason: Text = ""
+
+
+class ClassificationOut(BaseModel):
+    id: int
+    suggested_at: datetime
+    suggested: str
+    confidence: float
+    model_version: str
+    image_url: str
+    final: str | None
+    changed: bool | None
+    reason: str
+    confirmed_by: str | None
+    confirmed_at: datetime | None
+
+
+class SortRow(BaseModel):
+    material_id: int | None  # None means residual
+    bags: Annotated[int, Field(ge=0, le=1000)]
+    kg: Annotated[float, Field(gt=0, le=5000)]
+    storage_area_id: int
+
+
+class SortIn(BaseModel):
+    delivery_id: int
+    rows: Annotated[list[SortRow], Field(min_length=1, max_length=20)]

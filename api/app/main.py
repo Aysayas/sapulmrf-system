@@ -12,6 +12,7 @@ from app.devices.router import router as devices_router
 from app.intake.router import router as intake_router
 from app.masterdata.router import router as masterdata_router
 from app.settings.router import router as settings_router
+from app.sorting.router import router as sorting_router
 from app.users.router import router as users_router
 
 app = FastAPI(title="SapulMRF API", version="0.1.0")
@@ -24,6 +25,7 @@ app.include_router(masterdata_router)
 app.include_router(devices_router)
 app.include_router(settings_router)
 app.include_router(intake_router)
+app.include_router(sorting_router)
 
 
 @app.get("/health")
