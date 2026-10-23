@@ -20,7 +20,7 @@ test('admin adds a purok and a storage area in master data', async ({ adminPage:
   await drawer.getByLabel('Name').fill(area)
   await drawer.getByLabel('Capacity (kg)').fill('500')
   await page.getByRole('button', { name: 'Add storage area' }).click()
-  await expect(areas.getByText('500 kg · alert at 90%')).toBeVisible()
+  await expect(areas.getByRole('listitem').filter({ hasText: area })).toContainText('500 kg · alert at 90%')
 
   await puroks.getByRole('button', { name: `Edit ${purok}` }).click()
   await page.getByRole('dialog').getByLabel('Active').uncheck()

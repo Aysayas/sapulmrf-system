@@ -5,7 +5,8 @@ from app.activity.models import ActivityLog
 from app.cli import create_admin, remove_test_data, remove_test_users
 from app.core.security import verify_password
 from app.devices.models import Device
-from app.masterdata.models import SourceArea, StorageArea
+from app.intake.models import Delivery
+from app.masterdata.models import SourceArea, StorageArea, WasteCategory
 from app.users.models import User
 
 
@@ -47,8 +48,14 @@ def test_remove_test_data_keeps_real_areas_and_devices(db, make_user):
                 StorageArea(name="e2e Area x1", capacity_kg=10), StorageArea(name="Area A", capacity_kg=500),
                 Device(code="E2E-X1", type="compost_sensor", key_hash="a" * 64),
                 Device(code="WS-01", type="weighing_station", key_hash="b" * 64)])
+    db.flush()
+    cat = db.scalar(select(WasteCategory.id))
+    e2e_purok, real_purok = (db.scalar(select(SourceArea.id).where(SourceArea.name == n)) for n in ("e2e Purok x1", "Purok 1"))
+    db.add_all([Delivery(code="D-9001", source_area_id=e2e_purok, category_id=cat, weight_kg=5, weighed_by="manual"),
+                Delivery(code="D-9002", source_area_id=real_purok, category_id=cat, weight_kg=5, weighed_by="manual")])
     db.commit()
     counts = remove_test_data(db)
-    assert counts == {"users": 1, "source areas": 1, "storage areas": 1, "devices": 1}
+    assert counts == {"users": 1, "deliveries": 1, "source areas": 1, "storage areas": 1, "devices": 1}
+    assert db.scalars(select(Delivery.code)).all() == ["D-9002"]
     assert db.scalars(select(SourceArea.name)).all() == ["Purok 1"]
     assert db.scalars(select(Device.code)).all() == ["WS-01"]
