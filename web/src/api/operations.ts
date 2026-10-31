@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Outgoing } from './approvals';
 import { api } from './client';
 
@@ -126,3 +126,48 @@ export const useCompost = (batch?: string) =>
 export const useOutgoing = (days: number) =>
   useQuery({ queryKey: ['ops', 'outgoing', days], queryFn: () => api<OutgoingView>(`/operations/outgoing?days=${days}`), ...LIVE });
 export const useCamera =() => useQuery({ queryKey: ['ops', 'camera'], queryFn: () => api<CameraView>('/operations/camera'), refetchInterval: 10_000 });
+export const useWaiting = (waiting: 'segregation' | 'sorting') =>
+  useQuery({ queryKey: ['ops', 'intake', 'waiting', waiting], queryFn: () => api<Delivery[]>(`/operations/intake?${qs({ waiting, limit: 200 })}`), ...LIVE });
+export const usePendingClassifications = () =>
+  useQuery({ queryKey: ['ops', 'classifications'], queryFn: () => api<Classification[]>('/classifications/pending'), refetchInterval: 10_000 });
+
+export interface DeliveryIn {
+  source_area_id: number;
+  category_id: number;
+  weight_kg: number;
+  weighed_by: 'scale' | 'manual';
+  scale_kg?: number;
+  correction_reason?: string;
+}
+export interface SegregationIn { condition: 'segregated' | 'mixed'; wet_kg: number; dry_kg: number; note?: string }
+/** material_id null means residual. */
+export interface SortRow { material_id: number | null; bags: number; kg: number; storage_area_id: number }
+/** Leave out final_material_id to accept the suggestion as it is. */
+export interface ConfirmIn { final_material_id?: number | null; not_recyclable?: boolean; reason?: string }
+/** material_id null means residual. */
+export interface TransferIn { material_id: number | null; from_area_id: number; to_area_id: number; kg: number; bags: number }
+export interface TransferOut { material: string; from_area: string; to_area: string; kg: number; bags: number; from_area_kg: number; to_area_kg: number }
+export type Batch = Omit<BatchLive, 'temp_c' | 'moisture_pct' | 'read_at' | 'in_range' | 'day'>;
+/** Set finished_kg to mark the batch finished. */
+export interface BatchActivityIn { type: 'turning' | 'watering' | 'inspection'; note?: string; finished_kg?: number }
+
+/** A write changes lists, totals, alerts and the log, so it refreshes all of them. */
+function useWrite<In, Out>(request: (body: In) => Promise<Out>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: request,
+    onSuccess: () => ['ops', 'overview', 'alerts', 'activity'].forEach((k) => qc.invalidateQueries({ queryKey: [k] })),
+  });
+}
+const post = <Out,>(path: string, body: unknown) => api<Out>(path, { method: 'POST', body });
+
+export const useRecordDelivery = () => useWrite((b: DeliveryIn) => post<Delivery>('/deliveries', b));
+export const useRecordSegregation = () =>
+  useWrite(({ deliveryId, ...b }: SegregationIn & { deliveryId: number }) => post<Delivery>(`/deliveries/${deliveryId}/segregation`, b));
+export const useSortDelivery = () => useWrite((b: { delivery_id: number; rows: SortRow[] }) => post<Delivery>('/sorting', b));
+export const useConfirmClassification = () =>
+  useWrite(({ id, ...b }: ConfirmIn & { id: number }) => post<Classification>(`/classifications/${id}/confirm`, b));
+export const useTransfer = () => useWrite((b: TransferIn) => post<TransferOut>('/inventory/transfers', b));
+export const useStartBatch = () => useWrite((b: { start_kg: number }) => post<Batch>('/compost/batches', b));
+export const useLogBatchActivity = () =>
+  useWrite(({ batchId, ...b }: BatchActivityIn & { batchId: number }) => post<Batch>(`/compost/batches/${batchId}/activities`, b));

@@ -1,11 +1,13 @@
-import { NavLink, Outlet, useNavigate } from 'react-router';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useAlertSummary } from '../api/alerts';
 import { ROLE_LABEL, useLogout, useMe } from '../api/auth';
 
 const TABS = [
+  ['/op/today', 'Today'],
+  ['/op/intake', 'Intake'],
+  ['/op/sorting', 'Sort'],
   ['/op/storage', 'Storage'],
-  ['/op/outgoing', 'Outgoing'],
-  ['/op/alerts', 'Alerts'],
+  ['/op/more', 'More'],
 ] as const;
 
 /** The operator shell, phone first: top bar, one column, tab bar at the bottom. On a laptop it stays a centred column. */
@@ -13,6 +15,9 @@ export default function OperatorLayout() {
   const me = useMe().data!;
   const logout = useLogout();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  // Every screen outside the first four tabs is reached through More.
+  const inMainTab = TABS.slice(0, 4).some(([to]) => pathname.startsWith(to));
   const alerts = useAlertSummary().data?.unacknowledged ?? 0;
 
   return (
@@ -33,15 +38,15 @@ export default function OperatorLayout() {
       <main className="flex flex-1 flex-col gap-4 px-4 pt-4 pb-24">
         <Outlet />
       </main>
-      <nav aria-label="Operator" className="fixed bottom-0 left-1/2 z-10 grid w-full max-w-[480px] -translate-x-1/2 grid-cols-3 border-t border-line bg-white">
+      <nav aria-label="Operator" className="fixed bottom-0 left-1/2 z-10 grid w-full max-w-[480px] -translate-x-1/2 grid-cols-5 border-t border-line bg-white">
         {TABS.map(([to, label]) => (
           <NavLink
             key={to}
             to={to}
-            className={({ isActive }) => `flex min-h-14 items-center justify-center gap-1.5 text-sm font-semibold ${isActive ? 'bg-leaf-100 text-leaf-900' : 'text-ink-2'}`}
+            className={({ isActive }) => `flex min-h-14 items-center justify-center gap-1.5 text-sm font-semibold ${(label === 'More' ? !inMainTab : isActive) ? 'bg-leaf-100 text-leaf-900' : 'text-ink-2'}`}
           >
             {label}
-            {label === 'Alerts' && alerts > 0 && (
+            {label === 'More' && alerts > 0 && (
               <span className="rounded-full bg-crit px-2 text-xs font-bold text-white" aria-label={`${alerts} not acknowledged`}>{alerts}</span>
             )}
           </NavLink>

@@ -46,7 +46,7 @@ test('a duplicate username is shown on the field, whatever its capitals', async 
   await expect(drawer.getByText('That username is taken.')).toBeVisible()
 })
 
-test('a non-admin who logs in only sees the not-built-yet notice, and admin pages stay closed', async ({ adminPage: page, browser }) => {
+test('staff who log in land on /staff, and admin pages stay closed', async ({ adminPage: page, browser }) => {
   const staff = newAccount('staff')
   await page.goto('/admin/settings/users')
   await page.getByRole('button', { name: '+ Add user' }).click()
@@ -59,8 +59,9 @@ test('a non-admin who logs in only sees the not-built-yet notice, and admin page
 
   const other = await (await browser.newContext()).newPage()
   await logIn(other, staff.username, staff.password)
-  await expect(other.getByRole('heading', { name: 'Signed in as Authorized Barangay Staff' })).toBeVisible()
+  await expect(other).toHaveURL(/\/staff$/)
   await other.goto('/admin/settings/users')
+  await expect(other).toHaveURL(/\/staff$/)
   await expect(other.getByRole('button', { name: '+ Add user' })).toHaveCount(0)
   await expect(other.getByRole('table')).toHaveCount(0)
 })

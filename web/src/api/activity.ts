@@ -26,3 +26,8 @@ export function activityQuery(f: ActivityFilters) {
 export function useActivity(filters: ActivityFilters) {
   return useQuery({ queryKey: ['activity', filters], queryFn: () => api<Activity[]>(`/activity?${activityQuery(filters)}`) });
 }
+
+/** The caller's own history, without login or logout rows. */
+export function useMyActivity(days?: number) {
+  return useQuery({ queryKey: ['activity', 'mine', days], queryFn: () => api<Activity[]>(`/activity/mine${days ? `?days=${days}` : ''}`) });
+}

@@ -16,6 +16,9 @@ export interface AccessOverview {
 
 export const useAccess = () => useQuery({ queryKey: ['access'], queryFn: () => api<AccessOverview>('/access') });
 
+/** A staff member's own grants, for hiding tabs. The API still enforces them. */
+export const useMyAccess = () => useQuery({ queryKey: ['access', 'me'], queryFn: () => api<StaffAccess>('/access/me') });
+
 export function useSaveAccess() {
   const qc = useQueryClient();
   return useMutation({

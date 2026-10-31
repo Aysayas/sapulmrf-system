@@ -35,9 +35,10 @@ test('an operator asks for an adjustment, records outgoing residual and reports 
   const page = await phone.newPage()
   try {
     await logIn(page, op.username, op.password)
-    await expect(page).toHaveURL(/\/op\/storage$/)
+    await expect(page).toHaveURL(/\/op\/today$/)
     await page.goto('/admin')
-    await expect(page).toHaveURL(/\/op\/storage$/)
+    await expect(page).toHaveURL(/\/op\/today$/)
+    await page.getByRole('link', { name: 'Storage' }).click()
 
     // Adjustment: 10 kg on record, 9 kg counted.
     await page.getByRole('button', { name: `Request adjustment for Plastic in ${area.name}` }).click()
@@ -61,6 +62,7 @@ test('an operator asks for an adjustment, records outgoing residual and reports 
     await expect(request).toContainText('“Thanks”')
 
     // Outgoing residual for disposal.
+    await page.getByRole('link', { name: /^More/ }).click()
     await page.getByRole('link', { name: 'Outgoing' }).click()
     await page.getByRole('button', { name: '+ Record outgoing' }).click()
     const out = page.getByRole('dialog', { name: 'Record outgoing material' })
@@ -74,6 +76,7 @@ test('an operator asks for an adjustment, records outgoing residual and reports 
     await expect(page.getByRole('listitem', { name: code })).toContainText('Pending approval')
 
     // A wrong record, reported from Alerts.
+    await page.getByRole('link', { name: /^More/ }).click()
     await page.getByRole('link', { name: /^Alerts/ }).click()
     await page.getByRole('button', { name: 'Report a problem' }).click()
     const report = page.getByRole('dialog', { name: 'Report a problem' })

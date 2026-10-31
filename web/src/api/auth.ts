@@ -6,6 +6,7 @@ export type Role = 'admin' | 'operator' | 'staff';
 export interface User {
   id: number;
   name: string;
+  contact: string;
   username: string;
   role: Role;
   active: boolean;
@@ -19,8 +20,8 @@ export const ROLE_LABEL: Record<Role, string> = {
   staff: 'Authorized Barangay Staff',
 };
 
-/** Where each role lands after login. Staff screens aren't built yet; RequireRole shows them a notice. */
-export const HOME: Record<Role, string> = { admin: '/admin', operator: '/op', staff: '/admin' };
+/** Where each role lands after login. */
+export const HOME: Record<Role, string> = { admin: '/admin', operator: '/op', staff: '/staff' };
 
 /** The logged-in user, or null when there is no session. */
 export function useMe() {
@@ -47,5 +48,25 @@ export function useLogout() {
       qc.clear();
       qc.setQueryData(['me'], null);
     },
+  });
+}
+
+export function useUpdateProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { name?: string; contact?: string }) => api<User>('/auth/me', { method: 'PATCH', body }),
+    onSuccess: (user) => {
+      qc.setQueryData(['me'], user);
+      qc.invalidateQueries({ queryKey: ['activity'] });
+    },
+  });
+}
+
+/** A wrong current password comes back as a 400 whose detail is the message to show. Other browsers get signed out. */
+export function useChangePassword() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { current_password: string; new_password: string }) => api<void>('/auth/me/password', { method: 'POST', body }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['activity'] }),
   });
 }

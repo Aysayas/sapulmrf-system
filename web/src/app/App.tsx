@@ -25,7 +25,20 @@ import AdminLayout from '../layout/AdminLayout';
 import OperatorLayout from '../layout/OperatorLayout';
 import OpAlertsPage from '../features/operator/AlertsPage';
 import OpOutgoingPage from '../features/operator/OutgoingPage';
+import OpCompostPage from '../features/operator/CompostPage';
+import OpHistoryPage from '../features/operator/HistoryPage';
+import OpIntakePage from '../features/operator/IntakePage';
+import OpMorePage from '../features/operator/MorePage';
+import OpProfilePage from '../features/operator/ProfilePage';
+import OpSegregationPage from '../features/operator/SegregationPage';
+import OpSortingPage from '../features/operator/SortingPage';
 import OpStoragePage from '../features/operator/StoragePage';
+import OpTodayPage from '../features/operator/TodayPage';
+import StaffNotificationsPage from '../features/staff/NotificationsPage';
+import StaffOverviewPage from '../features/staff/OverviewPage';
+import StaffRecordsPage from '../features/staff/RecordsPage';
+import StaffReportsPage from '../features/staff/ReportsPage';
+import StaffLayout from '../layout/StaffLayout';
 import RequireRole from './RequireRole';
 
 const queryClient: QueryClient = new QueryClient({
@@ -71,10 +84,24 @@ export default function App() {
             </Route>
           </Route>
           <Route path="/op" element={<RequireRole role="operator"><OperatorLayout /></RequireRole>}>
-            <Route index element={<Navigate to="storage" replace />} />
+            <Route index element={<Navigate to="today" replace />} />
+            <Route path="today" element={<OpTodayPage />} />
+            <Route path="intake" element={<OpIntakePage />} />
+            <Route path="segregation" element={<OpSegregationPage />} />
+            <Route path="sorting" element={<OpSortingPage />} />
             <Route path="storage" element={<OpStoragePage />} />
+            <Route path="compost" element={<OpCompostPage />} />
             <Route path="outgoing" element={<OpOutgoingPage />} />
             <Route path="alerts" element={<OpAlertsPage />} />
+            <Route path="history" element={<OpHistoryPage />} />
+            <Route path="profile" element={<OpProfilePage />} />
+            <Route path="more" element={<OpMorePage />} />
+          </Route>
+          <Route path="/staff" element={<RequireRole role="staff"><StaffLayout /></RequireRole>}>
+            <Route index element={<StaffOverviewPage />} />
+            <Route path="records" element={<StaffRecordsPage />} />
+            <Route path="reports" element={<StaffReportsPage />} />
+            <Route path="notifications" element={<StaffNotificationsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>

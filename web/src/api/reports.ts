@@ -38,6 +38,11 @@ export const useReport = (p: ReportParams | null) =>
 
 export const useRecentReports = () => useQuery({ queryKey: ['reports-recent'], queryFn: () => api<RecentExport[]>('/reports/recent') });
 
+/** One past export, re-read without logging a new export. Open to admins and staff with the reports grant. */
+export const useExportView = (id: number | null) =>
+  useQuery({ queryKey: ['report-export', id], queryFn: () => api<Report>(`/reports/exports/${id}`), enabled: id !== null });
+export const downloadExport = (id: number) => download(`/reports/exports/${id}/download`);
+
 export function useExportReport() {
   const qc = useQueryClient();
   return useMutation({
