@@ -100,6 +100,29 @@ The table above was tuned on the replay it reports, so I re-ran the shipped code
 
 **So the forest is not better overall: it raises fewer false flags and misses more real outliers.** The earlier 27 of 27 was optimistic. The misses are mostly one mechanism: an outlier among a purok's first 10 deliveries is never judged, so it stays in the history and hides later weights of similar size (usual 6.6 kg, history holding 20.88 kg, new 20.36 kg not flagged). I did not tune again, because that would use up this held-out set too.
 
+### Other checks measured (no app code changed)
+Same weights in the same order, standard limits with no tuning. MAD is the modified z-score, flagging `|M| > 3.5`. These are read-only replays on simulated data, and each purok keeps its own history. The app still ships Isolation Forest.
+
+| Data | Method | Outliers caught | False flags |
+|---|---|---|---|
+| Seeds 1000-1009 | z-score 2.5 SD | 83 of 85 | 37 of 4395 |
+| Seeds 1000-1009 | Isolation Forest, shipped | 72 of 85 | 14 of 4395 |
+| Seeds 1000-1009 | MAD | 85 of 85 | 17 of 4395 |
+| Seeds 3000-3009 | z-score 2.5 SD | 69 of 70 | 56 of 4410 |
+| Seeds 3000-3009 | Isolation Forest, shipped | 58 of 70 | 10 of 4410 |
+| Seeds 3000-3009 | MAD | 70 of 70 | 34 of 4410 |
+| Seeds 3000-3009 | IQR 1.5 | 70 of 70 | 249 of 4410 |
+| Seeds 3000-3009 | Isolation Forest, weight and wet share | 31 of 70 | 0 of 4410 |
+| Dev database (749 rows) | z-score 2.5 SD | 12 of 12 | 5 of 667 |
+| Dev database (749 rows) | Isolation Forest, shipped | 12 of 12 | 1 of 667 |
+| Dev database (749 rows) | MAD | 12 of 12 | 4 of 667 |
+| Dev database (749 rows) | IQR 1.5 | 12 of 12 | 17 of 667 |
+| Dev database (749 rows) | Isolation Forest, weight and wet share | 3 of 12 | 0 of 667 |
+
+Moderate outliers on a clean 40-weight history, caught of 42 (z-score / shipped forest / MAD / IQR / two-feature forest): 1.5 x usual 39 / 7 / 5 / 33 / 0; 1.8 x usual 42 / 40 / 38 / 42 / 0; 2.2 x usual 42 / 42 / 42 / 42 / 3.
+
+MAD caught every planted outlier with fewer false flags than the z-score, but it misses most 1.5 x weights. The simulator plants outliers only at 2.5 to 3.5 x, so these results favour methods that are strict on smaller surprises. It also plants nothing in wet share, so the two-feature result shows the extra column hurts weight detection, not its value for odd combinations.
+
 ### Access and data rules found in review
 - Staff get `/operations/outgoing` without income, price or total. Before, only the screen hid them.
 - Staff exports leave out income always, and segregation without its grant. Viewing and downloading an export are now logged, for admins too.
