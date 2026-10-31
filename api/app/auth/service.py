@@ -1,3 +1,4 @@
+import time
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, select
@@ -11,6 +12,21 @@ from app.core.errors import AppError
 from app.core.security import hash_password, new_session_token, token_hash, verify_password
 from app.users.models import User
 
+# shortcut: counted per process, fine for one API process. Needs a shared store if it ever runs several workers.
+FAILED_LOGINS: dict[str, list[float]] = {}
+MAX_FAILURES_PER_IP = 30
+IP_WINDOW_S = 300
+
+
+def _failures_from(ip: str) -> int:
+    cutoff = time.monotonic() - IP_WINDOW_S
+    recent = [t for t in FAILED_LOGINS.get(ip, []) if t > cutoff]
+    if recent:
+        FAILED_LOGINS[ip] = recent
+    else:
+        FAILED_LOGINS.pop(ip, None)
+    return len(recent)
+
 
 def _refuse_if_locked(user: User, now: datetime) -> None:
     if user.locked_until and user.locked_until > now:
@@ -18,7 +34,8 @@ def _refuse_if_locked(user: User, now: datetime) -> None:
         raise AppError(423, f"Too many wrong passwords. Try again in {minutes} minute{'s' if minutes > 1 else ''}.")
 
 
-def _count_wrong_password(db: DbSession, user: User, now: datetime) -> None:
+def _count_wrong_password(db: DbSession, user_id: int, now: datetime) -> None:
+    user = db.get(User, user_id, with_for_update=True, populate_existing=True)  # parallel guesses must each count
     user.failed_attempts += 1
     if user.failed_attempts >= settings.lockout_attempts:
         user.locked_until = now + timedelta(minutes=settings.lockout_minutes)
@@ -27,17 +44,22 @@ def _count_wrong_password(db: DbSession, user: User, now: datetime) -> None:
     db.commit()
 
 
-def login(db: DbSession, username: str, password: str) -> tuple[User, str]:
+def login(db: DbSession, username: str, password: str, ip: str = "") -> tuple[User, str]:
     """Checks the password and opens a session. Returns the user and the cookie token."""
+    if _failures_from(ip) >= MAX_FAILURES_PER_IP:
+        raise AppError(429, "Too many failed logins from this device. Try again in a few minutes.")
     now = datetime.now(UTC)
     user = db.scalar(select(User).where(User.username == username.strip().lower()))  # usernames are lowercase
 
     if user:
         _refuse_if_locked(user, now)
 
-    if not verify_password(password, user.password_hash if user else None):
-        if user:
-            _count_wrong_password(db, user, now)
+    user_id, stored = (user.id, user.password_hash) if user else (None, None)
+    db.rollback()  # hashing is slow on purpose, so a flood of logins mustn't hold every database connection
+    if not verify_password(password, stored):
+        FAILED_LOGINS.setdefault(ip, []).append(time.monotonic())
+        if user_id:
+            _count_wrong_password(db, user_id, now)
         raise AppError(401, "Wrong username or password.")
 
     if not user.active:
@@ -71,7 +93,7 @@ def change_password(db: DbSession, user: User, data: PasswordIn, token: str | No
     now = datetime.now(UTC)
     _refuse_if_locked(user, now)
     if not verify_password(data.current_password, user.password_hash):
-        _count_wrong_password(db, user, now)  # same limit as login, or this is an unthrottled password guesser
+        _count_wrong_password(db, user.id, now)  # same limit as login, or this is an unthrottled password guesser
         raise AppError(400, "Your current password is wrong.")  # not 401: the session is still good
     if data.new_password == data.current_password:
         raise AppError(422, "Pick a password different from the current one.")

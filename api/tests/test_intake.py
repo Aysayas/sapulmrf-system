@@ -5,7 +5,7 @@ from app.activity.models import ActivityLog
 
 def delivery(world, **over):
     body = {"source_area_id": world["purok1"], "category_id": world["cat"]["Mixed household"], "weight_kg": 12.4,
-            "weighed_by": "scale"}
+            "weighed_by": "manual"}
     return {**body, **over}
 
 

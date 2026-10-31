@@ -16,6 +16,7 @@ from app.users.models import User
 # Wet + dry may come out a little heavier than the bag was (wet waste, rounding), but not by this much.
 SEGREGATION_TOLERANCE = 1.10
 UNDO_WINDOW = timedelta(minutes=30)
+READING_MAX_AGE = timedelta(minutes=10)
 
 
 def out(db: DbSession, d: Delivery) -> DeliveryOut:
@@ -38,6 +39,16 @@ def _active(db: DbSession, model, item_id: int, what: str):
     return item
 
 
+def _fresh_reading(db: DbSession, device_id: int | None) -> float:
+    dev = db.get(Device, device_id) if device_id is not None else None
+    if not dev or dev.type != "weighing_station":
+        raise AppError(422, "A scale weight needs its weighing station. Otherwise record it as manual.")
+    reading = dev.last_reading or {}
+    if "kg" not in reading or datetime.now(UTC) - datetime.fromisoformat(reading["at"]) > READING_MAX_AGE:
+        raise AppError(422, f"{dev.code} has no recent reading. Weigh it again, or record it as manual.")
+    return reading["kg"]
+
+
 def record_delivery(db: DbSession, data: DeliveryIn, actor: User, at: datetime | None = None) -> Delivery:
     """at is only passed by the history backfill; live records always use the server's clock."""
     if data.client_key:
@@ -47,7 +58,10 @@ def record_delivery(db: DbSession, data: DeliveryIn, actor: User, at: datetime |
             return first
     area = _active(db, SourceArea, data.source_area_id, "source area")
     _active(db, WasteCategory, data.category_id, "waste category")
-    corrected = data.scale_kg is not None and abs(data.scale_kg - data.weight_kg) > 0.001
+    scale_kg = data.scale_kg
+    if data.weighed_by == "scale" and not at:  # the scale's own reading, not what the request claims it said
+        scale_kg = _fresh_reading(db, data.device_id)
+    corrected = scale_kg is not None and abs(scale_kg - data.weight_kg) > 0.001
     if corrected and not data.correction_reason:
         raise AppError(422, "Say why you corrected the scale reading.")
     if data.device_id is not None:
@@ -56,7 +70,7 @@ def record_delivery(db: DbSession, data: DeliveryIn, actor: User, at: datetime |
             raise AppError(422, "That isn't a registered weighing station.")
     d = Delivery(
         source_area_id=area.id, category_id=data.category_id, weight_kg=round(data.weight_kg, 2),
-        weighed_by=data.weighed_by, scale_kg=round(data.scale_kg, 2) if corrected else None,
+        weighed_by=data.weighed_by, scale_kg=round(scale_kg, 2) if corrected else None,
         correction_reason=data.correction_reason if corrected else None, recorded_by=actor.id, device_id=data.device_id,
         client_key=data.client_key,
     )

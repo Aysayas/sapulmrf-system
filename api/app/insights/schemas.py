@@ -63,7 +63,7 @@ class Predictions(BaseModel):
     avg_error_pct: float | None
     outlook: list[Outlook]
     schedule: list[Suggestion]
-    camera: CameraAccuracy
+    camera: CameraAccuracy | None  # None for staff without the camera grant
 
 
 class FlagOut(BaseModel):

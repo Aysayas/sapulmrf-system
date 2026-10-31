@@ -23,7 +23,7 @@ test('an operator asks for an adjustment, records outgoing residual and reports 
     expect(r.ok(), await r.text()).toBe(true)
     return r.json()
   }
-  const d = await post('/deliveries', { source_area_id: purok.id, category_id: mixed, weight_kg: 14, weighed_by: 'scale' })
+  const d = await post('/deliveries', { source_area_id: purok.id, category_id: mixed, weight_kg: 14, weighed_by: 'manual' })
   await post(`/deliveries/${d.id}/segregation`, { condition: 'mixed', wet_kg: 1, dry_kg: 13 })
   await post('/sorting', { delivery_id: d.id, rows: [
     { material_id: plastic, bags: 4, kg: 10, storage_area_id: area.id },

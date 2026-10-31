@@ -21,7 +21,7 @@ async function setUp(page: Page, baseURL: string) {
     expect(r.ok(), await r.text()).toBe(true)
     return r.json()
   }
-  const d = await post('/deliveries', { source_area_id: purok.id, category_id: cat('Mixed household'), weight_kg: 14, weighed_by: 'scale' })
+  const d = await post('/deliveries', { source_area_id: purok.id, category_id: cat('Mixed household'), weight_kg: 14, weighed_by: 'manual' })
   await post(`/deliveries/${d.id}/segregation`, { condition: 'mixed', wet_kg: 4, dry_kg: 10 })
   await post('/sorting', { delivery_id: d.id, rows: [{ material_id: plastic, bags: 4, kg: 10, storage_area_id: area.id }] })
   return { operator, post, purok, area, plastic, cat }
@@ -68,7 +68,7 @@ test('marking a corrected weight OK takes it off the list', async ({ adminPage: 
   const { operator, post, purok, cat } = await setUp(page, baseURL!)
   try {
     const d = await post('/deliveries', {
-      source_area_id: purok.id, category_id: cat('Recyclable'), weight_kg: 9.85, weighed_by: 'scale', scale_kg: 10.05, correction_reason: 'Bag touched the edge',
+      source_area_id: purok.id, category_id: cat('Recyclable'), weight_kg: 9.85, weighed_by: 'manual', scale_kg: 10.05, correction_reason: 'Bag touched the edge',
     })
     await page.goto('/admin/approvals?tab=weights')
     const row = page.getByRole('table', { name: 'Corrected weights' }).getByRole('row').filter({ hasText: d.code })

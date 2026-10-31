@@ -120,10 +120,10 @@ function Ready({ p, category, setCategory }: { p: Predictions; category: number;
           </ul>
           <p className="mt-2 text-xs text-muted">A plan only. The operator still records each sale or pickup for approval.</p>
         </section>
-        <section aria-label="Camera accuracy" className="flex flex-col gap-3">
+        {p.camera && <section aria-label="Camera accuracy" className="flex flex-col gap-3">
           <Kpi label="Camera suggestions kept" value={`${p.camera.kept_pct}%`} sub={`${p.camera.kept} of ${p.camera.confirmed} in the last 30 days`} />
           <Kpi label="Operator changes marked wrong" value={String(p.camera.reviewed_wrong)} sub={`of ${p.camera.changed} changes, from your reviews`} />
-        </section>
+        </section>}
       </div>
 
       <section aria-label="Predicted vs actual" className="flex flex-col gap-2">

@@ -7,7 +7,7 @@ from app.sorting.schemas import ConfirmIn, SuggestionIn
 
 def deliveries(client, world):
     """One delivery straight from the scale, one the operator corrected."""
-    base = {"source_area_id": world["purok1"], "category_id": world["cat"]["Recyclable"], "weighed_by": "scale"}
+    base = {"source_area_id": world["purok1"], "category_id": world["cat"]["Recyclable"], "weighed_by": "manual"}
     plain = client.post("/deliveries", json={**base, "weight_kg": 8.0}).json()
     fixed = client.post("/deliveries", json={**base, "weight_kg": 9.85, "scale_kg": 10.05,
                                              "correction_reason": "Bag touched the edge"}).json()

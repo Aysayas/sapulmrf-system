@@ -10,6 +10,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from app.core.csvsafe import safe_row
 from app.reports.schemas import Report
 
 ORG = "Barangay Sapul MRF"  # placeholder name
@@ -19,12 +20,12 @@ def to_csv(r: Report) -> bytes:
     out = io.StringIO()
     w = csv.writer(out)
     w.writerow([ORG, r.title])
-    w.writerow([r.subtitle])
-    for label, value in r.summary:
-        w.writerow([label, value])
+    w.writerow(safe_row([r.subtitle]))
+    for row in r.summary:
+        w.writerow(safe_row(row))
     w.writerow([])
     w.writerow(r.columns)
-    w.writerows(r.rows)
+    w.writerows(safe_row(row) for row in r.rows)
     return b"\xef\xbb\xbf" + out.getvalue().encode()  # BOM so Excel reads it as UTF-8
 
 

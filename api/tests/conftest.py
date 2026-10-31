@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
+from app.auth.service import FAILED_LOGINS
 from app.core.config import settings
 from app.core.db import get_db
 from app.core.security import hash_password
@@ -32,6 +33,11 @@ def engine():
         seed(conn)
     yield eng
     eng.dispose()
+
+
+@pytest.fixture(autouse=True)
+def fresh_login_counts():
+    FAILED_LOGINS.clear()
 
 
 @pytest.fixture

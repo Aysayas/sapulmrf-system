@@ -13,8 +13,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=UserOut)
-def login(body: LoginIn, response: Response, db: DbSession = Depends(get_db)):
-    user, token = service.login(db, body.username, body.password)
+def login(body: LoginIn, request: Request, response: Response, db: DbSession = Depends(get_db)):
+    user, token = service.login(db, body.username, body.password, request.client.host if request.client else "")
     response.set_cookie(COOKIE, token, max_age=settings.session_hours * 3600, httponly=True, samesite="lax",
                         secure=settings.cookie_secure, path="/")
     return user

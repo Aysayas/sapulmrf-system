@@ -4,6 +4,7 @@ import { newAccount } from './fixtures/users'
 // Runs on the mobile project (390 × 844). Everything the operator does goes through the screens; setup uses the admin API.
 
 test('an operator takes a delivery through the whole day from a phone, then changes their password', async ({ adminPage: admin, browser, baseURL }) => {
+  test.setTimeout(60_000)  // the longest journey in the suite
   const id = Date.now().toString(36)
   const made = async (path: string, data: object) => {
     const r = await admin.request.post(`/api${path}`, { data })

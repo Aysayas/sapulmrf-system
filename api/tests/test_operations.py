@@ -3,7 +3,7 @@ from app.access.models import StaffAccess
 
 def deliver(client, world, purok, condition, weight=10.0, dry=6.0):
     d = client.post("/deliveries", json={"source_area_id": world[purok], "category_id": world["cat"]["Mixed household"],
-                                         "weight_kg": weight, "weighed_by": "scale"}).json()
+                                         "weight_kg": weight, "weighed_by": "manual"}).json()
     client.post(f"/deliveries/{d['id']}/segregation", json={"condition": condition, "wet_kg": weight - dry, "dry_kg": dry})
     return d
 

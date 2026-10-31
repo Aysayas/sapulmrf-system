@@ -9,7 +9,7 @@ def suggest(db, world, label="Plastic", confidence=0.92):
 
 def separated_delivery(client, world, weight=12.0, dry=7.0):
     d = client.post("/deliveries", json={"source_area_id": world["purok1"], "category_id": world["cat"]["Mixed household"],
-                                         "weight_kg": weight, "weighed_by": "scale"}).json()
+                                         "weight_kg": weight, "weighed_by": "manual"}).json()
     client.post(f"/deliveries/{d['id']}/segregation", json={"condition": "mixed", "wet_kg": weight - dry, "dry_kg": dry})
     return d
 
@@ -58,7 +58,7 @@ def test_sorting_adds_to_stock_and_finishes_the_delivery(client, world, as_opera
 
 def test_sorting_waits_for_the_segregation_check(client, world, as_operator):
     d = client.post("/deliveries", json={"source_area_id": world["purok1"], "category_id": world["cat"]["Recyclable"],
-                                         "weight_kg": 3, "weighed_by": "scale"}).json()
+                                         "weight_kg": 3, "weighed_by": "manual"}).json()
     rows = [{"material_id": world["mat"]["Metal"], "bags": 1, "kg": 2, "storage_area_id": world["area_a"]}]
     r = client.post("/sorting", json={"delivery_id": d["id"], "rows": rows})
     assert r.status_code == 409 and "segregation" in r.json()["detail"]

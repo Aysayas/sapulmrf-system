@@ -13,7 +13,7 @@ test('sending again from a reopened form after a lost response records the outgo
 
   const api = await newRequest.newContext({ baseURL })
   await api.post('/api/auth/login', { data: { username: op.username, password: op.password } })
-  const d = await api.post('/api/deliveries', { data: { source_area_id: purok.id, category_id: mixed, weight_kg: 5, weighed_by: 'scale' } }).then((r) => r.json())
+  const d = await api.post('/api/deliveries', { data: { source_area_id: purok.id, category_id: mixed, weight_kg: 5, weighed_by: 'manual' } }).then((r) => r.json())
   await api.post(`/api/deliveries/${d.id}/segregation`, { data: { condition: 'mixed', wet_kg: 1, dry_kg: 4 } })
   await api.post('/api/sorting', { data: { delivery_id: d.id, rows: [{ material_id: null, bags: 1, kg: 3, storage_area_id: area.id }] } })
   await api.dispose()

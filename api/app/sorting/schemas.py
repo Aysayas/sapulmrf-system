@@ -14,7 +14,7 @@ class SuggestionIn(BaseModel):
     label: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)]
     confidence: Annotated[float, Field(ge=0, le=1)]
     model_version: Annotated[str, StringConstraints(max_length=40)] = ""
-    image_url: Annotated[str, StringConstraints(max_length=500)] = ""
+    image_url: Annotated[str, StringConstraints(max_length=500, pattern=r"^(https?://\S+)?$")] = ""  # it reaches <img src>
 
 
 class ConfirmIn(BaseModel):

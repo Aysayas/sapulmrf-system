@@ -19,7 +19,7 @@ export interface Predictions {
   avg_error_pct: number | null;
   outlook: { area: string; pct: number; kg: number; capacity_kg: number; alert_pct: number; per_day_kg: number; days_to_full: number | null; days_to_alert: number | null }[];
   schedule: { on: string; what: string; why: string }[];
-  camera: { confirmed: number; kept: number; kept_pct: number; changed: number; reviewed_wrong: number };
+  camera: { confirmed: number; kept: number; kept_pct: number; changed: number; reviewed_wrong: number } | null;
 }
 export interface Flag {
   id: number;

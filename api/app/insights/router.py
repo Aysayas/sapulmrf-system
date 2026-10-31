@@ -6,7 +6,7 @@ from app.core.deps import require_role
 from app.insights import service
 from app.insights.models import ALL
 from app.insights.schemas import FlagDecision, FlagOut, Predictions
-from app.operations.router import viewer
+from app.operations.router import granted, viewer
 from app.users.models import User
 
 router = APIRouter(prefix="/insights", tags=["insights"])
@@ -15,8 +15,11 @@ admin_only = require_role("admin")
 
 
 @router.get("/predictions", response_model=Predictions)
-def predictions(category: int = ALL, db: DbSession = Depends(get_db), _: User = Depends(predictions_viewer)):
-    return service.predictions(db, category)
+def predictions(category: int = ALL, db: DbSession = Depends(get_db), actor: User = Depends(predictions_viewer)):
+    result = service.predictions(db, category)
+    if not granted(db, actor, "camera"):
+        result.camera = None
+    return result
 
 
 @router.get("/flags", response_model=list[FlagOut])

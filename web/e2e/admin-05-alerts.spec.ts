@@ -18,7 +18,7 @@ test('a storage area past its alert level raises an alert the admin can acknowle
   try {
     await operator.post('/api/auth/login', { data: { username: op.username, password: op.password } })
     const post = (path: string, data: object) => operator.post(`/api${path}`, { data }).then((r) => r.json())
-    const d = await post('/deliveries', { source_area_id: purok.id, category_id: mixed, weight_kg: 12, weighed_by: 'scale' })
+    const d = await post('/deliveries', { source_area_id: purok.id, category_id: mixed, weight_kg: 12, weighed_by: 'manual' })
     await post(`/deliveries/${d.id}/segregation`, { condition: 'mixed', wet_kg: 3, dry_kg: 9 })
     await post('/sorting', { delivery_id: d.id, rows: [{ material_id: null, bags: 3, kg: 9, storage_area_id: area.id }] })  // 90% of 10 kg
 

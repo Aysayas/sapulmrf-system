@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.activity.models import ActivityLog
 from app.activity.schemas import ActivityOut
 from app.core.config import settings
+from app.core.csvsafe import safe_row
 from app.users.models import User
 
 TZ = ZoneInfo(settings.timezone)
@@ -57,5 +58,5 @@ def to_csv(items: list[ActivityOut]) -> bytes:
     out = io.StringIO()
     w = csv.writer(out)
     w.writerow(["When", "Who", "Action", "Record"])
-    w.writerows([i.at.astimezone(TZ).strftime("%Y-%m-%d %H:%M"), i.who, i.action, i.record] for i in items)
+    w.writerows(safe_row([i.at.astimezone(TZ).strftime("%Y-%m-%d %H:%M"), i.who, i.action, i.record]) for i in items)
     return codecs.BOM_UTF8 + out.getvalue().encode()

@@ -34,7 +34,7 @@ test('an unusually heavy delivery is flagged, and the admin marks it a false ala
   try {
     await operator.post('/api/auth/login', { data: { username: op.username, password: op.password } })
     const deliver = (kg: number) =>
-      operator.post('/api/deliveries', { data: { source_area_id: purok.id, category_id: mixed, weight_kg: kg, weighed_by: 'scale' } }).then((r) => r.json())
+      operator.post('/api/deliveries', { data: { source_area_id: purok.id, category_id: mixed, weight_kg: kg, weighed_by: 'manual' } }).then((r) => r.json())
     for (const kg of [7.5, 8.0, 8.5, 7.8, 8.2, 7.9, 8.1, 8.4, 7.6, 8.0]) await deliver(kg)
     const heavy = await deliver(24.0)  // about 3× this purok's usual
 
