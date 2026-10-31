@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useAlertSummary } from '../api/alerts';
 import { ROLE_LABEL, useLogout, useMe } from '../api/auth';
@@ -36,7 +37,7 @@ export default function OperatorLayout() {
         </button>
       </header>
       <main className="flex flex-1 flex-col gap-4 px-4 pt-4 pb-24">
-        <Outlet />
+        <Suspense fallback={<p className="text-muted">Loading…</p>}><Outlet /></Suspense>
       </main>
       <nav aria-label="Operator" className="fixed bottom-0 left-1/2 z-10 grid w-full max-w-[480px] -translate-x-1/2 grid-cols-5 border-t border-line bg-white">
         {TABS.map(([to, label]) => (

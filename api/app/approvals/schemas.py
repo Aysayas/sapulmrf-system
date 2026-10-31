@@ -88,7 +88,7 @@ class OutgoingOut(Decided):
     recipient: str
     price_per_kg: float | None
     total: float | None
-    available_kg: float  # in that area (or compost on hand) right now
+    available_kg: float | None  # in that area (or compost on hand) right now; left out of lists of past records
     area_kg: float | None
     area_after_kg: float | None
     capacity_kg: int | None

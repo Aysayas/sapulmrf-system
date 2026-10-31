@@ -3,7 +3,7 @@
 A forecast made on day D only uses deliveries up to D-1, and predicts D..D+6. Its error is measured later from the
 forecast made on the day itself (1 day ahead), so scores are never computed with hindsight."""
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Literal
 
 import numpy as np
@@ -30,7 +30,11 @@ def _local_day():
 def daily_kg(db: DbSession, category_id: int, start: date, end: date) -> list[float]:
     """kg received per Manila day from start to end (inclusive); days with no deliveries are 0."""
     day = _local_day()
-    q = select(day, func.sum(Delivery.weight_kg)).where(day >= start, day <= end).group_by(day)
+    # The received_at bounds let the index narrow it down, a day wider than Manila's offset; the day filter is exact.
+    first = datetime.combine(start, time.min, UTC) - timedelta(days=1)
+    last = datetime.combine(end, time.min, UTC) + timedelta(days=2)
+    q = (select(day, func.sum(Delivery.weight_kg)).where(Delivery.received_at >= first, Delivery.received_at < last, day >= start,
+                                                         day <= end).group_by(day))
     if category_id != ALL:
         q = q.where(Delivery.category_id == category_id)
     got = {d: float(kg) for d, kg in db.execute(q)}

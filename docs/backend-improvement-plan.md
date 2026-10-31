@@ -65,3 +65,23 @@ Everything listed under "Not doing" in the approved plan. Also: no per-table `up
 - All timings and accuracy come from simulated data on this laptop.
 - Races labelled PLAUSIBLE were never run concurrently.
 - CSV behaviour wasn't checked in real Excel.
+
+## Group 5 results
+Same method as the baseline, measured after the fixes. Medians in ms; simulated data had grown slightly between the two runs.
+
+| Endpoint | Before ms | After ms | Before queries | After queries |
+|---|---|---|---|---|
+| `/operations/outgoing?days=30` | 242 | 22 | 245 | 10 |
+| `/operations/intake` | 165 | 19 | 201 | 5 |
+| `/insights/flags` | 91 | 29 | 106 | 5 |
+| `/operations/sorting` | 85 | 21 | 53 | 10 |
+| `/operations/camera` | 93 | 19 | 59 | 8 |
+| `/approvals` | 185 | 161 | 182 | 86 |
+| `/insights/predictions` | 77 | 67 | 31 | 31 |
+| `/overview` | 49 | 45 | 31 | 31 |
+
+- **Admin shell:** now polls `/approvals/counts` (5 queries, 21 ms) instead of the whole `/approvals`.
+- **`/approvals`:** barely faster, because the approval screen does need its ledger sums. Left as it is.
+- **`/insights/predictions`:** the date bounds on `daily_kg` didn't change the timing at this size. They only matter once there's much more history.
+- **First-load script:** one 1,015 KB file became a 465 KB main file, plus 394 KB of charts loaded only by pages that use them. Other pages load as small separate files.
+- **Indexes added:** `compost_readings (batch_id, read_at)`, `stock_movements (delivery_id)`. Their effect wasn't measured separately.

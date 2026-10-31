@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DbSession
 
 from app.activity.service import log
+from app.core.db import preload
 from app.core.errors import AppError
 from app.insights import forecast as fc
 from app.insights import schemas as s
@@ -191,6 +192,9 @@ def flag_out(db: DbSession, f: Flag) -> s.FlagOut:
 
 def open_flags(db: DbSession, limit: int = 200) -> list[s.FlagOut]:
     rows = db.scalars(select(Flag).where(Flag.status == "open").order_by(Flag.found_at.desc(), Flag.id.desc()).limit(limit))
+    rows = list(rows)
+    _ = preload(db, User, SourceArea, WasteCategory)
+    held = db.scalars(select(Delivery).where(Delivery.id.in_(f.delivery_id for f in rows))).all()  # noqa: F841
     return [flag_out(db, f) for f in rows]
 
 

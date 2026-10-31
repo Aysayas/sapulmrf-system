@@ -34,7 +34,7 @@ export interface Outgoing extends Decided {
   recipient: string;
   price_per_kg: number | null;
   total: number | null;
-  available_kg: number;
+  available_kg: number | null; // null in lists of past records
   area_kg: number | null;
   area_after_kg: number | null;
   capacity_kg: number | null;
@@ -48,6 +48,8 @@ export interface Approvals {
 
 export const OUTGOING_TYPE = { sale: 'Recyclable sale', compost: 'Compost given out', disposal: 'Residual for disposal' } as const;
 
+export const useApprovalCounts = () =>
+  useQuery({ queryKey: ['approvals', 'counts'], queryFn: () => api<Record<string, number>>('/approvals/counts'), refetchInterval: 30_000 });
 export const useApprovals = () => useQuery({ queryKey: ['approvals'], queryFn: () => api<Approvals>('/approvals'), refetchInterval: 30_000 });
 export const useWeightReviews = () => useQuery({ queryKey: ['reviews', 'weights'], queryFn: () => api<Delivery[]>('/reviews/weights') });
 export const useChangeReviews = () =>

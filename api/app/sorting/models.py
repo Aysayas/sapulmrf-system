@@ -46,7 +46,7 @@ class StockMovement(Base):
     kg: Mapped[float]
     bags: Mapped[int] = mapped_column(default=0)
     kind: Mapped[str] = mapped_column(String(12))
-    delivery_id: Mapped[int | None] = mapped_column(ForeignKey("deliveries.id", ondelete="SET NULL"), default=None)
+    delivery_id: Mapped[int | None] = mapped_column(ForeignKey("deliveries.id", ondelete="SET NULL"), default=None, index=True)
     by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), default=None)
     note: Mapped[str] = mapped_column(String(200), default="")
     client_key: Mapped[str | None] = mapped_column(String(36), unique=True, default=None)  # on a transfer's source row

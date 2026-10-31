@@ -8,7 +8,7 @@ from app.activity.service import log
 from app.approvals.models import AdjustmentRequest, Outgoing
 from app.approvals.schemas import AdjustmentIn, AdjustmentOut, ApprovalsOut, DecisionIn, OutgoingIn, OutgoingOut, ReviewIn
 from app.compost.models import CompostBatch
-from app.core.db import advisory_lock
+from app.core.db import advisory_lock, preload
 from app.core.errors import AppError
 from app.insights.models import Flag
 from app.intake import service as intake
@@ -55,16 +55,19 @@ def adjustment_out(db: DbSession, r: AdjustmentRequest) -> AdjustmentOut:
                          decided_by=_name(db, r.decided_by), decided_at=r.decided_at, comment=r.comment)
 
 
-def outgoing_out(db: DbSession, o: Outgoing) -> OutgoingOut:
+def outgoing_out(db: DbSession, o: Outgoing, balances: bool = True) -> OutgoingOut:
+    """balances: the ledger sums the approval screen shows. Lists of past records don't need them."""
     area = db.get(StorageArea, o.storage_area_id) if o.storage_area_id else None
-    area_kg = stock_kg(db, area.id) if area else None
-    available = material_kg(db, o.material_id, area.id) if area else compost_on_hand(db)
+    area_kg = stock_kg(db, area.id) if area and balances else None
+    available = None
+    if balances:
+        available = material_kg(db, o.material_id, area.id) if area else compost_on_hand(db)
     return OutgoingOut(id=o.id, code=o.code, requested_at=o.requested_at, type=o.type,
                        material="Compost" if o.type == "compost" else _material(db, o.material_id),
                        area=area.name if area else None, kg=o.kg, recipient=o.recipient,
                        price_per_kg=float(o.price_per_kg) if o.price_per_kg is not None else None,
                        total=float(o.total) if o.total is not None else None, available_kg=available,
-                       area_kg=area_kg, area_after_kg=round(area_kg - o.kg, 2) if area else None,
+                       area_kg=area_kg, area_after_kg=round(area_kg - o.kg, 2) if area_kg is not None else None,
                        capacity_kg=area.capacity_kg if area else None, status=o.status,
                        requested_by=_name(db, o.requested_by), decided_by=_name(db, o.decided_by),
                        decided_at=o.decided_at, comment=o.comment)
@@ -185,12 +188,13 @@ UNREVIEWED_CHANGES = (Classification.changed.is_(True), Classification.review.is
 
 def weights_to_review(db: DbSession, limit: int = 100) -> list[DeliveryOut]:
     rows = db.scalars(select(Delivery).where(*UNREVIEWED_WEIGHTS).order_by(Delivery.received_at.desc()).limit(limit))
-    return [intake.out(db, d) for d in rows]
+    return intake.out_many(db, list(rows))
 
 
 def changes_to_review(db: DbSession, limit: int = 100) -> list[ClassificationOut]:
     rows = db.scalars(select(Classification).where(*UNREVIEWED_CHANGES)
                       .order_by(Classification.confirmed_at.desc()).limit(limit))
+    _ = preload(db, User, Material)
     return [sorting.out(db, c) for c in rows]
 
 
@@ -234,6 +238,7 @@ def counts(db: DbSession) -> dict[str, int]:
 
 
 def pending(db: DbSession) -> ApprovalsOut:
+    _ = preload(db, User, Material, StorageArea)
     adjustments = db.scalars(select(AdjustmentRequest).where(AdjustmentRequest.status == "pending")
                              .order_by(AdjustmentRequest.requested_at)).all()
     outgoing = db.scalars(select(Outgoing).where(Outgoing.status == "pending").order_by(Outgoing.requested_at)).all()

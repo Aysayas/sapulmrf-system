@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DbSession
 
 from app.activity.service import log
+from app.core.db import preload
 from app.core.errors import AppError
 from app.devices.models import Device
 from app.insights import flags
@@ -48,6 +49,7 @@ def create_suggestion(db: DbSession, device: Device | None, data: SuggestionIn,
 def pending(db: DbSession, limit: int) -> list[ClassificationOut]:
     rows = db.scalars(select(Classification).where(Classification.confirmed_at.is_(None))
                       .order_by(Classification.suggested_at.desc(), Classification.id.desc()).limit(limit))
+    _ = preload(db, User, Material)
     return [out(db, c) for c in rows]
 
 

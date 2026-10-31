@@ -92,7 +92,7 @@ function DecisionDrawer({ open, onClose, onDone }: { open: Open; onClose: () => 
   const [comment, setComment] = useState('');
   const { kind, row } = open;
   const name = kind === 'outgoing' ? `${row.code} · ${OUTGOING_TYPE[row.type]}` : `Adjustment · ${row.material}, ${row.area}`;
-  const short = kind === 'outgoing' && row.available_kg < row.kg;
+  const short = kind === 'outgoing' && row.available_kg! < row.kg;
 
   const [needReason, setNeedReason] = useState(false);
   const send = (decision: 'approve' | 'reject') =>
@@ -103,7 +103,7 @@ function DecisionDrawer({ open, onClose, onDone }: { open: Open; onClose: () => 
   const facts: [string, string][] = kind === 'outgoing'
     ? [
         ['Material', row.material],
-        ['From', row.area ? `${row.area} · ${kg(row.available_kg)} in stock` : `Finished compost · ${kg(row.available_kg)} on hand`],
+        ['From', row.area ? `${row.area} · ${kg(row.available_kg!)} in stock` : `Finished compost · ${kg(row.available_kg!)} on hand`],
         ['Quantity', kg(row.kg)],
         [row.type === 'sale' ? 'Buyer' : 'Recipient', row.recipient],
         ...(row.price_per_kg !== null ? [['Price per kg', peso(row.price_per_kg)], ['Total', peso(row.total ?? 0)]] as [string, string][] : []),
@@ -148,8 +148,8 @@ function DecisionDrawer({ open, onClose, onDone }: { open: Open; onClose: () => 
 }
 
 function afterApproval({ kind, row }: Open) {
-  if (kind === 'outgoing' && row.available_kg < row.kg) return `Only ${kg(row.available_kg)} available. Reject it, or ask the operator for a new count.`;
-  if (kind === 'outgoing' && row.area === null) return `After approval: compost on hand ${kg(row.available_kg)} → ${kg(row.available_kg - row.kg)}`;
+  if (kind === 'outgoing' && row.available_kg! < row.kg) return `Only ${kg(row.available_kg!)} available. Reject it, or ask the operator for a new count.`;
+  if (kind === 'outgoing' && row.area === null) return `After approval: compost on hand ${kg(row.available_kg!)} → ${kg(row.available_kg! - row.kg)}`;
   const after = row.area_after_kg ?? 0;
   const cap = row.capacity_kg ?? 0;
   return `After approval: ${row.area} ${kg(row.area_kg ?? 0)} → ${kg(after)} (${cap ? Math.round((after / cap) * 100) : 0}% full)`;

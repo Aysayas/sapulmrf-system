@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from app.activity.service import log
-from app.core.db import advisory_lock
+from app.core.db import advisory_lock, preload
 from app.core.errors import AppError
 from app.devices.models import Device
 from app.insights import flags
@@ -19,8 +19,9 @@ UNDO_WINDOW = timedelta(minutes=30)
 READING_MAX_AGE = timedelta(minutes=10)
 
 
-def out(db: DbSession, d: Delivery) -> DeliveryOut:
-    seg = db.scalar(select(SegregationCheck).where(SegregationCheck.delivery_id == d.id))
+def out(db: DbSession, d: Delivery, checks: dict[int, SegregationCheck] | None = None) -> DeliveryOut:
+    one = select(SegregationCheck).where(SegregationCheck.delivery_id == d.id)
+    seg = checks.get(d.id) if checks is not None else db.scalar(one)
     by = db.get(User, d.recorded_by) if d.recorded_by else None
     return DeliveryOut(
         id=d.id, code=d.code, received_at=d.received_at, source_area=db.get(SourceArea, d.source_area_id).name,
@@ -30,6 +31,13 @@ def out(db: DbSession, d: Delivery) -> DeliveryOut:
         segregation=SegregationOut(condition=seg.condition, wet_kg=seg.wet_kg, dry_kg=seg.dry_kg, note=seg.note,
                                    checked_at=seg.checked_at) if seg else None,
     )
+
+
+def out_many(db: DbSession, rows: list[Delivery]) -> list[DeliveryOut]:
+    _ = preload(db, User, SourceArea, WasteCategory)
+    found = db.scalars(select(SegregationCheck).where(SegregationCheck.delivery_id.in_(d.id for d in rows)))
+    checks = {c.delivery_id: c for c in found}
+    return [out(db, d, checks) for d in rows]
 
 
 def _active(db: DbSession, model, item_id: int, what: str):

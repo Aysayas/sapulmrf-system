@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { ROLE_LABEL, useLogout, useMe } from '../api/auth';
 
@@ -50,7 +51,7 @@ export default function StaffLayout() {
           </button>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
-          <Outlet />
+          <Suspense fallback={<p className="text-muted">Loading…</p>}><Outlet /></Suspense>
         </main>
       </div>
     </div>

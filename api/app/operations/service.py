@@ -12,6 +12,7 @@ from app.approvals.models import Outgoing
 from app.compost import service as compost
 from app.compost.models import CompostBatch, CompostReading
 from app.core.config import settings
+from app.core.db import preload
 from app.devices import service as devices
 from app.devices.models import Device
 from app.intake import service as intake
@@ -21,6 +22,7 @@ from app.operations import schemas as s
 from app.settings import service as ranges
 from app.sorting import service as sorting
 from app.sorting.models import Classification, StockMovement
+from app.users.models import User
 
 TZ = ZoneInfo(settings.timezone)
 
@@ -56,7 +58,7 @@ def intake_list(db: DbSession, days: int | None, q: str | None, limit: int, wait
         like = f"%{q.strip()}%"
         stmt = stmt.where(Delivery.code.ilike(like) | SourceArea.name.ilike(like))
     rows = db.scalars(stmt.order_by(Delivery.received_at.desc(), Delivery.id.desc()).limit(limit))
-    return [intake.out(db, d) for d in rows]
+    return intake.out_many(db, list(rows))
 
 
 # ---- segregation ----
@@ -112,13 +114,14 @@ def sorting_view(db: DbSession, days: int) -> s.SortingView:
         select(func.coalesce(func.sum(StockMovement.kg), 0.0)).where(StockMovement.kind == "sorted", StockMovement.at >= start)
     )
     materials, areas = _names(db, Material), _names(db, StorageArea)
-    codes = dict(db.execute(select(Delivery.id, Delivery.code)).all())
     moves = db.scalars(
         select(StockMovement)
         .where(StockMovement.kind == "sorted")
         .order_by(StockMovement.at.desc(), StockMovement.id.desc())
         .limit(15)
-    )
+    ).all()
+    codes = dict(db.execute(select(Delivery.id, Delivery.code).where(Delivery.id.in_(m.delivery_id for m in moves))).all())
+    _ = preload(db, User, Material)
     return s.SortingView(
         classified=classified,
         unchanged=classified - changed,
@@ -247,7 +250,6 @@ def compost_view(db: DbSession, batch_code: str | None, days: int = 1) -> s.Comp
 
 def camera(db: DbSession) -> s.CameraView:
     latest = db.scalar(select(Classification).order_by(Classification.suggested_at.desc(), Classification.id.desc()).limit(1))
-    view = sorting_view(db, 1)
     rows = db.execute(
         select(StockMovement.material_id, func.sum(StockMovement.kg), func.sum(StockMovement.bags))
         .where(StockMovement.material_id.is_not(None))
@@ -258,11 +260,15 @@ def camera(db: DbSession) -> s.CameraView:
         s.MaterialBin(material=m.name, kg=round(float(totals.get(m.id, (0, 0))[0]), 1), bags=int(totals.get(m.id, (0, 0))[1]))
         for m in db.scalars(select(Material).where(Material.active).order_by(Material.id))
     ]
+    classified, changed = db.execute(
+        select(func.count(), func.coalesce(func.sum(case((Classification.changed, 1), else_=0)), 0))
+        .where(Classification.confirmed_at >= since(1))
+    ).one()
     return s.CameraView(
         latest=sorting.out(db, latest) if latest else None,
-        pending=view.pending,
-        today=view.classified,
-        accepted_pct=view.accepted_pct,
+        pending=db.scalar(select(func.count()).where(Classification.confirmed_at.is_(None))) or 0,
+        today=classified,
+        accepted_pct=pct(classified - changed, classified),
         bins=bins,
     )
 
@@ -341,6 +347,7 @@ def outgoing_view(db: DbSession, days: int) -> s.OutgoingView:
     by_month = {m.date(): float(v) for m, v in db.execute(
         select(month, func.sum(Outgoing.total)).where(*APPROVED_SALE, Outgoing.decided_at >= month_start(5)).group_by(month))}
     months = [month_start(i).date() for i in range(5, -1, -1)]
+    _ = preload(db, User, Material, StorageArea)
     rows = db.scalars(select(Outgoing).where(Outgoing.requested_at >= since(days))
                       .order_by(Outgoing.requested_at.desc(), Outgoing.id.desc()).limit(100))
     return s.OutgoingView(
@@ -351,5 +358,5 @@ def outgoing_view(db: DbSession, days: int) -> s.OutgoingView:
         pending=db.scalar(select(func.count(Outgoing.id)).where(Outgoing.status == "pending")),
         compost_on_hand_kg=approvals.compost_on_hand(db),
         income_6m=[s.MonthIncome(month=m, income=round(by_month.get(m, 0.0), 2)) for m in months],
-        records=[approvals.outgoing_out(db, o) for o in rows],
+        records=[approvals.outgoing_out(db, o, balances=False) for o in rows],
     )

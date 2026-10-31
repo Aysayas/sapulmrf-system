@@ -31,6 +31,11 @@ def request_outgoing(body: OutgoingIn, db: DbSession = Depends(get_db), actor: U
     return service.outgoing_out(db, service.request_outgoing(db, body, actor))
 
 
+@router.get("/approvals/counts", response_model=dict[str, int])
+def approval_counts(db: DbSession = Depends(get_db), _: User = Depends(admin_only)):
+    return service.counts(db)
+
+
 @router.get("/approvals", response_model=ApprovalsOut)
 def approvals(db: DbSession = Depends(get_db), _: User = Depends(admin_only)):
     return service.pending(db)

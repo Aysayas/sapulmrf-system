@@ -1,7 +1,8 @@
+import { Suspense } from 'react';
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useAlertSummary } from '../api/alerts';
-import { useApprovals } from '../api/approvals';
+import { useApprovalCounts } from '../api/approvals';
 import { ROLE_LABEL, useLogout, useMe } from '../api/auth';
 
 const NAV = [
@@ -18,7 +19,7 @@ export default function AdminLayout() {
   const logout = useLogout();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const counts = useApprovals().data?.counts;
+  const counts = useApprovalCounts().data;
   const alerts = useAlertSummary().data;
   const badges: Record<string, [number, string]> = {
     '/admin/approvals': [counts ? Object.values(counts).reduce((a, b) => a + b, 0) : 0, 'bg-leaf-600'],
@@ -106,7 +107,7 @@ export default function AdminLayout() {
           )}
         </header>
         <main className="flex flex-1 flex-col gap-4 px-6 py-5">
-          <Outlet />
+          <Suspense fallback={<p className="text-muted">Loading…</p>}><Outlet /></Suspense>
         </main>
       </div>
     </div>
