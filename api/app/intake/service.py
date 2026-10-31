@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
@@ -14,6 +14,7 @@ from app.users.models import User
 
 # Wet + dry may come out a little heavier than the bag was (wet waste, rounding), but not by this much.
 SEGREGATION_TOLERANCE = 1.10
+UNDO_WINDOW = timedelta(minutes=30)
 
 
 def out(db: DbSession, d: Delivery) -> DeliveryOut:
@@ -61,6 +62,23 @@ def record_delivery(db: DbSession, data: DeliveryIn, actor: User, at: datetime |
     if not at:
         note = " (corrected)" if corrected else ""
         log(db, actor.id, "Recorded delivery", f"{d.code} · {area.name} · {d.weight_kg} kg{note}")
+    db.commit()
+    return d
+
+
+def undo_segregation(db: DbSession, delivery_id: int, actor: User) -> Delivery:
+    """Takes back a mistyped check: only the operator who made it, soon after, and before anything was sorted from it."""
+    d = db.get(Delivery, delivery_id, with_for_update=True)
+    check = db.scalar(select(SegregationCheck).where(SegregationCheck.delivery_id == delivery_id)) if d else None
+    if not check:
+        raise AppError(404, "No segregation check on this delivery.")
+    if check.checked_by != actor.id or datetime.now(UTC) - check.checked_at > UNDO_WINDOW:
+        raise AppError(409, f"The check on {d.code} can't be undone any more. Report a problem with this record instead.")
+    if d.status != "separated":
+        raise AppError(409, f"{d.code} is already sorted, so its check can't be undone.")
+    db.delete(check)
+    d.status = "awaiting"
+    log(db, actor.id, "Undid segregation check", f"{d.code} · wet {check.wet_kg} kg · dry {check.dry_kg} kg")
     db.commit()
     return d
 

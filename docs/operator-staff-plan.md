@@ -56,3 +56,50 @@ Rules every agent gets: use `tsc --noEmit` only, never `tsc -b`; use `http://127
 - **Cost:** this is a large run, about 10 agents, each reading and writing many files.
 - **Isolation Forest on one number** (weight only) may catch about what the z-score does. It's a learned model and easier to defend as ML, but it may not be more accurate.
 - **Scope:** the roadmap lists operator and staff screens as out of scope, and I'd update that line.
+
+## What changed while building
+
+### Isolation Forest: the plan's version did worse, so it changed
+The first version (100 trees, `contamination` = the setting, all recent weights as history) did worse than the z-score it replaced. Earlier outliers stayed in the window and hid later ones, and short histories were flagged about 1 time in n + 1 whatever the setting. A review caught this before the change was described as an upgrade.
+
+What ships now:
+- Weights already flagged stay out of the history, unless the admin marked the flag incorrect.
+- The new weight must also reach a minimum anomaly score: 0.80 minus the setting (0.78 at the default 2%).
+- A weight within 0.3 kg of the usual mean is never flagged, which covers near-identical history.
+- 50 trees rather than 100: about 0.05 s per delivery, inside its transaction.
+
+Results, 2.5 SD z-score against the shipped check, from one read-only replay per row. "Formula" is 3 seeds x 7 puroks x 74 weights from `delivery_weight`. "Dev database" is the backfilled deliveries (670 rows at the time), treating weights over 2.2 x the purok median as the planted outliers.
+
+| Data | Method | Outliers caught | False flags |
+|---|---|---|---|
+| Formula | z-score 2.5 SD | 27 of 27 | 14 of 1317 |
+| Formula | Isolation Forest, first version (measured before the change) | 22 of 27 | 33 of 1317 |
+| Formula | Isolation Forest, shipped, 0.1% | 27 of 27 | 1 of 1317 |
+| Formula | Isolation Forest, shipped, 2% (default) | 27 of 27 | 4 of 1317 |
+| Formula | Isolation Forest, shipped, 20% | 27 of 27 | 288 of 1317 |
+| Dev database | z-score 2.5 SD | 9 of 9 | 5 of 591 |
+| Dev database | Isolation Forest, shipped, 2% | 9 of 9 | 1 of 591 |
+
+Read these with care:
+- **The minimum score was chosen on this same formula replay**, so the 4 is optimistic. 0.82 dropped to 24 of 27 caught, so the margin is thin.
+- **All of this is simulated data**, with outliers 2.5 to 3.5 times the usual weight. It says nothing yet about real deliveries.
+- **The forest misses smaller surprises on tight histories.** At the default setting, with 10 weights around 8 kg (SD about 0.3), 10 kg isn't flagged and 12 kg is. The z-score flags 10 kg. So this is fewer false flags on this data, not better in every case.
+- **The setting is a sensitivity, not an exact share of records**, so the Ranges page now says "Unusual-weight sensitivity (higher flags more)". The field is still `anomaly_pct`.
+
+### Access and data rules found in review
+- Staff get `/operations/outgoing` without income, price or total. Before, only the screen hid them.
+- Staff exports leave out income always, and segregation without its grant. Viewing and downloading an export are now logged, for admins too.
+- Approving an outgoing or an adjustment now locks the record and its storage area, the same lock transfers take. Sorting locks the delivery and its areas, so a second submit gets 409 instead of adding stock twice. The tests check that the locks are taken, not a real race, because each test runs in one transaction.
+- Wrong current passwords on `/auth/me/password` now count toward the same lockout as login.
+- Transfers with no bag count move bags in proportion to the kg. A partial transfer can't take every bag. An explicit count that is otherwise wrong is still accepted, because the operator can see the real bags.
+
+### Wireframe gaps closed
+- Today shows the "Predicted" line and each alert's details. The Predicted line appears only once predictions are ready.
+- Segregation has Undo, through a new `DELETE /deliveries/{id}/segregation`: only the operator who made the check, within 30 minutes, and before sorting. The saved message stays until dismissed.
+- Compost batch detail shows 7 days of readings (`/operations/compost?days=7`). Other pages still get 24 hours.
+
+### Rejected on purpose
+- A capacity check on sorting. Sorted waste is already on the floor, so refusing the record wouldn't stop the overfill, it would only hide it. The storage alert covers this. Sorting does now take the area lock.
+
+### Final checks
+pytest 190 passed, ruff clean, `tsc --noEmit` clean, web build OK, browser suite 21 of 21 passed, then `remove-test-data` ran. The screenshots against the wireframes and the vault note from "After the workflow" are not done here.

@@ -17,7 +17,7 @@ from app.masterdata.models import Material, StorageArea
 from app.sorting import service as sorting
 from app.sorting.models import Classification, StockMovement
 from app.sorting.schemas import ClassificationOut
-from app.sorting.service import material_bags, material_kg, stock_kg
+from app.sorting.service import lock_areas, material_bags, material_kg, stock_kg
 from app.users.models import User
 
 
@@ -122,7 +122,8 @@ def _decide(row, data: DecisionIn, actor: User, at: datetime | None) -> None:
 
 def decide_adjustment(db: DbSession, request_id: int, data: DecisionIn, actor: User,
                       at: datetime | None = None) -> AdjustmentRequest:
-    r = _pending(db.get(AdjustmentRequest, request_id), "Adjustment")
+    r = _pending(db.get(AdjustmentRequest, request_id, with_for_update=True), "Adjustment")
+    lock_areas(db, [r.storage_area_id])
     _decide(r, data, actor, at)
     change = round(r.actual_kg - material_kg(db, r.material_id, r.storage_area_id), 2)
     if r.status == "approved" and change:
@@ -137,7 +138,9 @@ def decide_adjustment(db: DbSession, request_id: int, data: DecisionIn, actor: U
 
 
 def decide_outgoing(db: DbSession, outgoing_id: int, data: DecisionIn, actor: User, at: datetime | None = None) -> Outgoing:
-    o = _pending(db.get(Outgoing, outgoing_id), "Outgoing record")
+    o = _pending(db.get(Outgoing, outgoing_id, with_for_update=True), "Outgoing record")
+    if o.storage_area_id:
+        lock_areas(db, [o.storage_area_id])
     if data.decision == "approve":
         available = material_kg(db, o.material_id, o.storage_area_id) if o.storage_area_id else compost_on_hand(db)
         if o.kg > available + 0.001:

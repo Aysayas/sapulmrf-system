@@ -40,7 +40,7 @@ class TransferIn(BaseModel):
     from_area_id: int
     to_area_id: int
     kg: Annotated[float, Field(ge=0.01, le=50000)]
-    bags: Annotated[int, Field(ge=0, le=1000)] = 0
+    bags: Annotated[int, Field(ge=0, le=1000)] | None = None  # None: in proportion to the kg
 
 
 class TransferOut(BaseModel):

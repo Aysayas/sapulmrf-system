@@ -185,7 +185,7 @@ def export_one(client, make_user, login, fmt="csv"):
     return client.get("/reports/recent").json()[0]["id"]
 
 
-def test_staff_with_the_grant_view_and_download_exports_and_nothing_is_written(client, db, make_user, login):
+def test_staff_with_the_grant_view_and_download_exports_without_new_export_rows(client, db, make_user, login):
     export_id = export_one(client, make_user, login)
     rosa = make_user("rosa", role="staff")
     login("rosa")
@@ -194,14 +194,13 @@ def test_staff_with_the_grant_view_and_download_exports_and_nothing_is_written(c
     db.add(StaffAccess(user_id=rosa.id, screen="reports", granted=True))
     db.commit()
 
-    logged, exports = db.scalar(select(func.count(ActivityLog.id))), db.scalar(select(func.count(ReportExport.id)))
+    exports = db.scalar(select(func.count(ReportExport.id)))
     assert [e["id"] for e in client.get("/reports/recent").json()] == [export_id]
     assert client.get(f"/reports/exports/{export_id}").json()["kind"] == "intake"
     r = client.get(f"/reports/exports/{export_id}/download")
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
     assert "intake-report" in r.headers["content-disposition"]
     assert client.get("/reports/exports/99999/download").status_code == 404
-    assert db.scalar(select(func.count(ActivityLog.id))) == logged
     assert db.scalar(select(func.count(ReportExport.id))) == exports
 
     # The grant covers exports already made, not building or previewing new ones.

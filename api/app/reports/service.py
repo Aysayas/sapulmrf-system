@@ -64,29 +64,37 @@ def _render(r: Report, from_day: date, to_day: date, fmt: Format, actor: User) -
     return body, media, f"{r.kind}-report_{from_day}_{to_day}.{fmt}"
 
 
-def _exported(db: DbSession, export_id: int) -> tuple[ReportExport, Report]:
-    """A report an admin already exported, rebuilt from the current data. Reads only: no log, no new export row."""
+def _exported(db: DbSession, export_id: int, hidden: tuple[str, ...]) -> tuple[ReportExport, Report]:
+    """A report an admin already exported, rebuilt from the current data. No new export row."""
     e = db.get(ReportExport, export_id)
     if not e:
         raise AppError(404, "Report not found.")
+    if e.kind in hidden:
+        raise AppError(403, "This report isn't shared with you. Ask the Barangay Administrator.")
     return e, build(db, e.kind, e.from_day, e.to_day, e.area_id)
 
 
-def view_export(db: DbSession, export_id: int) -> Report:
-    _, r = _exported(db, export_id)
+def view_export(db: DbSession, export_id: int, actor: User, hidden: tuple[str, ...] = ()) -> Report:
+    e, r = _exported(db, export_id, hidden)
+    log(db, actor.id, f"Viewed {e.kind} report", r.subtitle)
+    db.commit()
     return r.model_copy(update={"rows": r.rows[:PREVIEW_ROWS]})
 
 
-def download_export(db: DbSession, export_id: int, actor: User) -> tuple[bytes, str, str]:
-    e, r = _exported(db, export_id)
-    return _render(r, e.from_day, e.to_day, e.format, actor)
+def download_export(db: DbSession, export_id: int, actor: User, hidden: tuple[str, ...] = ()) -> tuple[bytes, str, str]:
+    e, r = _exported(db, export_id, hidden)
+    file = _render(r, e.from_day, e.to_day, e.format, actor)
+    log(db, actor.id, f"Downloaded {e.kind} report as {e.format.upper()}", r.subtitle)
+    db.commit()
+    return file
 
 
-def recent(db: DbSession, limit: int = 10) -> list[RecentExport]:
+def recent(db: DbSession, hidden: tuple[str, ...] = (), limit: int = 10) -> list[RecentExport]:
     rows = db.execute(
         select(ReportExport, User.name, SourceArea.name)
         .outerjoin(User, User.id == ReportExport.user_id)
         .outerjoin(SourceArea, SourceArea.id == ReportExport.area_id)
+        .where(ReportExport.kind.not_in(hidden))
         .order_by(ReportExport.created_at.desc(), ReportExport.id.desc())
         .limit(limit)
     )

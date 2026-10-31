@@ -2,8 +2,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useIntake, useRecordSegregation, useWaiting, type Delivery } from '../../api/operations';
-import { Badge, btn, Drawer, inputCls, PageHeader, Toast } from '../../components/ui';
+import { useIntake, useRecordSegregation, useUndoSegregation, useWaiting, type Delivery } from '../../api/operations';
+import { Badge, btn, Drawer, inputCls, PageHeader } from '../../components/ui';
 import { when } from '../operations/shared';
 import { Card, Field, touch } from './shared';
 
@@ -18,7 +18,8 @@ export default function SegregationPage() {
   const recent = useIntake(7);
   const checked = recent.data?.filter((d) => d.segregation && isToday(d.segregation.checked_at));
   const [recording, setRecording] = useState<Delivery | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+  const [done, setDone] = useState<{ id: number; message: string } | null>(null);
+  const undo = useUndoSegregation();
 
   return (
     <>
@@ -57,8 +58,19 @@ export default function SegregationPage() {
         ))}
       </ul>
 
-      {recording && <RecordSheet d={recording} onClose={() => setRecording(null)} onSaved={(m) => { setRecording(null); setDone(m); }} />}
-      <Toast message={done} />
+      {recording && <RecordSheet d={recording} onClose={() => setRecording(null)} onSaved={(message) => { setDone({ id: recording.id, message }); setRecording(null); undo.reset(); }} />}
+      {undo.error && <p role="alert" className="text-sm text-crit">{undo.error.message}</p>}
+      {/* Stays until dismissed, not the usual timed toast: the Undo must still be there when the mistake is noticed. */}
+      {done && (
+        <div role="status" className="fixed inset-x-4 bottom-20 z-30 rounded-lg bg-leaf-900 px-4 py-3 text-sm text-white shadow-xl">
+          ✓ {done.message}
+          <span className="mt-2 flex gap-2">
+            <button className={`${btn.base} ${btn.secondary} ${btn.small}`} disabled={undo.isPending}
+              onClick={() => undo.mutate(done.id, { onSuccess: () => setDone(null), onError: () => setDone(null) })}>Undo</button>
+            <button className={`${btn.base} ${btn.secondary} ${btn.small}`} onClick={() => setDone(null)}>Dismiss</button>
+          </span>
+        </div>
+      )}
     </>
   );
 }

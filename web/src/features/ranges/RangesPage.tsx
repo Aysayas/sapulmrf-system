@@ -78,7 +78,7 @@ function RangesForm({ ranges, areas }: { ranges: Ranges; areas: Item[] }) {
           <h3 className="mb-3 text-sm font-bold">Predictions</h3>
           <div className="flex flex-col gap-3">
             {field('prediction_min_days', 'Days of records before showing predictions', 'days', '1')}
-            {field('anomaly_pct', 'Share of weights to flag as unusual', '%', '0.1')}
+            {field('anomaly_pct', 'Unusual-weight sensitivity (higher flags more)', '%', '0.1')}
           </div>
         </section>
       </div>

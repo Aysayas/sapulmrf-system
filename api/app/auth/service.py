@@ -12,23 +12,32 @@ from app.core.security import hash_password, new_session_token, token_hash, veri
 from app.users.models import User
 
 
+def _refuse_if_locked(user: User, now: datetime) -> None:
+    if user.locked_until and user.locked_until > now:
+        minutes = max(1, round((user.locked_until - now).total_seconds() / 60))
+        raise AppError(423, f"Too many wrong passwords. Try again in {minutes} minute{'s' if minutes > 1 else ''}.")
+
+
+def _count_wrong_password(db: DbSession, user: User, now: datetime) -> None:
+    user.failed_attempts += 1
+    if user.failed_attempts >= settings.lockout_attempts:
+        user.locked_until = now + timedelta(minutes=settings.lockout_minutes)
+        user.failed_attempts = 0
+        log(db, user.id, "Account locked", f"{user.username} · {settings.lockout_attempts} wrong passwords")
+    db.commit()
+
+
 def login(db: DbSession, username: str, password: str) -> tuple[User, str]:
     """Checks the password and opens a session. Returns the user and the cookie token."""
     now = datetime.now(UTC)
     user = db.scalar(select(User).where(User.username == username.strip().lower()))  # usernames are lowercase
 
-    if user and user.locked_until and user.locked_until > now:
-        minutes = max(1, round((user.locked_until - now).total_seconds() / 60))
-        raise AppError(423, f"Too many wrong passwords. Try again in {minutes} minute{'s' if minutes > 1 else ''}.")
+    if user:
+        _refuse_if_locked(user, now)
 
     if not verify_password(password, user.password_hash if user else None):
         if user:
-            user.failed_attempts += 1
-            if user.failed_attempts >= settings.lockout_attempts:
-                user.locked_until = now + timedelta(minutes=settings.lockout_minutes)
-                user.failed_attempts = 0
-                log(db, user.id, "Account locked", f"{user.username} · {settings.lockout_attempts} wrong passwords")
-            db.commit()
+            _count_wrong_password(db, user, now)
         raise AppError(401, "Wrong username or password.")
 
     if not user.active:
@@ -59,7 +68,10 @@ def update_profile(db: DbSession, user: User, data: ProfileIn) -> User:
 
 
 def change_password(db: DbSession, user: User, data: PasswordIn, token: str | None) -> None:
+    now = datetime.now(UTC)
+    _refuse_if_locked(user, now)
     if not verify_password(data.current_password, user.password_hash):
+        _count_wrong_password(db, user, now)  # same limit as login, or this is an unthrottled password guesser
         raise AppError(400, "Your current password is wrong.")  # not 401: the session is still good
     if data.new_password == data.current_password:
         raise AppError(422, "Pick a password different from the current one.")

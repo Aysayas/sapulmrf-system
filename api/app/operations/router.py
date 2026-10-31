@@ -64,8 +64,9 @@ def inventory(db: DbSession = Depends(get_db), _: User = Depends(anyone)):
 
 
 @router.get("/operations/compost", response_model=s.CompostView)
-def compost(batch: str | None = None, db: DbSession = Depends(get_db), _: User = Depends(anyone)):
-    return service.compost_view(db, batch)
+def compost(batch: str | None = None, days: int = Query(1, ge=1, le=7), db: DbSession = Depends(get_db),
+            _: User = Depends(anyone)):
+    return service.compost_view(db, batch, days)
 
 
 @router.get("/operations/camera", response_model=s.CameraView)
@@ -74,8 +75,13 @@ def camera(db: DbSession = Depends(get_db), _: User = Depends(camera_viewer)):
 
 
 @router.get("/operations/outgoing", response_model=s.OutgoingView)
-def outgoing(days: int = Query(31, ge=1, le=366), db: DbSession = Depends(get_db), _: User = Depends(anyone)):
-    return service.outgoing_view(db, days)
+def outgoing(days: int = Query(31, ge=1, le=366), db: DbSession = Depends(get_db), user: User = Depends(anyone)):
+    v = service.outgoing_view(db, days)
+    if user.role != "staff":
+        return v
+    # Money is never part of the staff view.
+    return v.model_copy(update={"income_month": 0.0, "income_6m": [], "records": [
+        r.model_copy(update={"price_per_kg": None, "total": None}) for r in v.records]})
 
 
 @router.get("/overview", response_model=s.Overview)

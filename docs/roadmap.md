@@ -13,7 +13,7 @@ By the end of this semester, the **Barangay Administrator side** of SapulMRF run
 - **Local Docker for development; the group's own home server for production.** No paid hosting. (user, round 3)
 - **Isiah builds the admin side alone this semester, both frontend and backend.** Christina isn't on the admin frontend this time, so there's no hand-off and one person owns the API contract on both ends. (user, round 3 and follow-up)
 - **Rhendel owns the hardware side: IoT devices, CV model training and the server.** So the admin side needs clear data contracts with him. (user, round 4)
-- **Predictions start as statistics and become ML later.** Moving averages, storage outlook and z-score anomaly flags come first, because no real MRF data exists yet. scikit-learn/Prophet models come once records pile up. (user, round 4)
+- **Predictions start as statistics and become ML later.** Moving averages, storage outlook and z-score anomaly flags came first, because no real MRF data exists yet. Since then the weight flags use Isolation Forest (see Phase 6), and scikit-learn/Prophet models come once records pile up. (user, round 4)
 - **Simulators in Docker stand in for the devices and the CV model.** They're swapped for Rhendel's real ones later. (user, round 5)
 - **Scope: all 21 admin requirements, laid out in detail.** (user, round 5: "be detailed about this")
 - **Containers use Python 3.12, not the laptop's Python 3.14.** Many ML libraries don't support 3.14 yet. (verified: `python --version` = 3.14.4)
@@ -106,7 +106,7 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 - [x] One approvals inbox covering inventory adjustments and outgoing transactions. Approving changes stock; rejecting doesn't (stock is re-checked at approval; compost on hand is tracked from finished batches)
 - [x] Review corrected weights and corrected CV classifications (OK / ask to recheck, OK / wrong: marks only, for Phase 6's accuracy numbers)
 - [x] Income from recyclables (and compost, if priced) shown from approved sales only (Operations › Outgoing, and the Overview)
-- [x] Operator screens to send adjustment and outgoing requests (phone first, at `/op`: Storage, Outgoing and Alerts, with My requests and My reports; see `docs/operator-requests-plan.md`. The other operator screens are still to come)
+- [x] Operator screens to send adjustment and outgoing requests (phone first, at `/op`: Storage, Outgoing and Alerts, with My requests and My reports; see `docs/operator-requests-plan.md`. The rest followed; see Operator and staff screens below)
 
 ### Phase 5: Alerts (ADM-10)
 - [x] Scheduled checks raise alerts for compost out of range, devices that stop reporting, and storage at its limit (the `worker` service, every 30 s; compost waits 10 minutes both ways; alerts resolve on their own)
@@ -114,7 +114,7 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 - [ ] SMS or email delivery, once the server and a provider are chosen
 
 ### Phase 6: Insights with AI/ML (ADM-12, 13, 14, 15)
-- [x] Unusual weights (z-score per purok) and received-vs-sorted gaps are flagged. Admin marks each one valid or incorrect (checked when the record is made; Approvals › Flagged records)
+- [x] Unusual weights (Isolation Forest per purok, replacing the z-score; measured comparison in `docs/operator-staff-plan.md`) and received-vs-sorted gaps are flagged. Admin marks each one valid or incorrect (checked when the record is made; Approvals › Flagged records)
 - [x] Intake forecast per category, plus the storage outlook ("Area B full in ~6 days"), shown only after N days of records (Insights; N is `prediction_min_days`, 30)
 - [x] Suggested pickup or sale schedule, and predicted vs actual with the percentage error (Objective 5) (forecasts are saved daily, so the error is never hindsight)
 - [x] Swap in an ML model behind the same endpoint and compare its error with the stats baseline: done from the start. A scikit-learn Ridge model and the 7-day moving average both run, and the one with the lower 14-day error is used. Prophet was skipped (heavy install, not needed at this data size)
@@ -127,17 +127,22 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 - [ ] Replace `sim` with Rhendel's devices and CV service, using the agreed contracts
 - [ ] Production compose profile on the home server: reverse proxy, HTTPS, nightly `pg_dump` backup
 
+### Operator and staff screens (see `docs/operator-staff-plan.md`)
+- [x] Operator screens at `/op`: Today, Intake, Segregation (with Undo), Sorting, Storage transfer, Compost, History and Profile
+- [x] Staff screens at `/staff`, view only: Overview, Records, Reports and Notifications. No income, and grants decide the rest
+- [ ] Settle with Rhendel which of these the IoT floor station covers. Offline recording, the station PIN and live scale capture are left to the station
+
 ## Not yet specified (fog of war)
 - The exact end-of-semester date and the Capstone 1 defense date. Blocks: setting phase targets.
 - How devices connect: MQTT broker or HTTP POST. Blocks: Phase 3 simulator transport and Phase 8 (the sim speaks HTTP until this is decided).
 - The home server's CPU, RAM, OS and network reach (LAN only or internet). Blocks: Phase 8.
 - Where CV inference runs (on a device, on the server, or in the API container) and the model format. Blocks: Phase 8, and partly Phase 3's camera view.
-- Who builds the operator and staff sides, and when. Blocks: real (not simulated) data for approvals.
+- ~~Who builds the operator and staff sides, and when~~ Built; see above.
 - ~~How many days of real records before switching from stats to ML~~ Answered in Phase 6: no fixed switch. Both models run once there are `prediction_min_days` (30) days of records, and whichever has the lower error over the last 14 days is used.
 - Whether to keep the prototype repo or fold it into `sapulmrf/docs`. Blocks: nothing.
 
 ## Out of scope (for this roadmap)
-- **Operator and staff screens:** this roadmap is the admin side only.
+- **Floor station flows on the web:** offline recording (OPR-09), the station PIN and live scale capture. Web intake uses typed weights.
 - **IoT firmware, sensor wiring, CV model training:** Rhendel's work.
 - **SMS or email notifications:** alerts are in-system only, per the approved Limitations.
 - **Accounting:** income tracking is not an accounting system, per the Limitations.

@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import { useAcknowledge, useAlerts } from '../../api/alerts';
 import { useMe } from '../../api/auth';
+import { usePredictions } from '../../api/insights';
 import { useIntake, useOutgoing, useOverview, useWaiting } from '../../api/operations';
 import { FillBar, Kpi } from '../../components/charts';
 import { btn } from '../../components/ui';
@@ -20,6 +21,9 @@ export default function TodayPage() {
   const alerts = useAlerts('open');
   const ack = useAcknowledge();
   const pendingOut = useOutgoing(30).data?.pending;
+  const predictions = usePredictions(0).data;
+  const fullest = predictions?.outlook.find((a) => a.days_to_full !== null); // soonest first from the API
+  const tomorrow = predictions?.forecast[0];
 
   const now = new Date();
   const waiting = toSeparate.data ?? [];
@@ -92,7 +96,7 @@ export default function TodayPage() {
         {alerts.data?.slice(0, 3).map((a) => (
           <Card key={a.id} label={a.title}>
             <b className="block">{a.title}</b>
-            <p className="text-xs text-muted">{when(a.opened_at)}</p>
+            <p className="text-xs text-muted">{a.details && `${a.details} · `}{when(a.opened_at)}</p>
             {!a.acknowledged_at && (
               <button className={`${btn.base} ${btn.primary} ${touch} mt-2 w-full`} disabled={ack.isPending} onClick={() => ack.mutate(a.id)}>
                 Acknowledge
@@ -110,6 +114,11 @@ export default function TodayPage() {
           <section aria-label="Storage areas" className="rounded-xl border border-line bg-white px-3 py-2">
             {o.data.areas.length === 0 && <p className="text-muted">No storage areas set up.</p>}
             {o.data.areas.map((a) => <FillBar key={a.id} area={a} />)}
+            {predictions?.ready && (fullest || tomorrow) && (
+              <p className="mt-2 text-sm">
+                <b>Predicted:</b> {[fullest && `${fullest.area} full in ~${fullest.days_to_full} days`, tomorrow && `tomorrow ~${Math.round(tomorrow.kg)} kg intake`].filter(Boolean).join(' · ')}
+              </p>
+            )}
           </section>
         </>
       )}

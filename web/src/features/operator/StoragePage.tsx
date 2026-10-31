@@ -86,7 +86,7 @@ const transferSchema = z.object({
   material: z.string().min(1, 'Pick the material.'),
   from_area_id: z.number().positive('Pick where it comes from.'),
   to_area_id: z.number().positive('Pick where it goes.'),
-  bags: z.number({ error: 'Enter the bags, or 0.' }).int('Whole bags only.').min(0, 'Can’t be below 0.').max(1000),
+  bags: z.number().int('Whole bags only.').min(0, 'Can’t be below 0.').max(1000).or(z.nan()),
   kg: z.number({ error: 'Enter the kg.' }).min(0.01, 'Enter the kg.').max(50000),
 });
 type TransferForm = z.infer<typeof transferSchema>;
@@ -96,7 +96,7 @@ function TransferSheet({ view, onClose, onSent }: { view: InventoryView; onClose
   const send = useTransfer();
   const { register, handleSubmit, setValue, formState: { errors: e }, watch } = useForm<TransferForm>({
     resolver: zodResolver(transferSchema),
-    defaultValues: { material: '', from_area_id: 0, to_area_id: 0, bags: 0 },
+    defaultValues: { material: '', from_area_id: 0, to_area_id: 0 },
   });
   const [material, fromId, toId, weight] = watch(['material', 'from_area_id', 'to_area_id', 'kg']);
   const from = view.areas.find((a) => a.id === fromId);
@@ -106,7 +106,7 @@ function TransferSheet({ view, onClose, onSent }: { view: InventoryView; onClose
   const pctOf = (a: typeof view.areas[number], change: number) => Math.round((a.kg + change) / a.capacity_kg * 100);
 
   const onSubmit = (f: TransferForm) =>
-    send.mutate({ material_id: materialId!, from_area_id: f.from_area_id, to_area_id: f.to_area_id, kg: f.kg, bags: f.bags },
+    send.mutate({ material_id: materialId!, from_area_id: f.from_area_id, to_area_id: f.to_area_id, kg: f.kg, bags: Number.isNaN(f.bags) ? null : f.bags },
       { onSuccess: (t) => onSent(`Moved ${kg(t.kg)} ${t.material} · ${t.from_area} to ${t.to_area}`) });
 
   return (
@@ -156,7 +156,7 @@ function TransferSheet({ view, onClose, onSent }: { view: InventoryView; onClose
           After transfer: <b>{from.name} {pctOf(from, -moving)}%</b> · <b className={pctOf(to, moving) > 100 ? 'text-crit' : ''}>{to.name} {pctOf(to, moving)}%</b>
         </p>
       )}
-      <p className="text-sm text-ink-2">Moving all of a material takes all its bags.</p>
+      <p className="text-sm text-ink-2">Moving all of a material takes all its bags. Leave Bags empty to move them in proportion to the kg.</p>
     </Drawer>
   );
 }

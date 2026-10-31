@@ -121,8 +121,8 @@ export const useCompliance = (days: number) =>
 export const useSorting = (days: number) =>
   useQuery({ queryKey: ['ops', 'sorting', days], queryFn: () => api<SortingView>(`/operations/sorting?days=${days}`), ...LIVE });
 export const useInventory = () => useQuery({ queryKey: ['ops', 'inventory'], queryFn: () => api<InventoryView>('/operations/inventory'), ...LIVE });
-export const useCompost = (batch?: string) =>
-  useQuery({ queryKey: ['ops', 'compost', batch], queryFn: () => api<CompostView>(`/operations/compost?${qs({ batch })}`), ...LIVE });
+export const useCompost = (batch?: string, days?: number) =>
+  useQuery({ queryKey: ['ops', 'compost', batch, days], queryFn: () => api<CompostView>(`/operations/compost?${qs({ batch, days })}`), ...LIVE });
 export const useOutgoing = (days: number) =>
   useQuery({ queryKey: ['ops', 'outgoing', days], queryFn: () => api<OutgoingView>(`/operations/outgoing?days=${days}`), ...LIVE });
 export const useCamera =() => useQuery({ queryKey: ['ops', 'camera'], queryFn: () => api<CameraView>('/operations/camera'), refetchInterval: 10_000 });
@@ -145,7 +145,7 @@ export interface SortRow { material_id: number | null; bags: number; kg: number;
 /** Leave out final_material_id to accept the suggestion as it is. */
 export interface ConfirmIn { final_material_id?: number | null; not_recyclable?: boolean; reason?: string }
 /** material_id null means residual. */
-export interface TransferIn { material_id: number | null; from_area_id: number; to_area_id: number; kg: number; bags: number }
+export interface TransferIn { material_id: number | null; from_area_id: number; to_area_id: number; kg: number; bags: number | null }
 export interface TransferOut { material: string; from_area: string; to_area: string; kg: number; bags: number; from_area_kg: number; to_area_kg: number }
 export type Batch = Omit<BatchLive, 'temp_c' | 'moisture_pct' | 'read_at' | 'in_range' | 'day'>;
 /** Set finished_kg to mark the batch finished. */
@@ -168,6 +168,8 @@ const post = <Out,>(path: string, body: unknown) => api<Out>(path, { method: 'PO
 export const useRecordDelivery = () => useWrite((b: DeliveryIn) => post<Delivery>('/deliveries', b));
 export const useRecordSegregation = () =>
   useWrite(({ deliveryId, ...b }: SegregationIn & { deliveryId: number }) => post<Delivery>(`/deliveries/${deliveryId}/segregation`, b));
+export const useUndoSegregation = () =>
+  useWrite((deliveryId: number) => api<Delivery>(`/deliveries/${deliveryId}/segregation`, { method: 'DELETE' }));
 export const useSortDelivery = () => useWrite((b: { delivery_id: number; rows: SortRow[] }) => post<Delivery>('/sorting', b));
 export const useConfirmClassification = () =>
   useWrite(({ id, ...b }: ConfirmIn & { id: number }) => post<Classification>(`/classifications/${id}/confirm`, b));

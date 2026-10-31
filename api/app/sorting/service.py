@@ -93,15 +93,19 @@ def material_bags(db: DbSession, material_id: int | None, storage_area_id: int) 
     return int(db.scalar(select(func.coalesce(func.sum(StockMovement.bags), 0)).where(*_of(material_id, storage_area_id))))
 
 
+def lock_areas(db: DbSession, area_ids: list[int]) -> dict[int, StorageArea]:
+    """Every change that reads a balance and then writes it holds this, in id order so writers can't deadlock."""
+    return {a.id: a for a in db.scalars(select(StorageArea).where(StorageArea.id.in_(area_ids))
+                                        .order_by(StorageArea.id).with_for_update())}
+
+
 def transfer(db: DbSession, data: TransferIn, actor: User) -> TransferOut:
     """Moves stock between areas as two ledger rows. Same material on both sides; bags move with it."""
     if data.from_area_id == data.to_area_id:
         raise AppError(422, "Pick two different storage areas.")
     if data.material_id is not None and not db.get(Material, data.material_id):
         raise AppError(422, "Pick a recyclable material, or leave it empty for residual.")
-    # Locked in id order, so two transfers in opposite directions can't deadlock or both pass the checks below.
-    areas = {a.id: a for a in db.scalars(select(StorageArea).where(StorageArea.id.in_([data.from_area_id, data.to_area_id]))
-                                         .order_by(StorageArea.id).with_for_update())}
+    areas = lock_areas(db, [data.from_area_id, data.to_area_id])
     source, dest = areas.get(data.from_area_id), areas.get(data.to_area_id)
     if not source or not source.active or not dest or not dest.active:
         raise AppError(422, "Pick an active storage area.")
@@ -109,11 +113,19 @@ def transfer(db: DbSession, data: TransferIn, actor: User) -> TransferOut:
     available, bags_there = material_kg(db, data.material_id, source.id), material_bags(db, data.material_id, source.id)
     if kg > available + 0.001:
         raise AppError(409, f"Only {available} kg of {material} in {source.name}.")
-    if data.bags > bags_there:
+    emptying = kg >= available - 0.001
+    if data.bags is not None and data.bags > bags_there:
         raise AppError(409, f"Only {bags_there} bags of {material} in {source.name}.")
+    if not emptying and bags_there and data.bags == bags_there:
+        raise AppError(409, f"Some {material} stays in {source.name}, so leave it at least one bag.")
     if stock_kg(db, dest.id) + kg > dest.capacity_kg + 0.001:
         raise AppError(409, f"{dest.name} can't take {kg} kg more. It holds {stock_kg(db, dest.id)} of {dest.capacity_kg} kg.")
-    bags = bags_there if kg >= available - 0.001 else data.bags  # emptying the material takes all its bags
+    if emptying:
+        bags = bags_there
+    elif data.bags is not None:
+        bags = data.bags
+    else:  # no count given: in proportion to the kg, as outgoing does, never the last bag
+        bags = max(0, min(bags_there - 1, round(bags_there * kg / available)))
     note = f"{source.name} → {dest.name}"[:200]
     for area, sign in ((source, -1), (dest, 1)):
         db.add(StockMovement(material_id=data.material_id, storage_area_id=area.id, kg=sign * kg, bags=sign * bags,
@@ -125,7 +137,7 @@ def transfer(db: DbSession, data: TransferIn, actor: User) -> TransferOut:
 
 
 def sort_delivery(db: DbSession, data: SortIn, actor: User, at: datetime | None = None) -> Delivery:
-    d = db.get(Delivery, data.delivery_id)
+    d = db.get(Delivery, data.delivery_id, with_for_update=True)  # two phones can submit the same delivery
     if not d:
         raise AppError(404, "Delivery not found.")
     if d.status == "awaiting":
@@ -136,8 +148,9 @@ def sort_delivery(db: DbSession, data: SortIn, actor: User, at: datetime | None 
     total = sum(r.kg for r in data.rows)
     if total > dry * SORT_TOLERANCE + 0.5:
         raise AppError(422, f"Sorted {round(total, 2)} kg is more than the {dry} kg of dry waste from {d.code}.")
+    areas = lock_areas(db, [r.storage_area_id for r in data.rows])
     for r in data.rows:
-        area = db.get(StorageArea, r.storage_area_id)
+        area = areas.get(r.storage_area_id)
         if not area or not area.active:
             raise AppError(422, "Pick an active storage area for every row.")
         if r.material_id is not None and not db.get(Material, r.material_id):

@@ -16,6 +16,11 @@ def record_delivery(body: DeliveryIn, db: DbSession = Depends(get_db), actor: Us
     return service.out(db, service.record_delivery(db, body, actor))
 
 
+@router.delete("/{delivery_id}/segregation", response_model=DeliveryOut)
+def undo_segregation(delivery_id: int, db: DbSession = Depends(get_db), actor: User = Depends(operator_only)):
+    return service.out(db, service.undo_segregation(db, delivery_id, actor))
+
+
 @router.post("/{delivery_id}/segregation", response_model=DeliveryOut, status_code=201)
 def record_segregation(delivery_id: int, body: SegregationIn, db: DbSession = Depends(get_db),
                        actor: User = Depends(operator_only)):

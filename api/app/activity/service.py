@@ -26,7 +26,7 @@ CATEGORIES = {
     "users": ["Created first administrator", "% user", "Reset password", "Changed own password", "Updated own profile",
               "Changed staff access"],
     "approvals": ["Approved %", "Rejected %", "Reviewed %", "Marked flagged record %"],
-    "reports": ["Viewed % report", "Exported % report as %"],
+    "reports": ["Viewed % report", "Exported % report as %", "Downloaded % report as %"],
 }
 
 

@@ -25,7 +25,7 @@ function BatchBadge({ b }: { b: BatchLive }) {
 
 export default function CompostPage() {
   const [open, setOpen] = useState<string | undefined>();
-  const compost = useCompost(open);
+  const compost = useCompost(open, open ? 7 : undefined);
   const [starting, setStarting] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const v = compost.data;
@@ -103,8 +103,8 @@ function BatchDetail({ batch: b, view, onBack, onDone }: { batch: BatchLive; vie
           : <Kpi label="Sensor" value={b.sensor ?? 'None'} sub={b.read_at ? `Read ${when(b.read_at)}` : 'No readings yet'} />}
       </div>
 
-      <h2 className="text-lg font-bold">Readings, last 24 hours</h2>
-      {view.series.length === 0 ? <p className="text-muted">No readings in the last 24 hours.</p> : (
+      <h2 className="text-lg font-bold">Readings, last 7 days</h2>
+      {view.series.length === 0 ? <p className="text-muted">No readings in the last 7 days.</p> : (
         <>
           <section aria-label="Temperature chart" className="rounded-xl border border-line bg-white p-3">
             <h3 className="text-sm font-semibold">Temperature</h3>

@@ -68,6 +68,8 @@ Remove everything simulated with `docker compose exec api python -m app.simulato
 
 `admin-06-insights.spec.ts` needs at least `prediction_min_days` (30) days of records, so run the 40-day backfill first. Its flag test makes its own `e2e Purok …` deliveries, which `remove-test-data` clears along with their flags.
 
+`operator-02-daily-work.spec.ts` takes one delivery from intake to compost on a phone, including Undo on a segregation check and a password change. `admin-08-staff.spec.ts` turns a staff grant on and off and checks both the screen and the API. Both make their own e2e records, which `remove-test-data` clears.
+
 `admin-07-reports.spec.ts` also needs the backfill, so the segregation report has rows. It exports a CSV and a PDF as `e2e.admin`; those export-history rows and their activity-log rows stay after `remove-test-data` (they belong to the test admin, not to test records).
 
 ## Where tests live

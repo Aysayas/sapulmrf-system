@@ -219,13 +219,13 @@ def compost_batches(db: DbSession, include_recent_finished: bool = True) -> list
     return [_live(db, b, r) for b in db.scalars(stmt)]
 
 
-def compost_view(db: DbSession, batch_code: str | None) -> s.CompostView:
+def compost_view(db: DbSession, batch_code: str | None, days: int = 1) -> s.CompostView:
     r = ranges.get(db)
     batches = compost_batches(db)
     pick = next((b for b in batches if b.code == batch_code), None) or next((b for b in batches if not b.finished_at), None)
     series = []
     if pick:
-        cutoff = datetime.now(UTC) - timedelta(hours=24)
+        cutoff = datetime.now(UTC) - timedelta(days=days)
         series = [
             s.Point(at=p.read_at, temp_c=p.temp_c, moisture_pct=p.moisture_pct)
             for p in db.scalars(
