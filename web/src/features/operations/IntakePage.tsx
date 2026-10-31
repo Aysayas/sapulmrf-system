@@ -22,7 +22,7 @@ export default function IntakePage() {
         state={{ isPending: list.isPending, error: list.error, count: list.data?.length }} empty="No deliveries for this filter.">
         {list.data?.map((d) => (
           <tr key={d.id}>
-            <td className="font-semibold">{d.code}</td>
+            <td className="font-semibold whitespace-nowrap">{d.code}</td>
             <td className="whitespace-nowrap text-ink-2">{when(d.received_at)}</td>
             <td>{d.source_area}</td>
             <td>{d.category}</td>

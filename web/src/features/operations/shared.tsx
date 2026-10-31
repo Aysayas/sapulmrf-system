@@ -7,7 +7,7 @@ export const peso = (n: number) => `₱${n.toLocaleString('en-PH', { minimumFrac
 
 export function Period<T extends number | string | undefined>({ value, options, onChange }: { value: T; options: readonly (readonly [string, T])[]; onChange: (v: T) => void }) {
   return (
-    <div role="group" aria-label="Period" className="inline-flex self-start overflow-hidden rounded-lg border border-leaf-700 whitespace-nowrap">
+    <div role="group" aria-label="Period" className="inline-flex shrink-0 self-start overflow-hidden rounded-lg border border-leaf-700 whitespace-nowrap">
       {options.map(([label, d]) => (
         <button
           key={label}

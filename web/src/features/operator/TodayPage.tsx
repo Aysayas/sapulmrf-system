@@ -23,7 +23,8 @@ export default function TodayPage() {
   const pendingOut = useOutgoing(30).data?.pending;
   const predictions = usePredictions(0).data;
   const fullest = predictions?.outlook.find((a) => a.days_to_full !== null); // soonest first from the API
-  const tomorrow = predictions?.forecast[0];
+  // The forecast list starts at today, so pick the first later day.
+  const tomorrow = predictions?.forecast.find((f) => f.day > new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }));
 
   const now = new Date();
   const waiting = toSeparate.data ?? [];
@@ -116,7 +117,7 @@ export default function TodayPage() {
             {o.data.areas.map((a) => <FillBar key={a.id} area={a} />)}
             {predictions?.ready && (fullest || tomorrow) && (
               <p className="mt-2 text-sm">
-                <b>Predicted:</b> {[fullest && `${fullest.area} full in ~${fullest.days_to_full} days`, tomorrow && `tomorrow ~${Math.round(tomorrow.kg)} kg intake`].filter(Boolean).join(' · ')}
+                <b>Predicted:</b> {[fullest && (fullest.days_to_full === 0 ? `${fullest.area} is full now` : `${fullest.area} full in ~${fullest.days_to_full} days`), tomorrow && `tomorrow ~${Math.round(tomorrow.kg)} kg intake`].filter(Boolean).join(' · ')}
               </p>
             )}
           </section>

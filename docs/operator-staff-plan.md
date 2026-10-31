@@ -86,6 +86,20 @@ Read these with care:
 - **The forest misses smaller surprises on tight histories.** At the default setting, with 10 weights around 8 kg (SD about 0.3), 10 kg isn't flagged and 12 kg is. The z-score flags 10 kg. So this is fewer false flags on this data, not better in every case.
 - **The setting is a sensitivity, not an exact share of records**, so the Ranges page now says "Unusual-weight sensitivity (higher flags more)". The field is still `anomaly_pct`.
 
+### Held-out check, after the build
+The table above was tuned on the replay it reports, so I re-ran the shipped code on data it never saw: 10 new seeds x 7 puroks x 74 weights. The z-score here keeps every earlier weight, as it shipped.
+
+| Data | Method | Outliers caught | False flags |
+|---|---|---|---|
+| Held-out formula | z-score 2.5 SD | 83 of 85 (98%) | 37 of 4395 (0.84%) |
+| Held-out formula | Isolation Forest, shipped, 2% | 72 of 85 (85%) | 14 of 4395 (0.32%) |
+| Dev database (683 rows) | z-score 2.5 SD | 9 of 9 | 5 of 604 |
+| Dev database (683 rows) | Isolation Forest, shipped, 2% | 9 of 9 | 1 of 604 |
+| Clean 40-weight history, new weight 1.5 x usual | z-score / Isolation Forest | 37 of 42 / 8 of 42 | not applicable |
+| Clean 40-weight history, new weight 1.8 x usual | z-score / Isolation Forest | 42 of 42 / 42 of 42 | not applicable |
+
+**So the forest is not better overall: it raises fewer false flags and misses more real outliers.** The earlier 27 of 27 was optimistic. The misses are mostly one mechanism: an outlier among a purok's first 10 deliveries is never judged, so it stays in the history and hides later weights of similar size (usual 6.6 kg, history holding 20.88 kg, new 20.36 kg not flagged). I did not tune again, because that would use up this held-out set too.
+
 ### Access and data rules found in review
 - Staff get `/operations/outgoing` without income, price or total. Before, only the screen hid them.
 - Staff exports leave out income always, and segregation without its grant. Viewing and downloading an export are now logged, for admins too.
@@ -102,4 +116,4 @@ Read these with care:
 - A capacity check on sorting. Sorted waste is already on the floor, so refusing the record wouldn't stop the overfill, it would only hide it. The storage alert covers this. Sorting does now take the area lock.
 
 ### Final checks
-pytest 190 passed, ruff clean, `tsc --noEmit` clean, web build OK, browser suite 21 of 21 passed, then `remove-test-data` ran. The screenshots against the wireframes and the vault note from "After the workflow" are not done here.
+pytest 190 passed, ruff clean, `tsc --noEmit` clean, web build OK, browser suite 21 of 21 passed, then `remove-test-data` ran. After the workflow I re-ran all of these myself with the same results, then looked at every operator screen at 390 x 844 and every staff screen at 1440 x 900, with and without grants, against the wireframe text. Three small bugs came out of that and were fixed: Today's "tomorrow" figure was really today's forecast, an over-full area read "full in ~0 days", and the period filter and delivery code could be squeezed on the admin and staff Intake table.
