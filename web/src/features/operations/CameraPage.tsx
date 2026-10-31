@@ -9,7 +9,8 @@ export default function CameraPage() {
   return (
     <>
       <PageHeader title="Live camera" sub="The sorting area camera's latest result, refreshed every 10 seconds" />
-      {cam.error && <p className="text-crit">{cam.error.message}</p>}
+      {cam.isPending && <p className="text-muted">Loading…</p>}
+      {cam.error && <p role="alert" className="text-crit">{cam.error.message}</p>}
       {cam.data && (
         <div className="grid grid-cols-[2fr_1fr] gap-4">
           <CameraTile c={cam.data.latest} large />

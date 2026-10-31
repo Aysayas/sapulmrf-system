@@ -9,6 +9,10 @@ const AXIS = { fontSize: 11, fill: '#5f6e66' };
 const day = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
 const time = (iso: string) => new Date(iso).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
 
+/** What a chart shows, for screen readers. */
+const span = (values: number[], unit: string) =>
+  values.length ? `${values.length} points, from ${Math.min(...values)} to ${Math.max(...values)} ${unit}` : 'no data yet';
+
 function TipBox({ title, value }: { title: string; value: string }) {
   return (
     <div className="rounded-lg bg-white px-3 py-2 text-xs shadow-lg ring-1 ring-line">
@@ -21,6 +25,7 @@ function TipBox({ title, value }: { title: string; value: string }) {
 /** Daily kg received, last 14 days. */
 export function IntakeChart({ data, height = 220 }: { data: { day: string; kg: number }[]; height?: number }) {
   return (
+    <div role="img" aria-label={`Bar chart of kg received per day: ${span(data.map((d) => d.kg), 'kg')}`}>
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }} barCategoryGap={2}>
         <CartesianGrid vertical={false} stroke={GRID} />
@@ -31,6 +36,7 @@ export function IntakeChart({ data, height = 220 }: { data: { day: string; kg: n
         <Bar dataKey="kg" fill={SERIES} radius={[4, 4, 0, 0]} isAnimationActive={false} />
       </BarChart>
     </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -38,6 +44,7 @@ export function IntakeChart({ data, height = 220 }: { data: { day: string; kg: n
 export function ForecastChart({ actual, forecast, height = 240 }: { actual: { day: string; kg: number }[]; forecast: { day: string; kg: number }[]; height?: number }) {
   const data = [...actual.map((d) => ({ ...d, predicted: false })), ...forecast.map((d) => ({ ...d, predicted: true }))];
   return (
+    <div role="img" aria-label={`Line chart of kg received and forecast per day: ${span([...actual, ...forecast].map((d) => d.kg), 'kg')}`}>
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }} barCategoryGap={2}>
         <defs>
@@ -61,6 +68,7 @@ export function ForecastChart({ actual, forecast, height = 240 }: { actual: { da
         </Bar>
       </BarChart>
     </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -69,6 +77,7 @@ export function IncomeChart({ data, height = 220 }: { data: { month: string; inc
   const month = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('en-PH', { month: 'short', year: 'numeric' });
   const peso = (n: number) => `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   return (
+    <div role="img" aria-label={`Bar chart of income per month: ${span(data.map((d) => d.income), 'pesos')}`}>
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }} barCategoryGap={8}>
         <CartesianGrid vertical={false} stroke={GRID} />
@@ -79,6 +88,7 @@ export function IncomeChart({ data, height = 220 }: { data: { month: string; inc
         <Bar dataKey="income" fill={SERIES} radius={[4, 4, 0, 0]} isAnimationActive={false} />
       </BarChart>
     </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -90,6 +100,7 @@ export function ReadingChart({ data, field, unit, min, max, height = 200 }: {
   const lo = Math.floor(Math.min(min, ...values) - 3);
   const hi = Math.ceil(Math.max(max, ...values) + 3);
   return (
+    <div role="img" aria-label={`Line chart of readings over time: ${span(values, unit)}`}>
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid vertical={false} stroke={GRID} />
@@ -102,6 +113,7 @@ export function ReadingChart({ data, field, unit, min, max, height = 200 }: {
         <Line dataKey={field} stroke={SERIES} strokeWidth={2} dot={false} isAnimationActive={false} />
       </LineChart>
     </ResponsiveContainer>
+    </div>
   );
 }
 

@@ -36,10 +36,10 @@ export default function OperatorLayout() {
           Log out
         </button>
       </header>
-      <main className="flex flex-1 flex-col gap-4 px-4 pt-4 pb-24">
+      <main className="flex flex-1 flex-col gap-4 px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))]">
         <Suspense fallback={<p className="text-muted">Loading…</p>}><Outlet /></Suspense>
       </main>
-      <nav aria-label="Operator" className="fixed bottom-0 left-1/2 z-10 grid w-full max-w-[480px] -translate-x-1/2 grid-cols-5 border-t border-line bg-white">
+      <nav aria-label="Operator" className="fixed bottom-0 pb-[env(safe-area-inset-bottom)] left-1/2 z-10 grid w-full max-w-[480px] -translate-x-1/2 grid-cols-5 border-t border-line bg-white">
         {TABS.map(([to, label]) => (
           <NavLink
             key={to}
@@ -48,7 +48,7 @@ export default function OperatorLayout() {
           >
             {label}
             {label === 'More' && alerts > 0 && (
-              <span className="rounded-full bg-crit px-2 text-xs font-bold text-white" aria-label={`${alerts} not acknowledged`}>{alerts}</span>
+              <span className="rounded-full bg-crit px-2 text-xs font-bold text-white">{alerts}<span className="sr-only"> not acknowledged</span></span>
             )}
           </NavLink>
         ))}

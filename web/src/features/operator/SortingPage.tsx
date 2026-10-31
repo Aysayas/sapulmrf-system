@@ -227,7 +227,7 @@ function RecordForm({ deliveries, materials, areas, deliveryId, onClose, onSaved
         return (
           <fieldset key={r.name} className="rounded-lg border border-line p-3">
             <legend className="px-1 text-sm font-semibold">{r.name}</legend>
-            <div className="grid grid-cols-[1fr_1fr_1.5fr] gap-2">
+            <div className="grid grid-cols-2 gap-2 *:last:col-span-2 sm:grid-cols-[1fr_1fr_1.5fr] sm:*:last:col-span-1">
               <Field label="Bags" error={re?.bags?.message}>
                 <input type="number" step="1" min="0" inputMode="numeric" aria-label={`${r.name} bags`} aria-invalid={!!re?.bags} className={`${inputCls} ${touch}`}
                   {...register(`rows.${i}.bags`, { valueAsNumber: true })} />

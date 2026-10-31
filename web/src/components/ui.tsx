@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 /** Shared looks from the approved mockup (mockup.css), as Tailwind class strings and tiny components. */
 export const btn = {
@@ -7,7 +7,7 @@ export const btn = {
   secondary: 'border-edge bg-white text-leaf-900 hover:bg-surface',
   small: 'px-2.5 py-1 text-xs',
 };
-export const inputCls = 'w-full rounded-lg border border-edge bg-white px-3 py-2 text-sm outline-leaf-700 aria-[invalid=true]:border-crit';
+export const inputCls = 'w-full rounded-lg border border-edge bg-white px-3 py-2 text-base outline-leaf-700 sm:text-sm aria-[invalid=true]:border-crit';
 
 const BADGE = { neutral: 'bg-surface-2 text-ink-2', ok: 'bg-leaf-100 text-leaf-700', warn: 'bg-warn-100 text-warn', crit: 'bg-crit-100 text-crit', dash: 'border border-dashed border-edge text-muted' };
 export function Badge({ kind = 'neutral', children }: { kind?: keyof typeof BADGE; children: ReactNode }) {
@@ -44,6 +44,25 @@ export function Toast({ message }: { message: string | null }) {
 }
 
 export function Drawer({ title, onClose, children, footer }: { title: string; onClose: () => void; children: ReactNode; footer: ReactNode }) {
+  const panel = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null; // focus goes back here on close
+    panel.current?.focus();
+    return () => opener?.focus();
+  }, []);
+  const keepFocusInside = (e: React.KeyboardEvent) => {
+    if (e.key !== 'Tab') return;
+    const items = panel.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])');
+    if (!items?.length) return;
+    const [first, last] = [items[0], items[items.length - 1]];
+    if (e.shiftKey && (document.activeElement === first || document.activeElement === panel.current)) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', esc);
@@ -52,10 +71,10 @@ export function Drawer({ title, onClose, children, footer }: { title: string; on
   return (
     <>
       <div className="fixed inset-0 z-20 bg-leaf-900/35" onClick={onClose} />
-      <aside role="dialog" aria-modal="true" aria-label={title} className="fixed inset-y-0 right-0 z-20 flex w-[460px] max-w-full flex-col gap-4 bg-white p-6 shadow-2xl">
+      <aside ref={panel} tabIndex={-1} onKeyDown={keepFocusInside} role="dialog" aria-modal="true" aria-label={title} className="fixed inset-y-0 right-0 z-20 flex w-[460px] max-w-full flex-col gap-4 bg-white p-6 shadow-2xl outline-none">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-bold">{title}</h2>
-          <button className={`${btn.base} ${btn.secondary} ${btn.small} ml-auto`} onClick={onClose}>
+          <button className={`${btn.base} ${btn.secondary} ${btn.small} ml-auto min-h-11`} onClick={onClose}>
             Close ✕
           </button>
         </div>

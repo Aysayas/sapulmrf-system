@@ -20,8 +20,11 @@ export default function TodayPage() {
   const today = useIntake(1);
   const alerts = useAlerts('open');
   const ack = useAcknowledge();
-  const pendingOut = useOutgoing(30).data?.pending;
-  const predictions = usePredictions(0).data;
+  const outgoing = useOutgoing(30);
+  const pendingOut = outgoing.data?.pending;
+  const forecast = usePredictions(0);
+  const predictions = forecast.data;
+  const partFailed = [toSeparate, toSort, outgoing, forecast].find((q) => q.error)?.error;
   const fullest = predictions?.outlook.find((a) => a.days_to_full !== null); // soonest first from the API
   // The forecast list starts at today, so pick the first later day.
   const tomorrow = predictions?.forecast.find((f) => f.day > new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }));
@@ -60,11 +63,12 @@ export default function TodayPage() {
 
       {o.isPending && <p className="text-muted">Loading…</p>}
       {o.error && <p role="alert" className="text-crit">{o.error.message}</p>}
+      {!o.error && partFailed && <p role="alert" className="text-crit">Some of today's numbers didn't load: {partFailed.message}</p>}
       {o.data && (
         <div className="grid grid-cols-2 gap-2">
           <Kpi label="Deliveries today" value={String(o.data.today_deliveries)} sub={`${kg(o.data.today_kg)} received`} />
           <Kpi label="Waiting for segregation" value={String(o.data.awaiting_segregation)} sub={oldest ? `Oldest: ${when(oldest.received_at)}` : 'None waiting'} />
-          <Kpi label="Waiting to sort" value={toSort.data ? String(toSort.data.length) : '…'} sub={`${kg(dryKg)} dry waste`} />
+          <Kpi label="Waiting to sort" value={toSort.data ? String(toSort.data.length) : '…'} sub={toSort.data ? `${kg(dryKg)} dry waste` : undefined} />
           <Kpi label="Open alerts" value={String(alertKinds.reduce((sum, [, n]) => sum + (n ?? 0), 0))}
             sub={alertKinds.map(([kind, n]) => `${n} ${kind}`).join(' · ') || 'None open'} />
         </div>

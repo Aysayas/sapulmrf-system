@@ -65,9 +65,9 @@ export default function SegregationPage() {
         <div role="status" className="fixed inset-x-4 bottom-20 z-30 rounded-lg bg-leaf-900 px-4 py-3 text-sm text-white shadow-xl">
           ✓ {done.message}
           <span className="mt-2 flex gap-2">
-            <button className={`${btn.base} ${btn.secondary} ${btn.small}`} disabled={undo.isPending}
+            <button className={`${btn.base} ${btn.secondary} ${btn.small} ${touch}`} disabled={undo.isPending}
               onClick={() => undo.mutate(done.id, { onSuccess: () => setDone(null), onError: () => setDone(null) })}>Undo</button>
-            <button className={`${btn.base} ${btn.secondary} ${btn.small}`} onClick={() => setDone(null)}>Dismiss</button>
+            <button className={`${btn.base} ${btn.secondary} ${btn.small} ${touch}`} onClick={() => setDone(null)}>Dismiss</button>
           </span>
         </div>
       )}

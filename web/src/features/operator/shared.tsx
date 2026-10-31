@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { cloneElement, isValidElement, useId, type ReactElement, type ReactNode } from 'react';
 import { Badge } from '../../components/ui';
 
 const STATUS = {
@@ -16,11 +16,13 @@ export function StatusBadge({ status }: { status: keyof typeof STATUS }) {
 
 /** A labelled form field with its error under it. */
 export function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
+  const id = useId();
+  const input = error && isValidElement(children) ? cloneElement(children as ReactElement<{ 'aria-describedby'?: string }>, { 'aria-describedby': id }) : children;
   return (
     <label className="flex flex-col gap-1 text-sm font-semibold">
       {label}
-      {children}
-      {error && <span className="text-xs font-normal text-crit">{error}</span>}
+      {input}
+      {error && <span id={id} className="text-xs font-normal text-crit">{error}</span>}
     </label>
   );
 }
