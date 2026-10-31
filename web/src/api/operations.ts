@@ -156,7 +156,11 @@ function useWrite<In, Out>(request: (body: In) => Promise<Out>) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: request,
-    onSuccess: () => ['ops', 'overview', 'alerts', 'activity'].forEach((k) => qc.invalidateQueries({ queryKey: [k] })),
+    onSuccess: () => ['ops', 'overview', 'alerts', 'activity'].forEach(async (k) => {
+      // Invalidating alone joins a first load already in flight, whose answer can predate this write.
+      await qc.cancelQueries({ queryKey: [k] });
+      qc.invalidateQueries({ queryKey: [k] });
+    }),
   });
 }
 const post = <Out,>(path: string, body: unknown) => api<Out>(path, { method: 'POST', body });

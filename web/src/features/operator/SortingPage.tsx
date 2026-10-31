@@ -247,7 +247,7 @@ function RecordForm({ deliveries, materials, areas, deliveryId, onClose, onSaved
           </fieldset>
         );
       })}
-      {e.rows?.message && <p className="text-xs text-crit">{e.rows.message}</p>}
+      {e.rows?.root?.message && <p className="text-xs text-crit">{e.rows.root.message}</p>}
       <p className={`rounded-lg p-3 text-sm ${diff < 0 ? 'bg-warn-100' : 'bg-surface'}`} aria-live="polite">
         {delivery
           ? <>Sorted <b>{kg2(total)}</b> of {kg2(dry)} dry waste. Difference <b>{kg2(Math.abs(diff))}</b>{diff < 0 && ' over'}.</>

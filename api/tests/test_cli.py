@@ -7,6 +7,7 @@ from app.activity.models import ActivityLog
 from app.alerts.models import Alert, ProblemReport
 from app.approvals.models import AdjustmentRequest, Outgoing
 from app.cli import create_admin, remove_test_data, remove_test_users
+from app.compost.models import CompostBatch
 from app.core.security import verify_password
 from app.devices.models import Device
 from app.intake.models import Delivery
@@ -48,8 +49,11 @@ def test_remove_test_users_only_touches_e2e_role_accounts(db, make_user):
 
 
 def test_remove_test_data_keeps_real_areas_and_devices(db, make_user):
-    make_user("e2e.staff.abc123", role="staff")
-    db.add_all([SourceArea(name="e2e Purok x1"), SourceArea(name="Purok 1"),
+    e2e_user = make_user("e2e.staff.abc123", role="staff")
+    real_user = make_user("rreyes", role="operator")
+    db.add_all([CompostBatch(code="B-901", start_kg=5, started_by=e2e_user.id),
+                CompostBatch(code="B-902", start_kg=5, started_by=real_user.id),
+                SourceArea(name="e2e Purok x1"), SourceArea(name="Purok 1"),
                 StorageArea(name="e2e Area x1", capacity_kg=10), StorageArea(name="Area A", capacity_kg=500),
                 Device(code="E2E-X1", type="compost_sensor", key_hash="a" * 64),
                 Device(code="WS-01", type="weighing_station", key_hash="b" * 64)])
@@ -71,7 +75,9 @@ def test_remove_test_data_keeps_real_areas_and_devices(db, make_user):
                 ProblemReport(code="R-904", kind="record", record_ref="D-9002", details="about a real delivery")])
     db.commit()
     counts = remove_test_data(db)
-    assert counts == {"users": 1, "deliveries": 1, "stock movements": 1, "requests": 2, "alerts": 1, "problem reports": 2,
+    assert db.scalars(select(CompostBatch.code)).all() == ["B-902"]
+    assert counts == {"compost batches": 1, "users": 1, "deliveries": 1, "stock movements": 1, "requests": 2, "alerts": 1,
+                      "problem reports": 2,
                       "source areas": 1, "storage areas": 1, "devices": 1}
     assert sorted(db.scalars(select(ProblemReport.code)).all()) == ["R-902", "R-904"]
     assert db.scalars(select(Delivery.code)).all() == ["D-9002"]

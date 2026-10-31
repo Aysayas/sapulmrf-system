@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.activity.service import log
 from app.alerts.models import Alert, ProblemReport
 from app.approvals.models import AdjustmentRequest, Outgoing
+from app.compost.models import CompostBatch
 from app.core.db import SessionLocal
 from app.core.security import hash_password
 from app.devices.models import Device
@@ -53,8 +54,12 @@ def remove_test_users(db: Session) -> int:
 def remove_test_data(db: Session) -> dict[str, int]:
     """Deletes what the e2e tests create: e2e.<role>.<id> users, 'e2e …' source areas with their deliveries,
     'e2e …' storage areas with their stock, requests and alerts, E2E-… devices, and problem reports about E2E-… devices
-    or about those e2e deliveries."""
-    counts = {"users": remove_test_users(db)}
+    or about those e2e deliveries, and compost batches started by e2e users with their alerts."""
+    e2e_batches = select(CompostBatch.id).where(CompostBatch.started_by.in_(select(User.id).where(User.username.like("e2e.%.%"))))
+    batch_alerts = db.execute(delete(Alert).where(Alert.kind == "compost", Alert.subject_id.in_(e2e_batches))).rowcount
+    # Before the users go: deleting them clears started_by.
+    counts = {"compost batches": db.execute(delete(CompostBatch).where(CompostBatch.id.in_(e2e_batches))).rowcount}
+    counts["users"] = remove_test_users(db)
     e2e_puroks = select(SourceArea.id).where(func.lower(SourceArea.name).like("e2e %"))
     e2e_areas = select(StorageArea.id).where(func.lower(StorageArea.name).like("e2e %"))
     e2e_devices = select(Device.id).where(Device.code.like("E2E-%"))
@@ -68,7 +73,7 @@ def remove_test_data(db: Session) -> dict[str, int]:
     counts["requests"] = sum(
         db.execute(delete(m).where(m.storage_area_id.in_(e2e_areas))).rowcount for m in (Outgoing, AdjustmentRequest)
     )
-    counts["alerts"] = db.execute(
+    counts["alerts"] = batch_alerts + db.execute(
         delete(Alert).where(
             or_(
                 and_(Alert.kind == "storage", Alert.subject_id.in_(e2e_areas)),

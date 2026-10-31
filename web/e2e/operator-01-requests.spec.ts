@@ -38,7 +38,7 @@ test('an operator asks for an adjustment, records outgoing residual and reports 
     await expect(page).toHaveURL(/\/op\/today$/)
     await page.goto('/admin')
     await expect(page).toHaveURL(/\/op\/today$/)
-    await page.getByRole('link', { name: 'Storage' }).click()
+    await page.getByRole('link', { name: 'Storage', exact: true }).click()
 
     // Adjustment: 10 kg on record, 9 kg counted.
     await page.getByRole('button', { name: `Request adjustment for Plastic in ${area.name}` }).click()
