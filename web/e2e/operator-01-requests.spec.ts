@@ -64,6 +64,8 @@ test('an operator asks for an adjustment, records outgoing residual and reports 
     // Outgoing residual for disposal.
     await page.getByRole('link', { name: /^More/ }).click()
     await page.getByRole('link', { name: 'Outgoing' }).click()
+    // A save during the page's first load wouldn't refresh the list until the next poll; only a script is this fast.
+    await expect(page.getByRole('list', { name: 'Outgoing records' }).getByRole('listitem').first()).toBeVisible()
     await page.getByRole('button', { name: '+ Record outgoing' }).click()
     const out = page.getByRole('dialog', { name: 'Record outgoing material' })
     await out.getByLabel('Residual for disposal').check()
