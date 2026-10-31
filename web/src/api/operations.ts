@@ -168,6 +168,6 @@ export const useSortDelivery = () => useWrite((b: { delivery_id: number; rows: S
 export const useConfirmClassification = () =>
   useWrite(({ id, ...b }: ConfirmIn & { id: number }) => post<Classification>(`/classifications/${id}/confirm`, b));
 export const useTransfer = () => useWrite((b: TransferIn) => post<TransferOut>('/inventory/transfers', b));
-export const useStartBatch = () => useWrite((b: { start_kg: number }) => post<Batch>('/compost/batches', b));
+export const useStartBatch = () => useWrite((b: { start_kg: number; sensor_id: number | null }) => post<Batch>('/compost/batches', b));
 export const useLogBatchActivity = () =>
   useWrite(({ batchId, ...b }: BatchActivityIn & { batchId: number }) => post<Batch>(`/compost/batches/${batchId}/activities`, b));

@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useMyAdjustments, useRequestAdjustment } from '../../api/approvals';
 import { useItems } from '../../api/masterdata';
-import { useInventory, type InventoryView } from '../../api/operations';
+import { useInventory, useTransfer, type InventoryView } from '../../api/operations';
 import { FillBar } from '../../components/charts';
 import { btn, Drawer, inputCls, PageHeader, Toast } from '../../components/ui';
 import { kg, when } from '../operations/shared';
@@ -16,11 +16,13 @@ export default function StoragePage() {
   const inv = useInventory();
   const mine = useMyAdjustments();
   const [adjusting, setAdjusting] = useState<StockRow | null>(null);
+  const [transferring, setTransferring] = useState(false);
   const [done, setDone] = useState<string | null>(null);
 
   return (
     <>
       <PageHeader title="Storage" sub="What is stored where, and how full each area is." />
+      <button className={`${btn.base} ${btn.primary} ${touch} w-full`} disabled={!inv.data?.stock.length} onClick={() => setTransferring(true)}>Transfer between areas</button>
       {inv.isPending && <p className="text-muted">Loading…</p>}
       {inv.error && <p className="text-crit">{inv.error.message}</p>}
       {inv.data && (
@@ -51,6 +53,7 @@ export default function StoragePage() {
       <h2 className="text-lg font-bold">My requests</h2>
       <ul aria-label="My requests" className="flex flex-col gap-2">
         {mine.isPending && <li className="text-muted">Loading…</li>}
+        {mine.error && <li className="text-crit">{mine.error.message}</li>}
         {mine.data?.length === 0 && <li className="text-muted">No adjustment requests in the last 30 days.</li>}
         {mine.data?.map((r) => (
           <Card key={r.id} label={`${r.material} in ${r.area}`}>
@@ -69,8 +72,92 @@ export default function StoragePage() {
         <AdjustSheet row={adjusting} onClose={() => setAdjusting(null)}
           onSent={(m) => { setAdjusting(null); setDone(m); }} />
       )}
+      {transferring && inv.data && (
+        <TransferSheet view={inv.data} onClose={() => setTransferring(false)}
+          onSent={(m) => { setTransferring(false); setDone(m); }} />
+      )}
       <Toast message={done} />
     </>
+  );
+}
+
+// Mirrors TransferIn on the server, which stays the authority on what fits.
+const transferSchema = z.object({
+  material: z.string().min(1, 'Pick the material.'),
+  from_area_id: z.number().positive('Pick where it comes from.'),
+  to_area_id: z.number().positive('Pick where it goes.'),
+  bags: z.number({ error: 'Enter the bags, or 0.' }).int('Whole bags only.').min(0, 'Can’t be below 0.').max(1000),
+  kg: z.number({ error: 'Enter the kg.' }).min(0.01, 'Enter the kg.').max(50000),
+});
+type TransferForm = z.infer<typeof transferSchema>;
+
+function TransferSheet({ view, onClose, onSent }: { view: InventoryView; onClose: () => void; onSent: (m: string) => void }) {
+  const materials = useItems('materials');
+  const send = useTransfer();
+  const { register, handleSubmit, setValue, formState: { errors: e }, watch } = useForm<TransferForm>({
+    resolver: zodResolver(transferSchema),
+    defaultValues: { material: '', from_area_id: 0, to_area_id: 0, bags: 0 },
+  });
+  const [material, fromId, toId, weight] = watch(['material', 'from_area_id', 'to_area_id', 'kg']);
+  const from = view.areas.find((a) => a.id === fromId);
+  const to = view.areas.find((a) => a.id === toId);
+  const materialId = material === 'Residual' ? null : materials.data?.find((m) => m.name === material)?.id;
+  const moving = weight > 0 ? weight : 0;
+  const pctOf = (a: typeof view.areas[number], change: number) => Math.round((a.kg + change) / a.capacity_kg * 100);
+
+  const onSubmit = (f: TransferForm) =>
+    send.mutate({ material_id: materialId!, from_area_id: f.from_area_id, to_area_id: f.to_area_id, kg: f.kg, bags: f.bags },
+      { onSuccess: (t) => onSent(`Moved ${kg(t.kg)} ${t.material} · ${t.from_area} to ${t.to_area}`) });
+
+  return (
+    <Drawer title="Transfer between areas" onClose={onClose} footer={
+      <>
+        <button className={`${btn.base} ${btn.secondary} ${touch}`} onClick={onClose}>Cancel</button>
+        <button className={`${btn.base} ${btn.primary} ${touch}`} disabled={materialId === undefined && !!material || send.isPending} onClick={handleSubmit(onSubmit)}>
+          {moving ? `Transfer ${kg(moving)}` : 'Transfer'}
+        </button>
+      </>
+    }>
+      {(send.error ?? materials.error) && <p role="alert" className="rounded-lg bg-crit-100 px-3 py-2 text-sm font-semibold text-crit">{(send.error ?? materials.error)!.message}</p>}
+      <Field label="Material" error={e.material?.message}>
+        <select className={`${inputCls} ${touch}`} aria-invalid={!!e.material}
+          {...register('material', { onChange: () => setValue('from_area_id', 0) })}>
+          <option value="">Pick a material</option>
+          {[...new Set(view.stock.map((s) => s.material))].map((m) => <option key={m} value={m}>{m}</option>)}
+        </select>
+      </Field>
+      <Field label="From" error={e.from_area_id?.message}>
+        <select className={`${inputCls} ${touch}`} aria-invalid={!!e.from_area_id}
+          {...register('from_area_id', { valueAsNumber: true, onChange: () => setValue('to_area_id', 0) })}>
+          <option value={0}>{material ? 'Pick an area' : 'Pick the material first'}</option>
+          {view.stock.filter((s) => s.material === material).map((s) => (
+            <option key={s.area} value={view.areas.find((a) => a.name === s.area)?.id ?? 0}>{s.area} · {kg(s.kg)} · {s.bags} bags</option>
+          ))}
+        </select>
+      </Field>
+      <Field label="To" error={e.to_area_id?.message}>
+        <select className={`${inputCls} ${touch}`} aria-invalid={!!e.to_area_id} {...register('to_area_id', { valueAsNumber: true })}>
+          <option value={0}>Pick an area</option>
+          {view.areas.filter((a) => a.id !== fromId).map((a) => (
+            <option key={a.id} value={a.id}>{a.name} · {Math.round(a.kg)}/{a.capacity_kg} kg</option>
+          ))}
+        </select>
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Bags" error={e.bags?.message}>
+          <input type="number" step="1" min="0" inputMode="numeric" className={`${inputCls} ${touch}`} aria-invalid={!!e.bags} {...register('bags', { valueAsNumber: true })} />
+        </Field>
+        <Field label="kg" error={e.kg?.message}>
+          <input type="number" step="0.1" min="0" inputMode="decimal" className={`${inputCls} ${touch}`} aria-invalid={!!e.kg} {...register('kg', { valueAsNumber: true })} />
+        </Field>
+      </div>
+      {from && to && (
+        <p className="rounded-lg bg-surface p-3 text-sm" aria-live="polite">
+          After transfer: <b>{from.name} {pctOf(from, -moving)}%</b> · <b className={pctOf(to, moving) > 100 ? 'text-crit' : ''}>{to.name} {pctOf(to, moving)}%</b>
+        </p>
+      )}
+      <p className="text-sm text-ink-2">Moving all of a material takes all its bags.</p>
+    </Drawer>
   );
 }
 
