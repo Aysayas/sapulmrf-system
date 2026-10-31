@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import AwareDatetime, BaseModel, Field, StringConstraints
 
 
 class BatchIn(BaseModel):
@@ -40,6 +40,7 @@ class ReadingIn(BaseModel):
     stable: bool | None = None
     temp_c: Annotated[float, Field(ge=-20, le=120)] | None = None
     moisture_pct: Annotated[float, Field(ge=0, le=100)] | None = None
+    read_at: AwareDatetime | None = None  # when it was measured, for readings buffered while offline
 
 
 class ReadingOut(BaseModel):

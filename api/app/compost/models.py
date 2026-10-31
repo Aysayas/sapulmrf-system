@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, String, func
+from sqlalchemy import CheckConstraint, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -21,6 +21,7 @@ class CompostBatch(Base):
 
 class CompostReading(Base):
     __tablename__ = "compost_readings"
+    __table_args__ = (UniqueConstraint("device_id", "read_at", name="uq_compost_readings_device_time"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     batch_id: Mapped[int] = mapped_column(ForeignKey("compost_batches.id", ondelete="CASCADE"), index=True)

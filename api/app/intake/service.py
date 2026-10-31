@@ -46,6 +46,8 @@ def _fresh_reading(db: DbSession, device_id: int | None) -> float:
     reading = dev.last_reading or {}
     if "kg" not in reading or datetime.now(UTC) - datetime.fromisoformat(reading["at"]) > READING_MAX_AGE:
         raise AppError(422, f"{dev.code} has no recent reading. Weigh it again, or record it as manual.")
+    if not reading.get("stable"):
+        raise AppError(422, f"{dev.code} hasn't settled. Wait for a stable reading.")
     return reading["kg"]
 
 

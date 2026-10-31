@@ -1,6 +1,7 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session as DbSession
 
 from app.activity.service import log
@@ -9,6 +10,8 @@ from app.compost.schemas import ActivityIn, ActivityOut, BatchIn, BatchOut, Read
 from app.core.errors import AppError
 from app.devices.models import Device
 from app.users.models import User
+
+CLOCK_SLACK = timedelta(minutes=5)
 
 
 def out(db: DbSession, b: CompostBatch) -> BatchOut:
@@ -65,26 +68,35 @@ def log_activity(db: DbSession, batch_id: int, data: ActivityIn, actor: User, at
 
 def record_reading(db: DbSession, device: Device, data: ReadingIn, at: datetime | None = None) -> str | None:
     """Stores a device reading. Returns the batch code a compost reading went to, or None."""
-    when = at or datetime.now(UTC)
+    now = datetime.now(UTC)
+    when = at or data.read_at or now
+    if when > now + CLOCK_SLACK:
+        raise AppError(422, "read_at is in the future. Check the device's clock.")
+    shown = device.last_reading
+    newest = not shown or when >= datetime.fromisoformat(shown["at"])  # a buffered reading mustn't replace a newer one
     if device.type == "weighing_station":
         if data.kg is None:
             raise AppError(422, "A weighing station sends kg.")
-        device.last_reading = {"kg": round(data.kg, 2), "stable": bool(data.stable), "at": when.isoformat()}
+        if newest:
+            device.last_reading = {"kg": round(data.kg, 2), "stable": bool(data.stable), "at": when.isoformat()}
         stored = None
     elif device.type == "compost_sensor":
         if data.temp_c is None or data.moisture_pct is None:
             raise AppError(422, "A compost sensor sends temp_c and moisture_pct.")
         temp, moisture = round(data.temp_c, 1), round(data.moisture_pct, 1)
-        device.last_reading = {"temp_c": temp, "moisture_pct": moisture, "at": when.isoformat()}
+        if newest:
+            device.last_reading = {"temp_c": temp, "moisture_pct": moisture, "at": when.isoformat()}
         batch = db.scalar(select(CompostBatch).where(CompostBatch.sensor_id == device.id, CompostBatch.finished_at.is_(None)))
         stored = None
         if batch:
-            db.add(CompostReading(batch_id=batch.id, device_id=device.id, temp_c=round(data.temp_c, 1),
-                                  moisture_pct=round(data.moisture_pct, 1), read_at=when))
+            db.execute(insert(CompostReading).values(batch_id=batch.id, device_id=device.id, temp_c=temp, moisture_pct=moisture,
+                                                     read_at=when).on_conflict_do_nothing())  # a resend stores nothing new
             stored = batch.code
     else:
         raise AppError(422, "Cameras send suggestions to /devices/cv-suggestions.")
-    if not at or not device.last_seen_at or when > device.last_seen_at:
-        device.last_seen_at = when
+    if not at:
+        device.last_seen_at = now  # it's talking now, even when the reading is old
+    elif not device.last_seen_at or at > device.last_seen_at:
+        device.last_seen_at = at
     db.commit()
     return stored
