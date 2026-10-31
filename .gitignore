@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.prod.example
 
 # Python
 __pycache__/
@@ -34,3 +35,6 @@ graphify-out/
 # Compiler output written next to the sources (tsc without noEmit)
 web/src/**/*.js
 *.tsbuildinfo
+
+# Database backups
+backups/
