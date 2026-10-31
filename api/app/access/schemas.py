@@ -2,12 +2,13 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-Screen = Literal["segregation", "predictions", "alerts", "camera"]
+Screen = Literal["segregation", "predictions", "alerts", "camera", "reports"]
 LABELS: dict[str, str] = {
     "segregation": "View segregation compliance",
     "predictions": "View intake predictions",
     "alerts": "View alerts and notifications",
     "camera": "View live camera",
+    "reports": "View and download exported reports",
 }
 
 

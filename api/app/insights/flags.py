@@ -2,6 +2,8 @@
 
 from statistics import fmean, stdev
 
+import numpy as np
+from sklearn.ensemble import IsolationForest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DbSession
 
@@ -12,6 +14,7 @@ from app.sorting.models import StockMovement
 
 MIN_HISTORY = 10  # earlier deliveries from a purok before its weights are judged
 HISTORY = 100  # the most recent earlier deliveries used for "usual"
+RANDOM_STATE = 0  # fixed, so the same history always gives the same answer
 GAP_PCT, GAP_KG = 0.05, 0.3  # received vs separated + sorted must differ by both of these to flag
 
 
@@ -26,7 +29,7 @@ def _flag(db: DbSession, delivery: Delivery, kind: str, low: float, high: float)
 
 
 def check_weight(db: DbSession, d: Delivery) -> Flag | None:
-    """z-score against the same purok's earlier deliveries: |weight - mean| > anomaly_sd × SD."""
+    """Isolation Forest on the same purok's recent weights; anomaly_pct is the share of them it treats as unusual."""
     earlier = db.scalars(
         select(Delivery.weight_kg)
         .where(Delivery.source_area_id == d.source_area_id, Delivery.id != d.id, Delivery.received_at <= d.received_at)
@@ -35,9 +38,13 @@ def check_weight(db: DbSession, d: Delivery) -> Flag | None:
     ).all()
     if len(earlier) < MIN_HISTORY:
         return None
-    mean, sd = fmean(earlier), stdev(earlier)
-    if sd == 0 or abs(d.weight_kg - mean) <= ranges.get(db).anomaly_sd * sd:
+    model = IsolationForest(contamination=ranges.get(db).anomaly_pct / 100, random_state=RANDOM_STATE)
+    # The new weight is fitted too: trees only split inside the data they see, so a weight past the
+    # earlier range would otherwise score the same as the heaviest earlier one, however far past it is.
+    weights = np.array([*earlier, d.weight_kg]).reshape(-1, 1)
+    if model.fit_predict(weights)[-1] == 1:
         return None
+    mean, sd = fmean(earlier), stdev(earlier)  # the usual range only explains the flag; the model decides it
     return _flag(db, d, "weight", max(0.0, mean - sd), mean + sd)
 
 

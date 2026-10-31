@@ -3,8 +3,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
 
-# Staff screens marked "according to authorization" in the approved requirements (STF-03, 07, 08) + live camera.
-SCREENS = ("segregation", "predictions", "alerts", "camera")
+# Staff screens marked "according to authorization" in the approved requirements (STF-03, 07, 08) + live camera
+# and the exported-reports list (STF-09).
+SCREENS = ("segregation", "predictions", "alerts", "camera", "reports")
 
 
 class StaffAccess(Base):

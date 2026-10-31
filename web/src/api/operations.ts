@@ -50,7 +50,7 @@ export interface Overview {
   today_deliveries: number;
   today_kg: number;
   awaiting_segregation: number;
-  compliance_week_pct: number;
+  compliance_week_pct: number | null;
   in_storage_kg: number;
   active_batches: number;
   intake_14d: { day: string; kg: number }[];

@@ -16,4 +16,4 @@ class Settings(Base):
     moisture_min: Mapped[float] = mapped_column(default=40.0)
     moisture_max: Mapped[float] = mapped_column(default=60.0)
     prediction_min_days: Mapped[int] = mapped_column(default=30)
-    anomaly_sd: Mapped[float] = mapped_column(default=2.5)
+    anomaly_pct: Mapped[float] = mapped_column(default=2.0)

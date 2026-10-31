@@ -9,11 +9,18 @@ from app.users.models import User
 
 router = APIRouter(prefix="/access", tags=["access"])
 admin_only = require_role("admin")
+staff_only = require_role("staff")
 
 
 @router.get("", response_model=AccessOverview)
 def overview(db: DbSession = Depends(get_db), _: User = Depends(admin_only)):
     return service.overview(db)
+
+
+@router.get("/me", response_model=StaffAccessOut)
+def my_access(db: DbSession = Depends(get_db), user: User = Depends(staff_only)):
+    """For hiding tabs only; each route still checks its own grant."""
+    return service.mine(db, user)
 
 
 @router.put("/{user_id}", response_model=StaffAccessOut)

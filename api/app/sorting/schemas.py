@@ -35,6 +35,24 @@ class ClassificationOut(BaseModel):
     confirmed_at: datetime | None
 
 
+class TransferIn(BaseModel):
+    material_id: int | None  # None means residual
+    from_area_id: int
+    to_area_id: int
+    kg: Annotated[float, Field(ge=0.01, le=50000)]
+    bags: Annotated[int, Field(ge=0, le=1000)] = 0
+
+
+class TransferOut(BaseModel):
+    material: str
+    from_area: str
+    to_area: str
+    kg: float
+    bags: int
+    from_area_kg: float
+    to_area_kg: float
+
+
 class SortRow(BaseModel):
     material_id: int | None  # None means residual
     bags: Annotated[int, Field(ge=0, le=1000)]

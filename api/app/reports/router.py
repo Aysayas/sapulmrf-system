@@ -6,17 +6,41 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.core.db import get_db
 from app.core.deps import require_role
+from app.core.errors import AppError
+from app.operations.router import viewer
 from app.reports import service
 from app.reports.schemas import Format, Kind, RecentExport, Report
 from app.users.models import User
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 admin_only = require_role("admin")
+reports_grant = viewer("reports")
+
+
+def exports_viewer(user: User = Depends(reports_grant)) -> User:
+    """Admins, and staff with the reports grant. viewer() also passes operators, who have no reports."""
+    if user.role == "operator":
+        raise AppError(403, "Your role can't do this.")
+    return user
+
+
+def _file(body: bytes, media: str, name: str) -> Response:
+    return Response(body, media_type=media, headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 @router.get("/recent", response_model=list[RecentExport])
-def recent(db: DbSession = Depends(get_db), _: User = Depends(admin_only)):
+def recent(db: DbSession = Depends(get_db), _: User = Depends(exports_viewer)):
     return service.recent(db)
+
+
+@router.get("/exports/{export_id}", response_model=Report)
+def view_export(export_id: int, db: DbSession = Depends(get_db), _: User = Depends(exports_viewer)):
+    return service.view_export(db, export_id)
+
+
+@router.get("/exports/{export_id}/download")
+def download_export(export_id: int, db: DbSession = Depends(get_db), actor: User = Depends(exports_viewer)):
+    return _file(*service.download_export(db, export_id, actor))
 
 
 @router.get("/{kind}", response_model=Report)
@@ -28,5 +52,4 @@ def preview(kind: Kind, from_: date = Query(alias="from"), to: date = Query(), a
 @router.get("/{kind}/export")
 def export(kind: Kind, format: Format, from_: date = Query(alias="from"), to: date = Query(), area: int | None = None,
            db: DbSession = Depends(get_db), actor: User = Depends(admin_only)):
-    body, media, name = service.export(db, kind, from_, to, area, format, actor)
-    return Response(body, media_type=media, headers={"Content-Disposition": f'attachment; filename="{name}"'})
+    return _file(*service.export(db, kind, from_, to, area, format, actor))

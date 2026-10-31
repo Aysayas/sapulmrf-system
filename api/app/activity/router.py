@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.activity import service
 from app.activity.schemas import ActivityOut
 from app.core.db import get_db
-from app.core.deps import require_role
+from app.core.deps import current_user, require_role
 from app.users.models import User
 
 router = APIRouter(prefix="/activity", tags=["activity"])
@@ -29,6 +29,12 @@ def list_activity(
     _: User = Depends(admin_only),
 ):
     return service.list_activity(db, user_id, days, limit, from_day=from_, to_day=to, category=category)
+
+
+@router.get("/mine", response_model=list[ActivityOut])
+def my_activity(days: int | None = Query(None, ge=1, le=366), limit: int = Query(100, ge=1, le=500),
+                db: DbSession = Depends(get_db), user: User = Depends(current_user)):
+    return service.list_activity(db, user.id, days, limit, skip_logins=True)
 
 
 @router.get("/export")

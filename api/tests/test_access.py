@@ -14,16 +14,17 @@ def setup(make_user, login):
 def test_staff_start_with_every_screen_off(client, make_user, login):
     setup(make_user, login)
     body = client.get("/access").json()
-    assert [s["key"] for s in body["screens"]] == ["segregation", "predictions", "alerts", "camera"]
+    assert [s["key"] for s in body["screens"]] == ["segregation", "predictions", "alerts", "camera", "reports"]
     assert [p["username"] for p in body["staff"]] == ["rreyes"]  # only staff are listed
-    assert body["staff"][0]["grants"] == {"segregation": False, "predictions": False, "alerts": False, "camera": False}
+    assert body["staff"][0]["grants"] == {"segregation": False, "predictions": False, "alerts": False, "camera": False,
+                                         "reports": False}
 
 
 def test_admin_grants_and_removes_screens(client, make_user, login):
     staff = setup(make_user, login)
     r = client.put(f"/access/{staff.id}", json={"grants": {"camera": True, "alerts": True}})
     assert r.status_code == 200
-    assert r.json()["grants"] == {"segregation": False, "predictions": False, "alerts": True, "camera": True}
+    assert r.json()["grants"] == {"segregation": False, "predictions": False, "alerts": True, "camera": True, "reports": False}
     client.put(f"/access/{staff.id}", json={"grants": {"camera": False}})
     assert client.get("/access").json()["staff"][0]["grants"]["camera"] is False
 

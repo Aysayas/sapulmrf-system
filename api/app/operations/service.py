@@ -42,8 +42,14 @@ def pct(part: float, whole: float) -> int:
 # ---- intake ----
 
 
-def intake_list(db: DbSession, days: int | None, q: str | None, limit: int):
+def intake_list(db: DbSession, days: int | None, q: str | None, limit: int, waiting: str | None = None):
     stmt = select(Delivery).join(SourceArea, SourceArea.id == Delivery.source_area_id)
+    if waiting == "segregation":
+        stmt = stmt.where(Delivery.status == "awaiting")
+    elif waiting == "sorting":  # all-wet deliveries stay "separated" but have nothing to sort
+        stmt = stmt.join(SegregationCheck, SegregationCheck.delivery_id == Delivery.id).where(
+            Delivery.status == "separated", SegregationCheck.dry_kg > 0
+        )
     if days:
         stmt = stmt.where(Delivery.received_at >= since(days))
     if q:

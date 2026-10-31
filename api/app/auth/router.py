@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session as DbSession
 
 from app.auth import service
-from app.auth.schemas import LoginIn
+from app.auth.schemas import LoginIn, PasswordIn, ProfileIn
 from app.core.config import settings
 from app.core.db import get_db
 from app.core.deps import COOKIE, current_user
@@ -29,3 +29,14 @@ def logout(request: Request, response: Response, db: DbSession = Depends(get_db)
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(current_user)):
     return user
+
+
+@router.patch("/me", response_model=UserOut)
+def update_me(body: ProfileIn, db: DbSession = Depends(get_db), user: User = Depends(current_user)):
+    return service.update_profile(db, user, body)
+
+
+@router.post("/me/password", status_code=204)
+def change_my_password(body: PasswordIn, request: Request, db: DbSession = Depends(get_db),
+                       user: User = Depends(current_user)):
+    service.change_password(db, user, body, request.cookies.get(COOKIE))

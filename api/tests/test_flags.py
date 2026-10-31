@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
+from app.insights.flags import check_weight
 from app.insights.models import Flag
 from app.intake import service as intake
 from app.intake.schemas import DeliveryIn, SegregationIn
@@ -56,12 +57,35 @@ def test_the_sensitivity_setting_changes_what_is_flagged(db, world, make_user):
     op = make_user()
     for i, kg in enumerate(USUAL):
         deliver(db, world, op, kg, i)
-    ranges.get(db).anomaly_sd = 3.0
-    deliver(db, world, op, 8.9, 20)  # about 2.8 SD above: fine at 3.0
+    ranges.get(db).anomaly_pct = 0.1
+    deliver(db, world, op, 8.45, 20)  # just past the heaviest earlier weight: fine when almost nothing may be flagged
     assert flags(db, "weight") == []
-    ranges.get(db).anomaly_sd = 2.0
-    deliver(db, world, op, 9.0, 21)  # about 2.3 SD above the (now 11) earlier ones: flagged at 2.0
+    ranges.get(db).anomaly_pct = 20
+    deliver(db, world, op, 7.45, 21)  # just past the lightest: flagged when a fifth of records may be
     assert len(flags(db, "weight")) == 1
+
+
+def test_the_same_history_gives_the_same_answer(db, world, make_user):
+    op = make_user()
+    for i, kg in enumerate(USUAL):
+        deliver(db, world, op, kg, i)
+    d = deliver(db, world, op, 14.1, 20)
+    first = flags(db, "weight")
+    assert [f.delivery_id for f in first] == [d.id]
+    db.delete(first[0])
+    db.flush()
+    check_weight(db, d)
+    assert [f.delivery_id for f in flags(db, "weight")] == [d.id]
+
+
+def test_identical_history_flags_nothing(db, world, make_user):
+    op = make_user()
+    for i in range(10):
+        deliver(db, world, op, 8.0, i)
+    deliver(db, world, op, 8.0, 20)
+    assert flags(db, "weight") == []
+    far = deliver(db, world, op, 40.0, 21)
+    assert [f.delivery_id for f in flags(db, "weight")] == [far.id]
 
 
 def sort(db, world, op, kg, wet, dry, sorted_kg):

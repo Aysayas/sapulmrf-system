@@ -10,7 +10,7 @@ from app.insights import flags
 from app.intake.models import Delivery, SegregationCheck
 from app.masterdata.models import Material, StorageArea
 from app.sorting.models import Classification, StockMovement
-from app.sorting.schemas import ClassificationOut, ConfirmIn, SortIn, SuggestionIn
+from app.sorting.schemas import ClassificationOut, ConfirmIn, SortIn, SuggestionIn, TransferIn, TransferOut
 from app.users.models import User
 
 SORT_TOLERANCE = 1.10  # sorted kg may slightly exceed the dry weight (rounding, bags)
@@ -43,6 +43,12 @@ def create_suggestion(db: DbSession, device: Device | None, data: SuggestionIn,
     db.add(c)
     db.commit()
     return c
+
+
+def pending(db: DbSession, limit: int) -> list[ClassificationOut]:
+    rows = db.scalars(select(Classification).where(Classification.confirmed_at.is_(None))
+                      .order_by(Classification.suggested_at.desc(), Classification.id.desc()).limit(limit))
+    return [out(db, c) for c in rows]
 
 
 def confirm(db: DbSession, classification_id: int, data: ConfirmIn, actor: User,
@@ -85,6 +91,37 @@ def material_kg(db: DbSession, material_id: int | None, storage_area_id: int) ->
 
 def material_bags(db: DbSession, material_id: int | None, storage_area_id: int) -> int:
     return int(db.scalar(select(func.coalesce(func.sum(StockMovement.bags), 0)).where(*_of(material_id, storage_area_id))))
+
+
+def transfer(db: DbSession, data: TransferIn, actor: User) -> TransferOut:
+    """Moves stock between areas as two ledger rows. Same material on both sides; bags move with it."""
+    if data.from_area_id == data.to_area_id:
+        raise AppError(422, "Pick two different storage areas.")
+    if data.material_id is not None and not db.get(Material, data.material_id):
+        raise AppError(422, "Pick a recyclable material, or leave it empty for residual.")
+    # Locked in id order, so two transfers in opposite directions can't deadlock or both pass the checks below.
+    areas = {a.id: a for a in db.scalars(select(StorageArea).where(StorageArea.id.in_([data.from_area_id, data.to_area_id]))
+                                         .order_by(StorageArea.id).with_for_update())}
+    source, dest = areas.get(data.from_area_id), areas.get(data.to_area_id)
+    if not source or not source.active or not dest or not dest.active:
+        raise AppError(422, "Pick an active storage area.")
+    kg, material = round(data.kg, 2), _name(db, data.material_id)
+    available, bags_there = material_kg(db, data.material_id, source.id), material_bags(db, data.material_id, source.id)
+    if kg > available + 0.001:
+        raise AppError(409, f"Only {available} kg of {material} in {source.name}.")
+    if data.bags > bags_there:
+        raise AppError(409, f"Only {bags_there} bags of {material} in {source.name}.")
+    if stock_kg(db, dest.id) + kg > dest.capacity_kg + 0.001:
+        raise AppError(409, f"{dest.name} can't take {kg} kg more. It holds {stock_kg(db, dest.id)} of {dest.capacity_kg} kg.")
+    bags = bags_there if kg >= available - 0.001 else data.bags  # emptying the material takes all its bags
+    note = f"{source.name} → {dest.name}"[:200]
+    for area, sign in ((source, -1), (dest, 1)):
+        db.add(StockMovement(material_id=data.material_id, storage_area_id=area.id, kg=sign * kg, bags=sign * bags,
+                             kind="transfer", by=actor.id, note=note))
+    log(db, actor.id, "Transferred stock", f"{material} · {note} · {kg} kg · {bags} bags")
+    db.commit()
+    return TransferOut(material=material, from_area=source.name, to_area=dest.name, kg=kg, bags=bags,
+                       from_area_kg=stock_kg(db, source.id), to_area_kg=stock_kg(db, dest.id))
 
 
 def sort_delivery(db: DbSession, data: SortIn, actor: User, at: datetime | None = None) -> Delivery:

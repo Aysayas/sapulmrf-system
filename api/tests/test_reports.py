@@ -3,7 +3,9 @@ import io
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import func, select
 
+from app.access.models import StaffAccess
 from app.activity.models import ActivityLog
 from app.approvals import service as approvals
 from app.approvals.schemas import DecisionIn, OutgoingIn
@@ -174,6 +176,46 @@ def test_preview_is_capped_at_500_rows(client, db, world, admin):
     finally:
         service.BUILDERS["income"] = real
     assert len(r["rows"]) == 500 and r["total_rows"] == 600
+
+
+def export_one(client, make_user, login, fmt="csv"):
+    make_user("maria", role="admin")
+    login("maria")
+    client.get("/reports/intake/export", params={"from": str(TODAY), "to": str(TODAY), "format": fmt})
+    return client.get("/reports/recent").json()[0]["id"]
+
+
+def test_staff_with_the_grant_view_and_download_exports_and_nothing_is_written(client, db, make_user, login):
+    export_id = export_one(client, make_user, login)
+    rosa = make_user("rosa", role="staff")
+    login("rosa")
+    assert client.get("/reports/recent").status_code == 403
+    assert client.get(f"/reports/exports/{export_id}/download").status_code == 403
+    db.add(StaffAccess(user_id=rosa.id, screen="reports", granted=True))
+    db.commit()
+
+    logged, exports = db.scalar(select(func.count(ActivityLog.id))), db.scalar(select(func.count(ReportExport.id)))
+    assert [e["id"] for e in client.get("/reports/recent").json()] == [export_id]
+    assert client.get(f"/reports/exports/{export_id}").json()["kind"] == "intake"
+    r = client.get(f"/reports/exports/{export_id}/download")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
+    assert "intake-report" in r.headers["content-disposition"]
+    assert client.get("/reports/exports/99999/download").status_code == 404
+    assert db.scalar(select(func.count(ActivityLog.id))) == logged
+    assert db.scalar(select(func.count(ReportExport.id))) == exports
+
+    # The grant covers exports already made, not building or previewing new ones.
+    assert get(client, "intake").status_code == 403
+    assert client.get("/reports/intake/export", params={"from": str(TODAY), "to": str(TODAY), "format": "csv"}).status_code == 403
+
+
+def test_operators_get_no_exports(client, make_user, login):
+    export_id = export_one(client, make_user, login)
+    make_user("juan", role="operator")
+    login("juan")
+    assert client.get("/reports/recent").status_code == 403
+    assert client.get(f"/reports/exports/{export_id}").status_code == 403
+    assert client.get(f"/reports/exports/{export_id}/download").status_code == 403
 
 
 def test_only_admins(client, make_user, login):

@@ -17,6 +17,10 @@ def _out(db: DbSession, u: User) -> StaffAccessOut:
     return StaffAccessOut(user_id=u.id, name=u.name, username=u.username, active=u.active, grants=_grants(db, u.id))
 
 
+def mine(db: DbSession, user: User) -> StaffAccessOut:
+    return _out(db, user)
+
+
 def overview(db: DbSession) -> AccessOverview:
     staff = db.scalars(select(User).where(User.role == "staff").order_by(User.name))
     return AccessOverview(screens=[{"key": s, "label": LABELS[s]} for s in SCREENS], staff=[_out(db, u) for u in staff])

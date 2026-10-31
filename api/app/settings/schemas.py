@@ -13,7 +13,7 @@ class SettingsOut(BaseModel):
     moisture_min: float
     moisture_max: float
     prediction_min_days: int
-    anomaly_sd: float
+    anomaly_pct: float
 
 
 class AreaLimit(BaseModel):
@@ -28,7 +28,7 @@ class SettingsIn(BaseModel):
     moisture_min: Annotated[float, Field(ge=0, le=100)]
     moisture_max: Annotated[float, Field(ge=0, le=100)]
     prediction_min_days: Annotated[int, Field(ge=1, le=365)]
-    anomaly_sd: Annotated[float, Field(ge=1, le=5)]
+    anomaly_pct: Annotated[float, Field(ge=0.1, le=20)]
     storage_areas: list[AreaLimit] = []
 
     @model_validator(mode="after")

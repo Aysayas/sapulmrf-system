@@ -8,6 +8,7 @@ Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max
 # Lowercased before saving; the pattern accepts either case because Pydantic checks it before lowering.
 Username = Annotated[str, StringConstraints(strip_whitespace=True, to_lower=True, pattern=r"^[A-Za-z0-9._-]{3,60}$")]
 Password = Annotated[str, Field(min_length=8, max_length=128)]
+Contact = Annotated[str, StringConstraints(strip_whitespace=True, max_length=30, pattern=r"^[0-9+() -]*$")]
 
 
 class UserOut(BaseModel):
@@ -17,6 +18,7 @@ class UserOut(BaseModel):
 
     id: int
     name: str
+    contact: str
     username: str
     role: Role
     active: bool

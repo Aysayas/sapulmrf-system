@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 
-export type Screen = 'segregation' | 'predictions' | 'alerts' | 'camera';
+export type Screen = 'segregation' | 'predictions' | 'alerts' | 'camera' | 'reports';
 export interface StaffAccess {
   user_id: number;
   name: string;

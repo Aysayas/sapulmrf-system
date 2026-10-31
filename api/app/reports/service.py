@@ -51,12 +51,35 @@ def export(db: DbSession, kind: Kind, from_day: date, to_day: date, area: int | 
            actor: User) -> tuple[bytes, str, str]:
     """Returns (file bytes, media type, filename) and records the export."""
     r = build(db, kind, from_day, to_day, area)
-    body = render.to_csv(r) if fmt == "csv" else render.to_pdf(r, actor.name, datetime.now(TZ))
+    file = _render(r, from_day, to_day, fmt, actor)
     db.add(ReportExport(kind=kind, from_day=from_day, to_day=to_day, area_id=area or None, format=fmt, user_id=actor.id))
     log(db, actor.id, f"Exported {kind} report as {fmt.upper()}", r.subtitle)
     db.commit()
+    return file
+
+
+def _render(r: Report, from_day: date, to_day: date, fmt: Format, actor: User) -> tuple[bytes, str, str]:
+    body = render.to_csv(r) if fmt == "csv" else render.to_pdf(r, actor.name, datetime.now(TZ))
     media = "text/csv; charset=utf-8" if fmt == "csv" else "application/pdf"
-    return body, media, f"{kind}-report_{from_day}_{to_day}.{fmt}"
+    return body, media, f"{r.kind}-report_{from_day}_{to_day}.{fmt}"
+
+
+def _exported(db: DbSession, export_id: int) -> tuple[ReportExport, Report]:
+    """A report an admin already exported, rebuilt from the current data. Reads only: no log, no new export row."""
+    e = db.get(ReportExport, export_id)
+    if not e:
+        raise AppError(404, "Report not found.")
+    return e, build(db, e.kind, e.from_day, e.to_day, e.area_id)
+
+
+def view_export(db: DbSession, export_id: int) -> Report:
+    _, r = _exported(db, export_id)
+    return r.model_copy(update={"rows": r.rows[:PREVIEW_ROWS]})
+
+
+def download_export(db: DbSession, export_id: int, actor: User) -> tuple[bytes, str, str]:
+    e, r = _exported(db, export_id)
+    return _render(r, e.from_day, e.to_day, e.format, actor)
 
 
 def recent(db: DbSession, limit: int = 10) -> list[RecentExport]:

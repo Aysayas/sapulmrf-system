@@ -116,7 +116,7 @@ class Overview(BaseModel):
     today_deliveries: int
     today_kg: float
     awaiting_segregation: int
-    compliance_week_pct: int
+    compliance_week_pct: int | None  # None for staff without the segregation grant
     in_storage_kg: float
     active_batches: int
     intake_14d: list[DayKg]
