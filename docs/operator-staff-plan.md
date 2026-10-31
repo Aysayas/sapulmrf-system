@@ -101,6 +101,8 @@ The table above was tuned on the replay it reports, so I re-ran the shipped code
 **So the forest is not better overall: it raises fewer false flags and misses more real outliers.** The earlier 27 of 27 was optimistic. The misses are mostly one mechanism: an outlier among a purok's first 10 deliveries is never judged, so it stays in the history and hides later weights of similar size (usual 6.6 kg, history holding 20.88 kg, new 20.36 kg not flagged). I did not tune again, because that would use up this held-out set too.
 
 ### Other checks measured (no app code changed)
+**Later decision:** the flags switched to the modified z-score at limit 3.5, see `docs/flags-mad-plan.md`. The Isolation Forest sections here record why.
+
 Same weights in the same order, standard limits with no tuning. MAD is the modified z-score, flagging `|M| > 3.5`. These are read-only replays on simulated data, and each purok keeps its own history. The app still ships Isolation Forest.
 
 | Data | Method | Outliers caught | False flags |

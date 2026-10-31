@@ -7,7 +7,7 @@ export interface Ranges {
   moisture_min: number;
   moisture_max: number;
   prediction_min_days: number;
-  anomaly_pct: number;
+  anomaly_limit: number;
 }
 export type RangesInput = Ranges & { storage_areas: { id: number; capacity_kg: number; alert_pct: number }[] };
 

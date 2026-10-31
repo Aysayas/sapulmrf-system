@@ -13,7 +13,7 @@ By the end of this semester, the **Barangay Administrator side** of SapulMRF run
 - **Local Docker for development; the group's own home server for production.** No paid hosting. (user, round 3)
 - **Isiah builds the admin side alone this semester, both frontend and backend.** Christina isn't on the admin frontend this time, so there's no hand-off and one person owns the API contract on both ends. (user, round 3 and follow-up)
 - **Rhendel owns the hardware side: IoT devices, CV model training and the server.** So the admin side needs clear data contracts with him. (user, round 4)
-- **Predictions start as statistics and become ML later.** Moving averages, storage outlook and z-score anomaly flags came first, because no real MRF data exists yet. Since then the weight flags use Isolation Forest (see Phase 6), and scikit-learn/Prophet models come once records pile up. (user, round 4)
+- **Predictions start as statistics and become ML later.** Moving averages, storage outlook and z-score anomaly flags came first, because no real MRF data exists yet. The weight flags now use the modified z-score (MAD), chosen over Isolation Forest by measurement, and scikit-learn/Prophet models come once records pile up. (user, round 4)
 - **Simulators in Docker stand in for the devices and the CV model.** They're swapped for Rhendel's real ones later. (user, round 5)
 - **Scope: all 21 admin requirements, laid out in detail.** (user, round 5: "be detailed about this")
 - **Containers use Python 3.12, not the laptop's Python 3.14.** Many ML libraries don't support 3.14 yet. (verified: `python --version` = 3.14.4)
@@ -114,7 +114,7 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 - [ ] SMS or email delivery, once the server and a provider are chosen
 
 ### Phase 6: Insights with AI/ML (ADM-12, 13, 14, 15)
-- [x] Unusual weights (Isolation Forest per purok, replacing the z-score; measured comparison in `docs/operator-staff-plan.md`) and received-vs-sorted gaps are flagged. Admin marks each one valid or incorrect (checked when the record is made; Approvals › Flagged records)
+- [x] Unusual weights (modified z-score per purok; measured comparison in `docs/operator-staff-plan.md`, switch in `docs/flags-mad-plan.md`) and received-vs-sorted gaps are flagged. Admin marks each one valid or incorrect (checked when the record is made; Approvals › Flagged records)
 - [x] Intake forecast per category, plus the storage outlook ("Area B full in ~6 days"), shown only after N days of records (Insights; N is `prediction_min_days`, 30)
 - [x] Suggested pickup or sale schedule, and predicted vs actual with the percentage error (Objective 5) (forecasts are saved daily, so the error is never hindsight)
 - [x] Swap in an ML model behind the same endpoint and compare its error with the stats baseline: done from the start. A scikit-learn Ridge model and the 7-day moving average both run, and the one with the lower 14-day error is used. Prophet was skipped (heavy install, not needed at this data size)

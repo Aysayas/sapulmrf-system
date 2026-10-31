@@ -16,7 +16,7 @@ const schema = z
     moisture_min: num('a moisture level', 0, 100),
     moisture_max: num('a moisture level', 0, 100),
     prediction_min_days: num('a number of days', 1, 365).int('Whole days only.'),
-    anomaly_pct: num('a percentage', 0.1, 20),
+    anomaly_limit: num('a limit', 2, 6),
     storage_areas: z.array(z.object({ id: z.number(), name: z.string(), capacity_kg: num('a capacity', 1, 1_000_000).int(), alert_pct: num('a percentage', 1, 100).int() })),
   })
   .refine((f) => f.compost_temp_min < f.compost_temp_max, { path: ['compost_temp_max'], message: 'Must be higher than the minimum.' })
@@ -78,7 +78,7 @@ function RangesForm({ ranges, areas }: { ranges: Ranges; areas: Item[] }) {
           <h3 className="mb-3 text-sm font-bold">Predictions</h3>
           <div className="flex flex-col gap-3">
             {field('prediction_min_days', 'Days of records before showing predictions', 'days', '1')}
-            {field('anomaly_pct', 'Unusual-weight sensitivity (higher flags more)', '%', '0.1')}
+            {field('anomaly_limit', 'Unusual-weight limit (lower flags more)', 'modified z-score', '0.1')}
           </div>
         </section>
       </div>

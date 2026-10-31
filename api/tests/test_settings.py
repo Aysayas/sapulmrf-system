@@ -3,7 +3,7 @@ from sqlalchemy import select
 from app.activity.models import ActivityLog
 
 DEFAULTS = {"compost_temp_min": 45.0, "compost_temp_max": 65.0, "moisture_min": 40.0, "moisture_max": 60.0,
-            "prediction_min_days": 30, "anomaly_pct": 2.0}
+            "prediction_min_days": 30, "anomaly_limit": 3.5}
 
 
 def as_admin(make_user, login):
@@ -33,7 +33,7 @@ def test_each_minimum_must_be_below_its_maximum(client, make_user, login):
     assert r.status_code == 422
     assert "temperature" in str(r.json()["detail"]).lower()
     assert client.put("/settings", json={**DEFAULTS, "moisture_min": 60}).status_code == 422
-    assert client.put("/settings", json={**DEFAULTS, "anomaly_pct": 0}).status_code == 422
+    assert client.put("/settings", json={**DEFAULTS, "anomaly_limit": 1}).status_code == 422
 
 
 def test_unknown_storage_area_is_404(client, make_user, login):

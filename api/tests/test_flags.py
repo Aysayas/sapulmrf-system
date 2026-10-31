@@ -54,15 +54,14 @@ def test_each_purok_has_its_own_usual(db, world, make_user):
     assert flags(db, "weight") == []
 
 
-def test_the_sensitivity_setting_changes_what_is_flagged(db, world, make_user):
+def test_the_limit_setting_changes_what_is_flagged(db, world, make_user):
     op = make_user()
     for i, kg in enumerate(USUAL):
         deliver(db, world, op, kg, i)
-    ranges.get(db).anomaly_pct = 0.1
-    deliver(db, world, op, 9.5, 20)  # past the heaviest earlier weight, by little: fine at the lowest sensitivity
+    deliver(db, world, op, 9.0, 20)  # median 8.0, MAD 0.2: M is about 3.4, under the default 3.5
     assert flags(db, "weight") == []
-    ranges.get(db).anomaly_pct = 20
-    deliver(db, world, op, 9.7, 21)  # about the same weight is flagged at the highest
+    ranges.get(db).anomaly_limit = 3
+    deliver(db, world, op, 9.0, 21)
     assert len(flags(db, "weight")) == 1
 
 
@@ -98,10 +97,10 @@ def test_a_tiny_difference_from_identical_history_is_not_flagged(db, world, make
     assert flags(db, "weight") == []
 
 
-def test_ordinary_weights_on_a_short_history_are_rarely_flagged():
-    rnd = random.Random(5)
-    flagged = sum(is_unusual([rnd.gauss(8, 1.4) for _ in range(10)], rnd.gauss(8, 1.4), 2.0) for _ in range(30))
-    assert flagged == 0  # before the minimum score, about 11% were
+def test_an_old_outlier_in_the_history_does_not_hide_a_new_one():
+    earlier = [7, 7.5, 8, 8, 8.5, 9, 21]  # raises the mean and SD enough that a z-score of 20 kg is only about 2
+    assert is_unusual(earlier, 20, 3.5)
+    assert not is_unusual(earlier, 8.5, 3.5)
 
 
 def test_a_past_outlier_does_not_hide_the_next_one(db, world, make_user):
@@ -119,12 +118,14 @@ def test_a_flag_marked_incorrect_goes_back_into_the_usual_weights(db, world, mak
     op = make_user()
     for i, kg in enumerate(USUAL):
         deliver(db, world, op, kg, i)
-    d = deliver(db, world, op, 14.1, 20)
-    [f] = flags(db, "weight")
-    f.status = "incorrect"
-    db.flush()
-    earlier = deliver(db, world, op, 14.2, 21)
-    assert [x.delivery_id for x in flags(db, "weight") if x.delivery_id == earlier.id] == [] and d.weight_kg == 14.1
+    for i in range(20, 35):  # the median moves only once enough of them count as usual
+        deliver(db, world, op, 14.1, i)
+        for f in flags(db, "weight"):
+            f.status = "incorrect"
+        db.flush()
+    before = len(flags(db, "weight"))
+    deliver(db, world, op, 14.1, 40)
+    assert 0 < before == len(flags(db, "weight"))
 
 
 def sort(db, world, op, kg, wet, dry, sorted_kg):
