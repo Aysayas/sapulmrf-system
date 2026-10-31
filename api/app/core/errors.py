@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -14,3 +16,8 @@ def install(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     def _app_error(_: Request, e: AppError):
         return JSONResponse(status_code=e.status_code, content={"detail": e.detail})
+
+    @app.exception_handler(Exception)
+    def _unexpected(request: Request, e: Exception):
+        logging.getLogger("uvicorn.error").error("%s %s failed", request.method, request.url.path, exc_info=e)
+        return JSONResponse(status_code=500, content={"detail": "Something went wrong on the server. Try again."})

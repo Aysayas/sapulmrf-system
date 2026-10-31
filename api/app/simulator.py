@@ -471,9 +471,15 @@ class Api:
         import httpx
 
         self.http = httpx.Client(base_url=base, timeout=15)
+        self.login_body = None
 
     def call(self, method: str, path: str, key: str | None = None, **kw):
         r = self.http.request(method, path, headers={"X-Device-Key": key} if key else None, **kw)
+        if path == "/auth/login" and r.status_code == 200:
+            self.login_body = kw["json"]
+        elif r.status_code == 401 and not key and self.login_body:  # sessions expire, and this runs for days
+            self.http.post("/auth/login", json=self.login_body).raise_for_status()
+            r = self.http.request(method, path, **kw)
         if r.status_code >= 400:
             raise RuntimeError(f"{method} {path} → {r.status_code}: {r.text[:200]}")
         return r.json() if r.content else None
@@ -571,12 +577,12 @@ def run(base: str, pace: float) -> None:
                         )
                 next_readings = now + 30 * pace
             if now >= next_delivery:
+                next_delivery = now + rnd.uniform(60, 120) * pace  # first, so a failure partway doesn't start another at once
                 _one_delivery(op, rnd, keys, ids, puroks, profiles, cats, mats, areas)
                 if rnd.random() < 0.08:  # about every 20 minutes, something for the admin's inbox
                     _one_request(op, rnd, mats, areas)
-                next_delivery = now + rnd.uniform(60, 120) * pace
         except Exception as e:  # keep going; the API may be restarting
-            print(f"{datetime.now():%H:%M:%S} {e}", file=sys.stderr, flush=True)
+            print(f"{datetime.now():%H:%M:%S} {e!r}", file=sys.stderr, flush=True)
         time.sleep(1)
 
 

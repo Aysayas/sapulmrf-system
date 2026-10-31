@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -16,4 +18,5 @@ class Settings(Base):
     moisture_min: Mapped[float] = mapped_column(default=40.0)
     moisture_max: Mapped[float] = mapped_column(default=60.0)
     prediction_min_days: Mapped[int] = mapped_column(default=30)
+    worker_seen_at: Mapped[datetime | None] = mapped_column(default=None)  # last alert check, for /health
     anomaly_limit: Mapped[float] = mapped_column(default=3.5)

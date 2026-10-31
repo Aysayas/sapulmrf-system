@@ -20,6 +20,7 @@ services:
   api:
     build: ./api
     image: sapulmrf-api:dev  # worker and sim run this same image, so it is built and stored once
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       WATCHFILES_FORCE_POLLING: "true"  # file changes from Windows don't reach the container as events
@@ -76,6 +77,7 @@ services:
     image: sapulmrf-api:dev
     pull_policy: never
     command: python -m app.simulator run
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       API_BASE: http://api:8000
