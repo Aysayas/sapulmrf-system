@@ -91,7 +91,7 @@ def test_admins_mark_flags_valid_or_incorrect(client, db, world, make_user, logi
     assert client.get("/insights/flags").json() == []
     assert client.post(f"/insights/flags/{f['id']}", json={"decision": "valid"}).status_code == 409
     assert client.post(f"/insights/flags/{f['id']}", json={"decision": "maybe"}).status_code == 422
-    assert db.scalar(select(ActivityLog.action).order_by(ActivityLog.id.desc())) == "Marked flagged record incorrect"
+    assert db.scalar(select(ActivityLog.action).order_by(ActivityLog.id.desc())) == "Marked flagged record a false alarm"
     assert db.get(Flag, f["id"]).delivery_id == heavy.id
 
 

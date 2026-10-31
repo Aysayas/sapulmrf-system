@@ -5,6 +5,7 @@ from app.activity.service import log
 from app.core.errors import AppError
 from app.masterdata.models import Material, SourceArea, StorageArea, WasteCategory
 from app.masterdata.schemas import ItemCreate, ItemUpdate, Kind
+from app.sorting.service import lock_areas, stock_kg
 from app.users.models import User
 
 MODELS = {"categories": WasteCategory, "puroks": SourceArea, "materials": Material, "storage-areas": StorageArea}
@@ -53,6 +54,10 @@ def update_item(db: DbSession, kind: Kind, item_id: int, data: ItemUpdate, actor
         raise AppError(404, f"That {LABELS[kind]} doesn't exist.")
     if data.name:
         _check_name(db, kind, data.name, except_id=item.id)
+    if kind == "storage-areas" and data.active is False:
+        lock_areas(db, [item.id])
+        if (held := stock_kg(db, item.id)) > 0.005:
+            raise AppError(409, f"{item.name} still holds {held} kg. Move it out before deactivating.")
     changes = data.model_dump(exclude_unset=True, exclude_none=True)
     if kind != "storage-areas":
         changes.pop("capacity_kg", None)

@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from app.activity.service import log
+from app.core.db import advisory_lock
 from app.core.errors import AppError
 from app.devices.models import Device
 from app.insights import flags
@@ -39,6 +40,11 @@ def _active(db: DbSession, model, item_id: int, what: str):
 
 def record_delivery(db: DbSession, data: DeliveryIn, actor: User, at: datetime | None = None) -> Delivery:
     """at is only passed by the history backfill; live records always use the server's clock."""
+    if data.client_key:
+        advisory_lock(db, data.client_key)
+        first = db.scalar(select(Delivery).where(Delivery.client_key == data.client_key))
+        if first:
+            return first
     area = _active(db, SourceArea, data.source_area_id, "source area")
     _active(db, WasteCategory, data.category_id, "waste category")
     corrected = data.scale_kg is not None and abs(data.scale_kg - data.weight_kg) > 0.001
@@ -52,6 +58,7 @@ def record_delivery(db: DbSession, data: DeliveryIn, actor: User, at: datetime |
         source_area_id=area.id, category_id=data.category_id, weight_kg=round(data.weight_kg, 2),
         weighed_by=data.weighed_by, scale_kg=round(data.scale_kg, 2) if corrected else None,
         correction_reason=data.correction_reason if corrected else None, recorded_by=actor.id, device_id=data.device_id,
+        client_key=data.client_key,
     )
     if at:
         d.received_at = at
@@ -85,7 +92,7 @@ def undo_segregation(db: DbSession, delivery_id: int, actor: User) -> Delivery:
 
 def record_segregation(db: DbSession, delivery_id: int, data: SegregationIn, actor: User,
                        at: datetime | None = None) -> Delivery:
-    d = db.get(Delivery, delivery_id)
+    d = db.get(Delivery, delivery_id, with_for_update=True)  # two phones can check the same delivery
     if not d:
         raise AppError(404, "Delivery not found.")
     if db.scalar(select(SegregationCheck.id).where(SegregationCheck.delivery_id == d.id)):

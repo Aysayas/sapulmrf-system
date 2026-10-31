@@ -3,6 +3,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints
 
+from app.intake.schemas import ClientKey
+
 Text = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
 
 
@@ -41,6 +43,7 @@ class TransferIn(BaseModel):
     to_area_id: int
     kg: Annotated[float, Field(ge=0.01, le=50000)]
     bags: Annotated[int, Field(ge=0, le=1000)] | None = None  # None: in proportion to the kg
+    client_key: ClientKey | None = None
 
 
 class TransferOut(BaseModel):
@@ -56,7 +59,7 @@ class TransferOut(BaseModel):
 class SortRow(BaseModel):
     material_id: int | None  # None means residual
     bags: Annotated[int, Field(ge=0, le=1000)]
-    kg: Annotated[float, Field(gt=0, le=5000)]
+    kg: Annotated[float, Field(ge=0.01, le=5000)]
     storage_area_id: int
 
 

@@ -199,9 +199,11 @@ def decide_flag(db: DbSession, flag_id: int, decision: str, actor: User) -> Flag
     if not f:
         raise AppError(404, "Flag not found.")
     if f.status != "open":
-        raise AppError(409, f"This flag was already marked {f.status}.")
+        raise AppError(409, f"This flag was already marked {'a false alarm' if f.status == 'incorrect' else f.status}.")
     f.status, f.decided_by, f.decided_at = decision, actor.id, datetime.now(UTC)
     out = flag_out(db, f)
-    log(db, actor.id, f"Marked flagged record {decision}", f"{out.code} · {out.why} · {out.value_kg} kg")
+    # "incorrect" is the stored value: the weight was fine, so it stays in the usual weights (flags.check_weight).
+    word = "a false alarm" if decision == "incorrect" else decision
+    log(db, actor.id, f"Marked flagged record {word}", f"{out.code} · {out.why} · {out.value_kg} kg")
     db.commit()
     return f

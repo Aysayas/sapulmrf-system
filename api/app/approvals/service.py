@@ -8,6 +8,7 @@ from app.activity.service import log
 from app.approvals.models import AdjustmentRequest, Outgoing
 from app.approvals.schemas import AdjustmentIn, AdjustmentOut, ApprovalsOut, DecisionIn, OutgoingIn, OutgoingOut, ReviewIn
 from app.compost.models import CompostBatch
+from app.core.db import advisory_lock
 from app.core.errors import AppError
 from app.insights.models import Flag
 from app.intake import service as intake
@@ -87,6 +88,11 @@ def request_adjustment(db: DbSession, data: AdjustmentIn, actor: User, at: datet
 
 
 def request_outgoing(db: DbSession, data: OutgoingIn, actor: User, at: datetime | None = None) -> Outgoing:
+    if data.client_key:
+        advisory_lock(db, data.client_key)
+        first = db.scalar(select(Outgoing).where(Outgoing.client_key == data.client_key))
+        if first:
+            return first
     if data.storage_area_id is not None:
         _area(db, data.storage_area_id)
     if data.material_id is not None and not db.get(Material, data.material_id):
@@ -95,7 +101,7 @@ def request_outgoing(db: DbSession, data: OutgoingIn, actor: User, at: datetime 
     o = Outgoing(type=data.type, material_id=data.material_id, storage_area_id=data.storage_area_id,
                  kg=round(data.kg, 2), recipient=data.recipient, price_per_kg=price,
                  total=(price * Decimal(str(round(data.kg, 2)))).quantize(Decimal("0.01")) if price else None,
-                 requested_by=actor.id)
+                 requested_by=actor.id, client_key=data.client_key)
     if at:
         o.requested_at = at
     db.add(o)
@@ -123,12 +129,20 @@ def _decide(row, data: DecisionIn, actor: User, at: datetime | None) -> None:
 def decide_adjustment(db: DbSession, request_id: int, data: DecisionIn, actor: User,
                       at: datetime | None = None) -> AdjustmentRequest:
     r = _pending(db.get(AdjustmentRequest, request_id, with_for_update=True), "Adjustment")
-    lock_areas(db, [r.storage_area_id])
+    area = lock_areas(db, [r.storage_area_id])[r.storage_area_id]
+    current = material_kg(db, r.material_id, r.storage_area_id)
+    if data.decision == "approve" and not area.active and r.actual_kg > 0:
+        raise AppError(409, f"{area.name} is no longer active. Reject this count, or reactivate the area first.")
+    if data.decision == "approve" and abs(current - r.system_kg) > 0.005:
+        raise AppError(409, f"Stock changed since this count: {r.system_kg} kg then, {current} kg now. "
+                            "Reject it and ask for a new count.")
     _decide(r, data, actor, at)
-    change = round(r.actual_kg - material_kg(db, r.material_id, r.storage_area_id), 2)
+    change = round(r.actual_kg - current, 2)
     if r.status == "approved" and change:
-        db.add(StockMovement(material_id=r.material_id, storage_area_id=r.storage_area_id, kg=change, kind="adjustment",
-                             by=actor.id, note=f"Adjustment #{r.id}: {r.reason}"[:200], at=r.decided_at))
+        bags = material_bags(db, r.material_id, r.storage_area_id)
+        taken = bags if r.actual_kg <= 0 else max(0, min(bags - 1, round(bags * -change / current))) if change < 0 else 0
+        db.add(StockMovement(material_id=r.material_id, storage_area_id=r.storage_area_id, kg=change, bags=-taken,
+                             kind="adjustment", by=actor.id, note=f"Adjustment #{r.id}: {r.reason}"[:200], at=r.decided_at))
     if not at:
         verb = "Approved inventory adjustment" if r.status == "approved" else "Rejected inventory adjustment"
         area = db.get(StorageArea, r.storage_area_id).name
@@ -141,6 +155,8 @@ def decide_outgoing(db: DbSession, outgoing_id: int, data: DecisionIn, actor: Us
     o = _pending(db.get(Outgoing, outgoing_id, with_for_update=True), "Outgoing record")
     if o.storage_area_id:
         lock_areas(db, [o.storage_area_id])
+    else:
+        advisory_lock(db, "compost")  # compost has no area row to lock
     if data.decision == "approve":
         available = material_kg(db, o.material_id, o.storage_area_id) if o.storage_area_id else compost_on_hand(db)
         if o.kg > available + 0.001:

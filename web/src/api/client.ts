@@ -34,3 +34,37 @@ export async function download(path: string): Promise<void> {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+const KEY_LIFETIME_MS = 10 * 60_000;
+
+/**
+ * Gives one submission a client_key, kept in this tab until it succeeds. If a response is lost and the operator sends
+ * the same values again, even after closing the form or reloading, the server returns the first record.
+ */
+export async function once<In extends object, Out>(path: string, body: In, send: (keyed: In & { client_key: string }) => Promise<Out>) {
+  const slot = `once:${path}`;
+  const text = JSON.stringify(body);
+  let saved: { body: string; key: string; at: number } | null = null;
+  try {
+    saved = JSON.parse(sessionStorage.getItem(slot) ?? 'null');
+  } catch {
+    // shortcut: without storage, only a double tap is protected.
+  }
+  if (saved?.body !== text || Date.now() - saved.at > KEY_LIFETIME_MS) {
+    // Not crypto.randomUUID: phones reach a LAN server over plain http until HTTPS is set up.
+    const key = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
+    saved = { body: text, key, at: Date.now() };
+    try {
+      sessionStorage.setItem(slot, JSON.stringify(saved));
+    } catch {
+      // as above
+    }
+  }
+  const out = await send({ ...body, client_key: saved.key });
+  try {
+    sessionStorage.removeItem(slot);
+  } catch {
+    // as above
+  }
+  return out;
+}

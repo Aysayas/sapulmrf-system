@@ -3,8 +3,10 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints
 
-Kg = Annotated[float, Field(gt=0, le=5000)]
+Kg = Annotated[float, Field(ge=0.01, le=5000)]
 KgOrZero = Annotated[float, Field(ge=0, le=5000)]
+# Sent again with a retry, so a resend after a lost response returns the first record.
+ClientKey = Annotated[str, StringConstraints(min_length=8, max_length=36)]
 Note = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
 
 
@@ -16,6 +18,7 @@ class DeliveryIn(BaseModel):
     scale_kg: Kg | None = None  # the scale's reading, when the operator corrected it
     correction_reason: Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)] | None = None
     device_id: int | None = None
+    client_key: ClientKey | None = None
 
 
 class SegregationIn(BaseModel):

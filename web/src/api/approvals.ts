@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from './client';
+import { api, once } from './client';
 import type { Classification, Delivery } from './operations';
 
 interface Decided {
@@ -55,7 +55,11 @@ export const useChangeReviews = () =>
 
 function useRefresh() {
   const qc = useQueryClient();
-  return () => ['approvals', 'reviews', 'ops', 'overview', 'activity'].forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
+  return () => ['approvals', 'reviews', 'ops', 'overview', 'activity'].forEach(async (k) => {
+    // Invalidating alone joins a first load already in flight, whose answer can predate this write.
+    await qc.cancelQueries({ queryKey: [k] });
+    qc.invalidateQueries({ queryKey: [k] });
+  });
 }
 
 export function useDecide() {
@@ -94,7 +98,7 @@ export function useRequestOutgoing() {
   const refresh = useRefresh();
   return useMutation({
     mutationFn: (body: { type: Outgoing['type']; material_id: number | null; storage_area_id: number | null; kg: number; recipient: string; price_per_kg: number | null }) =>
-      api<Outgoing>('/outgoing', { method: 'POST', body }),
+      once('/outgoing', body, (keyed) => api<Outgoing>('/outgoing', { method: 'POST', body: keyed })),
     onSuccess: refresh,
   });
 }

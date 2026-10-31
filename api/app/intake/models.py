@@ -29,6 +29,7 @@ class Delivery(Base):
     status: Mapped[str] = mapped_column(String(10), default="awaiting", index=True)
     recorded_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     device_id: Mapped[int | None] = mapped_column(ForeignKey("devices.id", ondelete="SET NULL"), default=None)
+    client_key: Mapped[str | None] = mapped_column(String(36), unique=True, default=None)
     # The admin's review of a corrected weight: ok or recheck. A mark only; the weight stays as recorded.
     review: Mapped[str | None] = mapped_column(String(8), default=None)
     reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), default=None)

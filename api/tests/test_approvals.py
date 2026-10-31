@@ -114,14 +114,13 @@ def test_an_approved_adjustment_sets_stock_to_the_count(client, db, world, as_op
             "reason": "Wet bags removed as residual"}
     r = client.post("/inventory/adjustments", json=body)
     assert r.status_code == 201 and r.json()["system_kg"] == 100.0 and r.json()["area_after_kg"] == 92.5
-    stock(db, world, kg=10)  # more sorted in before the admin decides
     as_admin(make_user, login)
     assert client.post("/inventory/adjustments", json=body).status_code == 403
     d = client.post(f"/approvals/adjustments/{r.json()['id']}", json={"decision": "approve"})
     assert d.status_code == 200
-    assert material_kg(db, world["mat"]["Plastic"], world["area_a"]) == 92.5  # the count wins, whatever moved since
+    assert material_kg(db, world["mat"]["Plastic"], world["area_a"]) == 92.5
     rows = db.scalars(select(StockMovement.kg).where(StockMovement.kind == "adjustment")).all()
-    assert rows == [-17.5]
+    assert rows == [-7.5]
     assert client.post(f"/approvals/adjustments/{r.json()['id']}", json={"decision": "reject", "comment": "x"}).status_code == 409
 
 

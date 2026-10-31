@@ -49,6 +49,7 @@ class Outgoing(Base):
     recipient: Mapped[str] = mapped_column(String(120))
     price_per_kg: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), default=None)
     total: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), default=None)
+    client_key: Mapped[str | None] = mapped_column(String(36), unique=True, default=None)
     status: Mapped[str] = mapped_column(String(10), default="pending", index=True)
     requested_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     requested_at: Mapped[datetime] = mapped_column(server_default=func.now(), index=True)

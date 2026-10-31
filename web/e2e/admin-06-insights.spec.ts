@@ -22,7 +22,7 @@ test('Insights shows the forecast, both models, the storage outlook and predicte
   await expect(chart.locator('.recharts-bar-rectangle').first()).toBeVisible()
 })
 
-test('an unusually heavy delivery is flagged, and the admin marks it incorrect', async ({ adminPage: page, baseURL }) => {
+test('an unusually heavy delivery is flagged, and the admin marks it a false alarm', async ({ adminPage: page, baseURL }) => {
   const id = Date.now().toString(36)
   const purok = await page.request.post('/api/masterdata/puroks', { data: { name: `e2e Purok ${id}` } }).then((r) => r.json())
   const op = newAccount('operator')
@@ -43,8 +43,8 @@ test('an unusually heavy delivery is flagged, and the admin marks it incorrect',
     await expect(row).toContainText('Unusual weight')
     await expect(row).toContainText(`Usual for ${purok.name}: 7.`)
     await expect(row).toContainText('24 kg')
-    await row.getByRole('button', { name: `Mark ${heavy.code} incorrect` }).click()
-    await expect(page.getByRole('status')).toContainText(`${heavy.code} marked incorrect`)
+    await row.getByRole('button', { name: `Mark ${heavy.code} a false alarm` }).click()
+    await expect(page.getByRole('status')).toContainText(`${heavy.code} marked a false alarm`)
     await expect(row).toHaveCount(0)
   } finally {
     await operator.dispose()

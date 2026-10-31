@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Outgoing } from './approvals';
-import { api } from './client';
+import { api, once } from './client';
 
 export interface Delivery {
   id: number;
@@ -165,7 +165,7 @@ function useWrite<In, Out>(request: (body: In) => Promise<Out>) {
 }
 const post = <Out,>(path: string, body: unknown) => api<Out>(path, { method: 'POST', body });
 
-export const useRecordDelivery = () => useWrite((b: DeliveryIn) => post<Delivery>('/deliveries', b));
+export const useRecordDelivery = () => useWrite((b: DeliveryIn) => once('/deliveries', b, (keyed) => post<Delivery>('/deliveries', keyed)));
 export const useRecordSegregation = () =>
   useWrite(({ deliveryId, ...b }: SegregationIn & { deliveryId: number }) => post<Delivery>(`/deliveries/${deliveryId}/segregation`, b));
 export const useUndoSegregation = () =>
@@ -173,7 +173,7 @@ export const useUndoSegregation = () =>
 export const useSortDelivery = () => useWrite((b: { delivery_id: number; rows: SortRow[] }) => post<Delivery>('/sorting', b));
 export const useConfirmClassification = () =>
   useWrite(({ id, ...b }: ConfirmIn & { id: number }) => post<Classification>(`/classifications/${id}/confirm`, b));
-export const useTransfer = () => useWrite((b: TransferIn) => post<TransferOut>('/inventory/transfers', b));
+export const useTransfer = () => useWrite((b: TransferIn) => once('/inventory/transfers', b, (keyed) => post<TransferOut>('/inventory/transfers', keyed)));
 export const useStartBatch = () => useWrite((b: { start_kg: number; sensor_id: number | null }) => post<Batch>('/compost/batches', b));
 export const useLogBatchActivity = () =>
   useWrite(({ batchId, ...b }: BatchActivityIn & { batchId: number }) => post<Batch>(`/compost/batches/${batchId}/activities`, b));

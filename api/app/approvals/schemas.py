@@ -3,6 +3,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, model_validator
 
+from app.intake.schemas import ClientKey
+
 Text = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
 Required = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
 
@@ -19,12 +21,15 @@ class OutgoingIn(BaseModel):
     type: Literal["sale", "compost", "disposal"]
     material_id: int | None = None
     storage_area_id: int | None = None
-    kg: Annotated[float, Field(gt=0, le=50000)]
+    kg: Annotated[float, Field(ge=0.01, le=50000)]
     recipient: Required
-    price_per_kg: Annotated[float, Field(gt=0, le=100000)] | None = None
+    price_per_kg: Annotated[float, Field(ge=0.01, le=100000)] | None = None
+    client_key: ClientKey | None = None
 
     @model_validator(mode="after")
     def fits_the_type(self):
+        if self.price_per_kg and round(self.kg, 2) * round(self.price_per_kg, 2) >= 100_000_000:
+            raise ValueError("That total is too large. Check the kg and the price.")
         if self.type == "sale" and (self.material_id is None or self.storage_area_id is None or self.price_per_kg is None):
             raise ValueError("A sale needs the material, the storage area it leaves from, and the price per kg.")
         if self.type == "disposal" and (self.storage_area_id is None or self.material_id is not None or self.price_per_kg):

@@ -191,10 +191,10 @@ function FlaggedRecords({ onDone }: { onDone: (m: string) => void }) {
   const list = useFlags();
   const decide = useDecideFlag();
   const mark = (id: number, code: string, d: 'valid' | 'incorrect') =>
-    decide.mutate({ id, decision: d }, { onSuccess: () => onDone(`${code} marked ${d}`) });
+    decide.mutate({ id, decision: d }, { onSuccess: () => onDone(`${code} marked ${d === 'valid' ? 'valid' : 'a false alarm'}`) });
   return (
     <>
-      <p className="text-sm text-ink-2">Flagged records are never changed automatically. Mark each one valid or incorrect.</p>
+      <p className="text-sm text-ink-2">Flagged records are never changed automatically. Valid means the weight really is unusual, and it stays out of the usual weights. False alarm means the weight is normal, and it counts toward them. To fix a wrong weight, use a problem report.</p>
       <Table label="Flagged records" head={['Record', 'Source', 'Value', 'Expected', 'Why flagged', 'Your decision']}
         state={{ isPending: list.isPending, error: list.error ?? decide.error, count: list.data?.length }} empty="No flagged records to review.">
         {list.data?.map((f) => (
@@ -206,7 +206,7 @@ function FlaggedRecords({ onDone }: { onDone: (m: string) => void }) {
             <td><Badge kind="warn">{f.why}</Badge></td>
             <td className="whitespace-nowrap">
               <button className={`${small} ${btn.secondary}`} aria-label={`Mark ${f.code} valid`} disabled={decide.isPending} onClick={() => mark(f.id, f.code, 'valid')}>Valid</button>{' '}
-              <button className={`${small} ${btn.secondary}`} aria-label={`Mark ${f.code} incorrect`} disabled={decide.isPending} onClick={() => mark(f.id, f.code, 'incorrect')}>Incorrect</button>
+              <button className={`${small} ${btn.secondary}`} aria-label={`Mark ${f.code} a false alarm`} disabled={decide.isPending} onClick={() => mark(f.id, f.code, 'incorrect')}>False alarm</button>
             </td>
           </tr>
         ))}

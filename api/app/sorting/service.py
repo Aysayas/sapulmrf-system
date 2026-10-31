@@ -53,7 +53,7 @@ def pending(db: DbSession, limit: int) -> list[ClassificationOut]:
 
 def confirm(db: DbSession, classification_id: int, data: ConfirmIn, actor: User,
             at: datetime | None = None) -> Classification:
-    c = db.get(Classification, classification_id)
+    c = db.get(Classification, classification_id, with_for_update=True)
     if not c:
         raise AppError(404, "Classification not found.")
     if c.confirmed_at:
@@ -107,9 +107,14 @@ def transfer(db: DbSession, data: TransferIn, actor: User) -> TransferOut:
         raise AppError(422, "Pick a recyclable material, or leave it empty for residual.")
     areas = lock_areas(db, [data.from_area_id, data.to_area_id])
     source, dest = areas.get(data.from_area_id), areas.get(data.to_area_id)
+    kg, material = round(data.kg, 2), _name(db, data.material_id)
+    if data.client_key and source and dest:  # the area lock above keeps two sends of one key in order
+        first = db.scalar(select(StockMovement).where(StockMovement.client_key == data.client_key))
+        if first:
+            return TransferOut(material=material, from_area=source.name, to_area=dest.name, kg=-first.kg, bags=-first.bags,
+                               from_area_kg=stock_kg(db, source.id), to_area_kg=stock_kg(db, dest.id))
     if not source or not source.active or not dest or not dest.active:
         raise AppError(422, "Pick an active storage area.")
-    kg, material = round(data.kg, 2), _name(db, data.material_id)
     available, bags_there = material_kg(db, data.material_id, source.id), material_bags(db, data.material_id, source.id)
     if kg > available + 0.001:
         raise AppError(409, f"Only {available} kg of {material} in {source.name}.")
@@ -129,7 +134,7 @@ def transfer(db: DbSession, data: TransferIn, actor: User) -> TransferOut:
     note = f"{source.name} → {dest.name}"[:200]
     for area, sign in ((source, -1), (dest, 1)):
         db.add(StockMovement(material_id=data.material_id, storage_area_id=area.id, kg=sign * kg, bags=sign * bags,
-                             kind="transfer", by=actor.id, note=note))
+                             kind="transfer", by=actor.id, note=note, client_key=data.client_key if sign < 0 else None))
     log(db, actor.id, "Transferred stock", f"{material} · {note} · {kg} kg · {bags} bags")
     db.commit()
     return TransferOut(material=material, from_area=source.name, to_area=dest.name, kg=kg, bags=bags,

@@ -40,7 +40,7 @@ def update_user(db: DbSession, user_id: int, data: UserUpdate, actor: User) -> U
     if data.username and _username_taken(db, data.username, except_id=user.id):
         raise AppError(409, "That username is taken.")
 
-    changes = data.model_dump(exclude_unset=True, exclude={"password"})
+    changes = data.model_dump(exclude_unset=True, exclude_none=True, exclude={"password"})
     for field, value in changes.items():
         setattr(user, field, value)
     if data.password:
