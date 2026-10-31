@@ -99,3 +99,17 @@ test('admin sees the users list', async ({ adminPage: page }) => {
 Find elements the way a user would: `getByRole`, `getByLabel`, `getByText`. Never use CSS classes. Import `test` and `expect` from `./fixtures/test`.
 
 `operator-01-requests.spec.ts` makes its own e2e purok, area, operator and stock, so it needs no backfill. It checks the admin side through the API. `remove-test-data` also clears the problem reports it sends about its e2e delivery.
+
+## Added on 2026-11-01
+- `test_data_safety.py`: resend keys, stale counts, locks, bags and input limits.
+- `test_security.py`: CSV escaping, login limits, scale readings, camera grant.
+- `test_reliability.py`: worker status, plain 500s, simulator re-login.
+- `test_device_readings.py`: `read_at`, resends, late readings.
+- `operator-02-resend`: a lost response, then the same values from a reopened form, records once.
+- `operator-03-today` and `staff-01-views`: Today, failed requests, Drawer focus, page load failure, staff pages.
+
+**Things to know:**
+- A delivery recorded as `scale` needs a fresh stable reading from its station, so tests that don't care about the scale send `manual`.
+- `test_reports.py` works out `TODAY` once, so a run crossing midnight in Manila can fail it. Run it again.
+- `remove-test-data` leaves test-admin report exports in place, about two rows per day from `staff-01-views`.
+- A real concurrent run was never done. The lock tests check that the lock is held, not two writers racing.

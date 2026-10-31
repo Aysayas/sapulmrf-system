@@ -1,5 +1,7 @@
 # Plan: finish the operator screens, staff screens and Isolation Forest flags (multi-agent workflow)
 
+**Superseded in part:** the flags now use the modified z-score and `anomaly_limit`, see `docs/flags-mad-plan.md`. Isolation Forest and `anomaly_pct` below are history.
+
 ## Context
 You asked to build all three remaining pieces at once with a multi-agent workflow:
 1. the rest of the operator screens
@@ -44,7 +46,7 @@ Stages run in this order; only stage 3 is parallel. pytest and the browser tests
 
 Rules every agent gets: use `tsc --noEmit` only, never `tsc -b`; use `http://127.0.0.1:5174`; never read or print `.env` values; move files to `_to_delete/` rather than deleting them; commit locally only, ending with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`; never push.
 
-`docs/ai-assistant-plan.md` stays untouched and uncommitted, so agents add files by name instead of `git add -A`.
+Agents add files by name instead of `git add -A`.
 
 ## After the workflow, I check it myself
 - Start the stack with the simulator. Run `alembic upgrade head`, `pytest`, `ruff check .`, `npx tsc --noEmit`, `npm run build`, `npm run test:e2e`, then `remove-test-data`.

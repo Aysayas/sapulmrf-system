@@ -85,3 +85,26 @@ Same method as the baseline, measured after the fixes. Medians in ms; simulated 
 - **`/insights/predictions`:** the date bounds on `daily_kg` didn't change the timing at this size. They only matter once there's much more history.
 - **First-load script:** one 1,015 KB file became a 465 KB main file, plus 394 KB of charts loaded only by pages that use them. Other pages load as small separate files.
 - **Indexes added:** `compost_readings (batch_id, read_at)`, `stock_movements (delivery_id)`. Their effect wasn't measured separately.
+
+## Final check
+Re-measured after all changes, with the simulator running. Data keeps growing, so small differences mean little.
+
+| Endpoint | Baseline ms | Final ms | Baseline queries | Final queries |
+|---|---|---|---|---|
+| `/operations/outgoing?days=30` | 242 | 33 | 245 | 10 |
+| `/operations/intake` | 165 | 28 | 201 | 5 |
+| `/approvals` | 185 | 118 | 182 | 88 |
+| `/insights/flags` | 91 | 19 | 106 | 5 |
+| `/operations/camera` | 93 | 21 | 59 | 8 |
+| `/operations/sorting` | 85 | 27 | 53 | 10 |
+| `/insights/predictions` | 77 | 56 | 31 | 31 |
+| `/overview` | 49 | 49 | 31 | 31 |
+| `/operations/compost` | 55 | 70 | 19 | 19 |
+
+**Got slower:** `/operations/compost` went from 55 to 70 ms with the same queries, while its response grew from 107 KB to 121 KB as readings piled up. It's still fast, and it sends every reading in range, so it will keep growing with the data.
+
+**Slightly slower by design:** a few fast endpoints (`/operations/inventory`, 15 to 20 ms) are within measurement noise.
+
+Passing: `alembic check`, 241 API tests, `ruff`, `tsc --noEmit`, build, 30 of 30 browser tests.
+
+**Review findings fixed after the first pass:** a failed page load blanking the app, buffered readings landing on the wrong batch, deploy skipping a backup, and unsafe characters in the database password.

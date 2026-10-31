@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session as DbSession
 
@@ -86,7 +86,11 @@ def record_reading(db: DbSession, device: Device, data: ReadingIn, at: datetime 
         temp, moisture = round(data.temp_c, 1), round(data.moisture_pct, 1)
         if newest:
             device.last_reading = {"temp_c": temp, "moisture_pct": moisture, "at": when.isoformat()}
-        batch = db.scalar(select(CompostBatch).where(CompostBatch.sensor_id == device.id, CompostBatch.finished_at.is_(None)))
+        # The batch it was on when measured: a buffered reading can arrive after that batch finished.
+        batch = db.scalar(select(CompostBatch).where(
+            CompostBatch.sensor_id == device.id, CompostBatch.started_at <= when,
+            or_(CompostBatch.finished_at.is_(None), CompostBatch.finished_at >= when),
+        ).order_by(CompostBatch.started_at.desc()).limit(1))
         stored = None
         if batch:
             db.execute(insert(CompostReading).values(batch_id=batch.id, device_id=device.id, temp_c=temp, moisture_pct=moisture,

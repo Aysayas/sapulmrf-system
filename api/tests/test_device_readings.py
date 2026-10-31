@@ -16,7 +16,7 @@ def device(db, kind="compost_sensor", code="SENSE-1", key="sensor-key"):
 
 def sensor_with_batch(db):
     d = device(db)
-    db.add(CompostBatch(code="B-1", start_kg=100, sensor_id=d.id))
+    db.add(CompostBatch(code="B-1", start_kg=100, sensor_id=d.id, started_at=datetime.now(UTC) - timedelta(days=9)))
     db.commit()
     return d
 
@@ -73,3 +73,15 @@ def test_a_scale_weight_needs_a_stable_reading(client, db, world, as_operator):
             "weighed_by": "scale", "device_id": d.id}
     r = client.post("/deliveries", json=body)
     assert r.status_code == 422 and "settled" in r.json()["detail"]
+
+
+def test_a_buffered_reading_lands_on_the_batch_it_was_measured_for(client, db):
+    d = device(db)
+    now = datetime.now(UTC)
+    old = CompostBatch(code="B-1", start_kg=100, sensor_id=d.id, started_at=now - timedelta(days=9),
+                       finished_at=now - timedelta(days=1), produced_kg=30)
+    new = CompostBatch(code="B-2", start_kg=100, sensor_id=d.id, started_at=now - timedelta(hours=12))
+    db.add_all([old, new])
+    db.commit()
+    assert send(client, read_at=ago(days=2)).json()["stored_on"] == "B-1"
+    assert send(client, read_at=ago(hours=1)).json()["stored_on"] == "B-2"

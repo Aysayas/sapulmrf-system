@@ -4,8 +4,9 @@ set -eu
 tag=${1:?usage: scripts/deploy.sh <git tag>}
 compose="docker compose -p sapulmrf -f docker-compose.prod.yml --env-file .env.prod"
 
-# First install: the database isn't running yet, so there's nothing to back up.
-if $compose ps --status running --services | grep -qx backup; then
+# First install: no database container yet, so there's nothing to back up. Otherwise a failed backup stops the deploy.
+if [ -n "$($compose ps -a -q db)" ]; then
+  $compose up -d --wait db backup
   $compose exec -T backup sh /backup.sh
 fi
 

@@ -1,5 +1,5 @@
 # SapulMRF Admin Side Roadmap
-_Updated 2026-10-23_
+_Updated 2026-11-01_
 
 ## Destination
 By the end of this semester, the **Barangay Administrator side** of SapulMRF runs on a real backend and database, on local Docker. It covers all 21 admin requirements (ADM-01 to ADM-21) and shows the four emerging technologies (AI, ML, IoT, computer vision) with live data. Until Rhendel's devices and CV model are ready, that data comes from simulators. Isiah builds it. The designs already exist in `C:\dev\sapulmrf-prototype` (wireframes, mockups, working HTML prototype). After the semester, the same Docker stack moves to the group's home server.
@@ -13,7 +13,7 @@ By the end of this semester, the **Barangay Administrator side** of SapulMRF run
 - **Local Docker for development; the group's own home server for production.** No paid hosting. (user, round 3)
 - **Isiah builds the admin side alone this semester, both frontend and backend.** Christina isn't on the admin frontend this time, so there's no hand-off and one person owns the API contract on both ends. (user, round 3 and follow-up)
 - **Rhendel owns the hardware side: IoT devices, CV model training and the server.** So the admin side needs clear data contracts with him. (user, round 4)
-- **Predictions start as statistics and become ML later.** Moving averages, storage outlook and z-score anomaly flags came first, because no real MRF data exists yet. The weight flags now use the modified z-score (MAD), chosen over Isolation Forest by measurement, and scikit-learn/Prophet models come once records pile up. (user, round 4)
+- **Predictions start as statistics and become ML later.** Moving averages, storage outlook and z-score anomaly flags came first, because no real MRF data exists yet. The weight flags now use the modified z-score (MAD), chosen over Isolation Forest by measurement, and the forecasts use a scikit-learn Ridge model next to the moving average. (user, round 4)
 - **Simulators in Docker stand in for the devices and the CV model.** They're swapped for Rhendel's real ones later. (user, round 5)
 - **Scope: all 21 admin requirements, laid out in detail.** (user, round 5: "be detailed about this")
 - **Containers use Python 3.12, not the laptop's Python 3.14.** Many ML libraries don't support 3.14 yet. (verified: `python --version` = 3.14.4)
@@ -45,7 +45,7 @@ By the end of this semester, the **Barangay Administrator side** of SapulMRF run
 - **SQLAlchemy 2, Alembic, psycopg:** database models and migrations.
 - **Pydantic v2:** request and response validation.
 - **pwdlib (argon2) or passlib/bcrypt, plus PyJWT or signed session cookies:** login and roles (ADM-01, 02, 03, 21).
-- **pandas and numpy now, scikit-learn and Prophet later:** forecasts and anomaly flags (ADM-12 to 15).
+- **pandas and numpy now, scikit-learn later (Prophet was skipped, see Phase 6):** forecasts and anomaly flags (ADM-12 to 15).
 - **APScheduler (or a FastAPI background task):** periodic checks for alerts and predictions.
 - **ReportLab, plus the csv module:** PDF and CSV reports (ADM-18). WeasyPrint was set aside in Phase 7: it needs Pango/Cairo system libraries in the image.
 - **pytest, httpx, Ruff:** tests and lint.
@@ -59,7 +59,7 @@ By the end of this semester, the **Barangay Administrator side** of SapulMRF run
 
 ### Tools and accounts
 - VS Code with the Python/Pylance, Ruff, ESLint, Prettier, Docker and Tailwind extensions.
-- A GitHub private repo under Aysayas (not created yet), with CI running the tests.
+- A GitHub private repo under Aysayas (exists), with CI running the tests.
 - FastAPI's `/docs` page, or Bruno/Postman, for trying the API.
 - No paid services needed.
 
@@ -72,8 +72,8 @@ By the end of this semester, the **Barangay Administrator side** of SapulMRF run
 - scikit-learn time series and anomaly detection (for the ML-later step)
 
 ### Things to agree with Rhendel (contracts)
-- **Device reading:** `{device_id, kind: scale|compost|heartbeat, value(s), unit, read_at}`, sent with a per-device key (ADM-05).
-- **CV result:** `{image_id, label: plastic|paper|cardboard|metal, confidence, model_version, taken_at}`.
+- **Device reading and CV result:** the current API, retry rules and open questions are in `docs/device-contract.md`, which replaces the earlier draft here.
+- **Camera images:** still open with Rhendel: where photos live, and whether `image_id` and `taken_at` replace `image_url`.
 - **Server:** the home server's CPU, RAM, OS and network (LAN only, or reachable from the barangay hall?).
 
 ## Phases
@@ -84,7 +84,7 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 - [x] Raise Docker to 6 CPUs / 8 GB (applied: `docker info` shows 6 CPUs / 8.3 GB)
 - [x] New repo `C:\dev\sapulmrf` (`api/`, `web/`, `sim/`, `docs/`). The prototype stays as the design reference. First commit `6f0e4aa`
 - [x] `docker compose up` brings up db, api, web and adminer. `/health` reports API and DB OK, and the web app shows the login page. Ports: web 5174, API 8001, Adminer 8081 (Vencio's already uses 5173/8000/8080)
-- [ ] CI runs the backend tests and the frontend build on every push. The workflow is written, but it only runs once the repo is on GitHub
+- [ ] CI runs the backend tests and the frontend build on every push. The workflow exists, but the last pushed runs (Oct 23) failed in the browser job. A fix is committed locally and unproven until it is pushed.
 
 ### Phase 1: Accounts and access (ADM-01, 02, 03, 21, 20 logging)
 - [x] Admin logs in and out with a hashed password (argon2). Sessions are server-side, in an httpOnly cookie, and expire after 8 h. 5 wrong passwords lock the account for 5 min
@@ -95,7 +95,7 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 ### Phase 2: Setup data (ADM-04, 05, 06)
 - [x] Waste categories (RA 9003, seeded), puroks/source areas, recyclable materials (the 4 CV ones, seeded), and storage areas with capacity limits. Deactivate instead of delete
 - [x] Register IoT devices. Each gets a device key (shown once, stored hashed) and shows online/offline from its heartbeat (`POST /devices/heartbeat`, `X-Device-Key` header, online = within 2 min)
-- [x] Compost temperature and moisture ranges, storage alert levels, the prediction start threshold (days of records), and anomaly sensitivity
+- [x] Compost temperature and moisture ranges, storage alert levels, the prediction start threshold (days of records), and the unusual-weight limit
 
 ### Phase 3: Simulators and live operations view (ADM-07, 08, 09, 19)
 - [x] The `sim` service sends deliveries, segregation results, sorted quantities, compost readings, camera suggestions and heartbeats (built into `api/app/simulator.py`, with a 40-day backfill; since Phase 4 its pickups are sale and disposal requests)
@@ -111,7 +111,7 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 ### Phase 5: Alerts (ADM-10)
 - [x] Scheduled checks raise alerts for compost out of range, devices that stop reporting, and storage at its limit (the `worker` service, every 30 s; compost waits 10 minutes both ways; alerts resolve on their own)
 - [x] Bell count, an alerts page, acknowledge, and the operator's problem reports (operators send them from `/op/alerts`)
-- [ ] SMS or email delivery, once the server and a provider are chosen
+- SMS or email delivery: out of scope for now, per the approved Limitations, and it needs a paid provider.
 
 ### Phase 6: Insights with AI/ML (ADM-12, 13, 14, 15)
 - [x] Unusual weights (modified z-score per purok; measured comparison in `docs/operator-staff-plan.md`, switch in `docs/flags-mad-plan.md`) and received-vs-sorted gaps are flagged. Admin marks each one valid or incorrect (checked when the record is made; Approvals › Flagged records)
@@ -125,12 +125,24 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 
 ### Phase 8: Hand-off to the real hardware and server (after the core is done)
 - [ ] Replace `sim` with Rhendel's devices and CV service, using the agreed contracts
-- [ ] Production compose profile on the home server: reverse proxy, HTTPS, nightly `pg_dump` backup
+- [ ] Production setup on the home server. `docker-compose.prod.yml`, Caddy, nightly backups and `scripts/deploy.sh` are built and tested on a throwaway local stack (`docs/deployment.md`). Waiting on the server.
 
 ### Operator and staff screens (see `docs/operator-staff-plan.md`)
 - [x] Operator screens at `/op`: Today, Intake, Segregation (with Undo), Sorting, Storage transfer, Compost, History and Profile
 - [x] Staff screens at `/staff`, view only: Overview, Records, Reports and Notifications. No income, and grants decide the rest
 - [ ] Settle with Rhendel which of these the IoT floor station covers. Offline recording, the station PIN and live scale capture are left to the station
+
+## Backend improvement pass (2026-11-01)
+Findings, measurements and decisions are in `docs/backend-improvement-plan.md`.
+- [x] Group 0: findings verified, baselines measured
+- [x] Group 1: resend keys, stale counts, locks, input limits
+- [x] Group 2: CSV escaping, login limits, verified scale weights, camera grant
+- [x] Group 3: worker status, simulator re-login, pinned dependencies
+- [x] Group 4: readings survive offline retries. Camera changes wait for Rhendel
+- [x] Group 5: fewer queries, smaller first load
+- [x] Group 6: phone fit, error states, accessibility, more browser tests
+- [x] Group 7: production setup, tested locally only
+- [ ] Group 8: installable phone app and offline recording. Not started; needs HTTPS, a real phone, and to know which phones operators use
 
 ## Not yet specified (fog of war)
 - The exact end-of-semester date and the Capstone 1 defense date. Blocks: setting phase targets.

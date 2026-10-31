@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { PageLoad } from '../components/PageLoad';
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useAlertSummary } from '../api/alerts';
@@ -107,7 +107,7 @@ export default function AdminLayout() {
           )}
         </header>
         <main className="flex flex-1 flex-col gap-4 px-6 py-5">
-          <Suspense fallback={<p className="text-muted">Loading…</p>}><Outlet /></Suspense>
+          <PageLoad><Outlet /></PageLoad>
         </main>
       </div>
     </div>

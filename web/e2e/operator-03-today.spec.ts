@@ -101,3 +101,20 @@ test('a keyboard user opens the drawer, tabs around inside it, and Escape return
     await expect(opener).toBeFocused()
   })
 })
+
+test('a page that fails to load offers a reload instead of a blank screen', async ({ adminPage: admin, browser, baseURL }) => {
+  const op = newAccount('operator')
+  expect((await admin.request.post('/api/users', { data: op })).status()).toBe(201)
+  const phone = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 } })
+  const page = await phone.newPage()
+  try {
+    await logIn(page, op.username, op.password)
+    await page.route('**/features/operator/StoragePage*', (route) => route.abort())
+    await page.getByRole('link', { name: 'Storage', exact: true }).click()
+    await expect(page.getByRole('alert')).toContainText("This page couldn't load")
+    await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible()
+    await expect(page.getByRole('navigation', { name: 'Operator' })).toBeVisible()
+  } finally {
+    await phone.close()
+  }
+})

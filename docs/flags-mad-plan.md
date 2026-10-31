@@ -38,7 +38,7 @@ Measured read-only on 20 more unseen seeds (160 planted outliers, 8,800 normal d
   - Rewrite the sensitivity test for the limit. With the test's usual weights (median 8.0, MAD 0.2), 9.0 kg gives M of about 3.4: not flagged at 3.5, flagged at 3.
   - Add a test for the hand-worked example: an old outlier in the history doesn't hide a new one.
   - Keep the rest, adjusting any that assumed the forest.
-- **Docs:** roadmap lines 16 and 117, and a note in `operator-staff-plan.md` that this replaced Isolation Forest. `docs/ai-assistant-plan.md` stays untouched.
+- **Docs:** roadmap lines 16 and 117, and a note in `operator-staff-plan.md` that this replaced Isolation Forest.
 
 ## Effects
 - **Faster deliveries:** no model is fitted on each delivery, so the roughly 0.05 s per delivery goes away.

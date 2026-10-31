@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { PageLoad } from '../components/PageLoad';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useAlertSummary } from '../api/alerts';
 import { ROLE_LABEL, useLogout, useMe } from '../api/auth';
@@ -37,7 +37,7 @@ export default function OperatorLayout() {
         </button>
       </header>
       <main className="flex flex-1 flex-col gap-4 px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))]">
-        <Suspense fallback={<p className="text-muted">Loading…</p>}><Outlet /></Suspense>
+        <PageLoad><Outlet /></PageLoad>
       </main>
       <nav aria-label="Operator" className="fixed bottom-0 pb-[env(safe-area-inset-bottom)] left-1/2 z-10 grid w-full max-w-[480px] -translate-x-1/2 grid-cols-5 border-t border-line bg-white">
         {TABS.map(([to, label]) => (

@@ -1,5 +1,7 @@
 # Phase 6 plan: insights with AI/ML
 
+**Superseded in part:** the `anomaly_sd` z-score below was replaced, see `docs/flags-mad-plan.md`.
+
 ## Context
 Phase 5 is done in `C:\dev\sapulmrf` (111 API tests, 15 browser tests, worker and live sim running). The repo is on GitHub (`Aysayas/sapulmrf-system`, private), and VS Code uses `api/.venv`. This plan was approved before; this is the same plan with the disk note updated. Phase 6 is the AI/ML part the capstone has to show:
 - **ADM-12:** review flagged unusual records.
