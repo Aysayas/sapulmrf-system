@@ -142,6 +142,7 @@ Findings, measurements and decisions are in `docs/backend-improvement-plan.md`.
 - [x] Group 5: fewer queries, smaller first load
 - [x] Group 6: phone fit, error states, accessibility, more browser tests
 - [x] Group 7: production setup, tested locally only
+- [x] Algorithm review: flags, forecasts, scoring, simulator pace, alert titles. Results are in the same doc
 - [ ] Group 8: installable phone app and offline recording. Not started; needs HTTPS, a real phone, and to know which phones operators use
 
 ## Not yet specified (fog of war)

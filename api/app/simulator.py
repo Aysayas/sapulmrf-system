@@ -577,9 +577,10 @@ def run(base: str, pace: float) -> None:
                         )
                 next_readings = now + 30 * pace
             if now >= next_delivery:
-                next_delivery = now + rnd.uniform(60, 120) * pace  # first, so a failure partway doesn't start another at once
+                # About 20 a day, like the backfill. Set first, so a failure partway doesn't start another at once.
+                next_delivery = now + rnd.uniform(3600, 5040) * pace
                 _one_delivery(op, rnd, keys, ids, puroks, profiles, cats, mats, areas)
-                if rnd.random() < 0.08:  # about every 20 minutes, something for the admin's inbox
+                if rnd.random() < 0.08:  # one or two a day, something for the admin's inbox
                     _one_request(op, rnd, mats, areas)
         except Exception as e:  # keep going; the API may be restarting
             print(f"{datetime.now():%H:%M:%S} {e!r}", file=sys.stderr, flush=True)

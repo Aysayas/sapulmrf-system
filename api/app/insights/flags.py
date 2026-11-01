@@ -1,8 +1,9 @@
 """Unusual-record checks, run when a record is made. They only add a flag; the record itself never changes."""
 
+from datetime import timedelta
 from statistics import fmean, median, stdev
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session as DbSession
 
 from app.insights.models import Flag
@@ -12,6 +13,8 @@ from app.sorting.models import StockMovement
 
 MIN_HISTORY = 10  # earlier deliveries from a purok before its weights are judged
 HISTORY = 100  # the most recent earlier deliveries used for "usual"
+# After this an undecided flag counts as usual, so a lasting change isn't flagged forever.
+UNDECIDED_KEPT_OUT = timedelta(days=14)
 GAP_PCT, GAP_KG = 0.05, 0.3  # received vs separated + sorted must differ by both of these to flag
 
 
@@ -37,7 +40,10 @@ def is_unusual(earlier: list[float], weight: float, limit: float) -> bool:
 
 def check_weight(db: DbSession, d: Delivery) -> Flag | None:
     """Judged against earlier weights, leaving out ones already flagged, or past outliers would hide later ones."""
-    flagged = select(Flag.id).where(Flag.delivery_id == Delivery.id, Flag.kind == "weight", Flag.status != "incorrect")
+    flagged = select(Flag.id).where(
+        Flag.delivery_id == Delivery.id, Flag.kind == "weight",
+        or_(Flag.status == "valid", (Flag.status == "open") & (Flag.found_at >= d.received_at - UNDECIDED_KEPT_OUT)),
+    )
     earlier = db.scalars(
         select(Delivery.weight_kg)
         .where(Delivery.source_area_id == d.source_area_id, Delivery.id != d.id, Delivery.received_at <= d.received_at,

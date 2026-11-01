@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
 
+from app.alerts import checks
 from app.alerts.checks import run_checks
 from app.alerts.models import Alert
 from app.compost.models import CompostBatch, CompostReading
@@ -104,3 +105,14 @@ def test_an_inactive_area_raises_nothing(db):
     db.commit()
     run_checks(db, NOW)
     assert open_alerts(db, "storage") == []
+
+
+def test_an_open_alert_takes_the_title_of_the_current_problem(db, monkeypatch):
+    db.add(Alert(kind="storage", subject_id=999, title="Old title", details="old", opened_at=datetime.now(UTC)))
+    db.commit()
+    monkeypatch.setattr(checks, "_compost", lambda db, now: {})
+    monkeypatch.setattr(checks, "_devices", lambda db, now: {})
+    monkeypatch.setattr(checks, "_storage", lambda db: {999: ("New title", "new")})
+    checks.run_checks(db)
+    a = db.scalar(select(Alert).where(Alert.subject_id == 999))
+    assert a.title == "New title" and a.details == "new" and a.resolved_at is None

@@ -107,7 +107,7 @@ def predictions(db: DbSession, category: int = ALL, on: date | None = None) -> s
     if category not in {c.id for c in cats}:
         raise AppError(404, "Unknown waste category.")
     errs7, errs14 = fc.errors(db, category, on, 7), fc.errors(db, category, on, 14)
-    model = fc.best_model(errs14)
+    model = fc.pick_model(db, category, on)
     made_on = db.scalar(select(func.max(Forecast.made_on)).where(Forecast.made_on <= on, Forecast.category_id == category))
     forecast = (
         [

@@ -108,3 +108,36 @@ Re-measured after all changes, with the simulator running. Data keeps growing, s
 Passing: `alembic check`, 241 API tests, `ruff`, `tsc --noEmit`, build, 30 of 30 browser tests.
 
 **Review findings fixed after the first pass:** a failed page load blanking the app, buffered readings landing on the wrong batch, deploy skipping a backup, and unsafe characters in the database password.
+
+## Algorithm review (2026-11-01)
+Measured read-only on the same replays before and after. All data is simulated or synthetic.
+
+| Test | Before | After |
+|---|---|---|
+| Lasting weight change (8 to 16 kg), of the next 100 deliveries flagged | 100 | 41 |
+| Same, last 20 flagged | 20 | 0 |
+| Held-out seeds, planted outliers caught, 1 delivery a day | 160 of 160 | 160 of 160 |
+| Held-out seeds, false flags, 1 delivery a day | 71 of 8,800 | 65 of 8,800 |
+| Same, 3 deliveries a day | 71 of 8,800 | 70 of 8,800 |
+| 500 kg typo, Ridge day-7 forecast (true about 72 kg) | 400 kg | 81 kg |
+| Regular 10x typos, Ridge error against true values | 9,122% | 14.4% |
+| 14 days of history, forecast vs true average | 0.11 to 2.20 x | 0.92 to 1.06 x |
+| 21 days of history | 0.00 to 1.98 x | 0.98 to 1.10 x |
+
+**Got slightly worse:** on clean synthetic data, 1-day error went from 13.4% to 14.6% and total error from 13.2% to 13.4%, because the first two weeks now use the moving average. Accepted for the stability above.
+
+**Clean backfill history (39 days to Oct 22), total error:** old Ridge 18.7%, new Ridge 16.0%, moving average 15.5%. 1-day error is 16.9% and 7-day error is 16.5% for new Ridge; 16.8% and 15.5% for the moving average. So the two are about level, and the moving average is slightly ahead. **Quote these for your defence, with their limits, not the current live figures:** the database still holds the 4,307 and 3,742 kg simulator days.
+
+**What changed:**
+- Undecided flags rejoin the usual weights after 14 days. The review proposed 30, but 14 measured better on every row. "Valid" flags stay out, so an admin should mark a real new normal "False alarm".
+- `capped()` compares a day with the same weekday up to 4 weeks either side. The first version compared with the whole 90 days and clipped real Saturdays, which the independent check caught.
+- Ridge needs 28 days. Removing its trend input didn't measure better overall, so it stays.
+- The model is picked on days 8 to 14 back by total kg error, with at least 5 scored days. The page still shows average % error, so a chosen model can show the higher figure; the page says how it was chosen.
+- The simulator defaults to about 20 deliveries a day.
+- Alert titles follow the current problem.
+
+**Known limits:**
+- The first two weeks of a real lasting rise are held to about 1.5 x (a 100 to 200 kg rise forecasts 150 kg), then it passes.
+- A typo on a weekday that is usually closed isn't capped.
+- Saved forecasts aren't recalculated; new ones use the new code.
+- `mad == 0` still flags anything past 0.3 kg, as approved in `docs/flags-mad-plan.md`: history 5, 5, 5, 5, 5, 5, 5, 6, 4, 5 flags 5.4 kg. Real scales give varied decimals, so re-check on real data.

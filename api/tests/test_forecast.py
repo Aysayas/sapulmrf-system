@@ -84,3 +84,75 @@ def test_the_baseline_stays_in_use_until_ml_beats_it():
     assert fc.best_model({"baseline": 9.0, "ml": 12.0}) == "baseline"
     assert fc.best_model({"baseline": 9.0, "ml": 6.0}) == "ml"
     assert fc.mape([(START, 12.0, 10.0), (START, 9.0, 10.0), (START, 5.0, 0.0)]) == 15.0  # zero-actual days skipped
+
+
+def test_one_typo_barely_moves_the_week_ahead():
+    rnd = random.Random(1)
+    days = [START + timedelta(days=i) for i in range(60)]
+    y = [weekly(d) * 8 * rnd.uniform(0.8, 1.2) for d in days]
+    typo = list(y)
+    typo[-3] = 2000.0
+    clean, hit = fc.ridge(fc.capped(y), days[-1]), fc.ridge(fc.capped(typo), days[-1])
+    assert max(abs(a - b) for a, b in zip(clean, hit, strict=True)) < 0.5 * max(clean)
+
+
+def test_capping_leaves_normal_days_and_mostly_empty_series_alone():
+    assert fc.capped([10.0, 12.0, 11.0, 9.0, 10.0]) == [10.0, 12.0, 11.0, 9.0, 10.0]
+    assert fc.capped([0.0, 0.0, 0.0, 0.0, 50.0]) == [0.0, 0.0, 0.0, 0.0, 50.0]
+    assert fc.capped([]) == []
+
+
+def test_short_histories_use_the_moving_average_not_ridge():
+    y = [weekly(START + timedelta(days=i)) for i in range(27)]
+    assert fc.ridge(y, START + timedelta(days=26)) == fc.baseline(y)
+
+
+def test_wape_counts_closed_days_and_isnt_swung_by_a_small_day():
+    assert fc.wape([(START, 80.0, 0.0), (START, 100.0, 100.0)]) == 80.0
+    assert fc.wape([(START, 30.0, 10.0), (START, 1000.0, 1000.0)]) == 2.0
+    assert fc.wape([]) is None
+
+
+def scored(db, world, ml_error):
+    """Saved 1-day-ahead forecasts for 14 days: 10 kg actual, baseline 3 kg off, ml ml_error(days back) off."""
+    today = START + timedelta(days=14)
+    history(db, world, lambda d: 10.0, 14)
+    for back in range(1, 15):
+        day = today - timedelta(days=back)
+        db.add_all([Forecast(made_on=day, for_day=day, category_id=ALL, model="baseline", kg=13.0),
+                    Forecast(made_on=day, for_day=day, category_id=ALL, model="ml", kg=10.0 + ml_error(back))])
+    db.commit()
+    return today
+
+
+def test_the_model_is_picked_on_older_days_not_the_ones_it_is_shown_on(db, world):
+    today = scored(db, world, lambda back: 0.0 if back <= 7 else 8.0)  # ml looks great only in the last 7 days
+    assert fc.errors(db, ALL, today, 7)["ml"] < fc.errors(db, ALL, today, 7)["baseline"]
+    assert fc.pick_model(db, ALL, today) == "baseline"
+
+
+def test_the_model_cant_be_picked_on_too_few_days(db, world):
+    today = START + timedelta(days=14)
+    history(db, world, lambda d: 10.0, 14)
+    for back in (8, 9, 10, 11):
+        day = today - timedelta(days=back)
+        db.add_all([Forecast(made_on=day, for_day=day, category_id=ALL, model="baseline", kg=13.0),
+                    Forecast(made_on=day, for_day=day, category_id=ALL, model="ml", kg=10.0)])
+    db.commit()
+    assert fc.pick_model(db, ALL, today) == "baseline"
+
+
+def test_capping_keeps_a_real_weekly_peak():
+    y = [300.0 if i % 7 == 5 else 100.0 for i in range(90)]
+    assert fc.capped(y) == y
+
+
+def test_capping_keeps_a_lasting_rise_once_it_settles():
+    y = [100.0] * 60 + [200.0] * 30
+    assert fc.capped(y)[-7:] == [200.0] * 7
+
+
+def test_capping_holds_down_one_typo_among_weekly_data():
+    y = [300.0 if i % 7 == 5 else 100.0 for i in range(60)]
+    y[40] = 3000.0  # usually 300 kg, so at most 450 kg stays
+    assert fc.capped(y)[40] <= 450.0

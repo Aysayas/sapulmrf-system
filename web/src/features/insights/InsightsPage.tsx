@@ -73,7 +73,7 @@ function Ready({ p, category, setCategory }: { p: Predictions; category: number;
             <div className="text-xs text-ink-2">Using</div>
             <div className="text-lg font-extrabold">{MODEL_LABEL[p.model_used]}</div>
             <div className="text-sm text-ink-2">
-              {pctOrDash(p.errors_14d[p.model_used])} average error over 14 days ({MODEL_LABEL[other].split(' (')[0].toLowerCase()} {pctOrDash(p.errors_14d[other])})
+              {pctOrDash(p.errors_14d[p.model_used])} average error over 14 days, predicting 1 day ahead. Chosen on total kg error from the week before last ({MODEL_LABEL[other].split(' (')[0].toLowerCase()} {pctOrDash(p.errors_14d[other])})
             </div>
           </div>
           <table aria-label="Model errors" className="text-sm">
@@ -130,7 +130,7 @@ function Ready({ p, category, setCategory }: { p: Predictions; category: number;
         <div className="flex items-baseline gap-3">
           <h3 className="text-sm font-bold">Predicted vs actual</h3>
           <span className="text-xs text-muted">each day's forecast was made before the day, by the model in use</span>
-          {p.avg_error_pct !== null && <span className="ml-auto text-sm font-bold">7-day average: {p.avg_error_pct}% off</span>}
+          {p.avg_error_pct !== null && <span className="ml-auto text-sm font-bold">7-day average, 1 day ahead: {p.avg_error_pct}% off</span>}
         </div>
         <Table label="Predicted vs actual" head={['Day', 'Predicted', 'Actual', 'Difference']}
           state={{ isPending: false, error: null, count: p.compared.length }} empty="No forecasts to compare yet.">

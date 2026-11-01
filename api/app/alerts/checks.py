@@ -102,7 +102,7 @@ def run_checks(db: DbSession, now: datetime | None = None) -> dict[str, int]:
         for subject_id, hit in found.items():
             alert = open_alerts.pop((kind, subject_id), None)
             if hit and alert:
-                alert.details = hit[1]  # keep the latest value on the open alert
+                alert.title, alert.details = hit  # the problem can change while it stays open
             elif hit:
                 try:
                     with db.begin_nested():

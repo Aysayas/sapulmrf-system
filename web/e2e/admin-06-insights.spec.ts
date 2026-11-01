@@ -15,7 +15,7 @@ test('Insights shows the forecast, both models, the storage outlook and predicte
   await expect(model.getByRole('table', { name: 'Model errors' }).getByRole('row')).toHaveCount(3)
   await expect(page.getByRole('region', { name: 'Storage outlook' }).getByRole('listitem').first()).toContainText('% now')
   await expect(page.getByRole('table', { name: 'Predicted vs actual' }).getByRole('row')).toHaveCount(8)  // header + 7 days
-  await expect(page.getByText(/7-day average: [\d.]+% off/)).toBeVisible()
+  await expect(page.getByText(/7-day average, 1 day ahead: [\d.]+% off/)).toBeVisible()
 
   await page.getByRole('tab', { name: 'Recyclable' }).click()
   await expect(page.getByRole('tab', { name: 'Recyclable' })).toHaveAttribute('aria-selected', 'true')

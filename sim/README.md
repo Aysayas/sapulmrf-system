@@ -17,10 +17,10 @@ What it does besides deliveries and readings:
 - **Recounts** every ~9 days become inventory adjustment requests, and 3% of weights are corrected at the scale.
 - **The backfill** approves (or, for some recounts, rejects) and reviews everything older than 3 days as the test admin `e2e.admin`, so it needs that account. That includes deciding flagged records. Newer items wait in the Approvals inbox.
 - **Insights:** about 2% of weights are outliers and 3% of mixed deliveries lose some weight between intake and sorting, so the flags have something to find. The backfill also replays the daily forecasts, so Insights has predicted vs actual from the start. `remove` deletes the forecasts too; the worker rebuilds them from real records.
-- **The live loop** sends a sale, disposal or recount request about every 20 minutes.
+- **The live loop** sends a sale, disposal or recount request once or twice a day.
 - **Disturbances:** now and then the live loop silences a compost sensor for ~5 minutes or overheats a batch for ~15, so the worker opens alerts and then resolves them. Stopping the sim makes all four `SIM-` devices "disconnected" after 2 minutes.
 
-Pace: set `SIM_PACE=0.5` in `.env` to run twice as fast. The default is a delivery every 1–2 minutes and readings every 30 s.
+Pace: the default is about 20 deliveries a day and readings every 30 s, so forecasts see believable volumes. For a lively demo set `SIM_PACE=0.02` in `.env` for a delivery every 1 to 2 minutes, but that also speeds up readings and swamps the daily totals, so don't quote forecast accuracy from a database that ran it.
 
 What's tagged as simulated, so `remove` can find it:
 - the user `sim.operator`, and every record and request it made (with the stock rows an admin's approval of them wrote)

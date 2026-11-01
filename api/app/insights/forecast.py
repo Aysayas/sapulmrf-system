@@ -21,6 +21,8 @@ from app.settings import service as ranges
 HORIZON = 7
 TRAIN_DAYS = 90  # history used to fit each forecast
 MODELS = ("baseline", "ml")
+RIDGE_MIN_DAYS = 28  # with fewer, its weekday and trend inputs swing wildly
+PICK_MIN_DAYS = 5  # scored days a model needs before it can be chosen
 
 
 def _local_day():
@@ -54,6 +56,18 @@ def first_day(db: DbSession) -> date | None:
 # ---- the two models (pure functions on a daily series, oldest first, ending the day before the first prediction)
 
 
+def capped(y: list[float]) -> list[float]:
+    """Holds down a day far above the same weekday in nearby weeks, so one typo can't throw off a week of forecasts.
+    Comparing like with like keeps a busy Saturday, and a lasting rise passes once it fills most of the window."""
+    out = []
+    for i, v in enumerate(y):
+        near = np.array(y[max(i % 7, i - 28) : i + 29 : 7])
+        middle = float(np.median(near))
+        spread = max(float(np.median(np.abs(near - middle))), 0.1 * middle)
+        out.append(min(v, middle + 5 * spread) if len(near) >= 3 and middle > 0 else v)
+    return out
+
+
 def baseline(y: list[float], horizon: int = HORIZON) -> list[float]:
     """7-day moving average, carried forward."""
     level = float(np.mean(y[-7:])) if y else 0.0
@@ -71,7 +85,7 @@ def _features(series: list[float], t: int, day: date) -> list[float]:
 
 def ridge(y: list[float], last_day: date, horizon: int = HORIZON) -> list[float]:
     """Ridge regression on weekday, recent averages and trend; predicts one day at a time, feeding predictions back."""
-    if len(y) < 14:
+    if len(y) < RIDGE_MIN_DAYS:
         return baseline(y, horizon)
     first = last_day - timedelta(days=len(y) - 1)
     rows = range(7, len(y))
@@ -105,7 +119,7 @@ def make_forecasts(db: DbSession, made_on: date) -> int:
     start = max(first_day(db) or end, end - timedelta(days=TRAIN_DAYS - 1))
     rows = []
     for cat in categories(db):
-        y = daily_kg(db, cat, start, end)
+        y = capped(daily_kg(db, cat, start, end))
         for model, kgs in (("baseline", baseline(y)), ("ml", ridge(y, end))):
             rows += [
                 {"made_on": made_on, "for_day": made_on + timedelta(days=h), "category_id": cat, "model": model, "kg": kg}
@@ -143,6 +157,19 @@ def mape(rows: list[tuple[date, float, float]]) -> float | None:
     """Mean absolute % error, skipping days with no actual intake (a % of zero means nothing)."""
     errs = [abs(p - a) / a for _, p, a in rows if a > 0]
     return round(float(np.mean(errs)) * 100, 1) if errs else None
+
+
+def wape(rows: list[tuple[date, float, float]]) -> float | None:
+    """Total kg error over total kg, so closed days count and a small day can't outweigh a big one."""
+    actual = sum(a for _, _, a in rows)
+    return round(sum(abs(p - a) for _, p, a in rows) / actual * 100, 1) if actual > 0 else None
+
+
+def pick_model(db: DbSession, category_id: int, today: date) -> Literal["baseline", "ml"]:
+    """Chosen on days 8 to 14 back, so the last 7 days shown are a fair test of the choice."""
+    start, end = today - timedelta(days=14), today - timedelta(days=8)
+    rows = {m: comparison(db, category_id, m, start, end) for m in MODELS}
+    return best_model({m: wape(r) if len(r) >= PICK_MIN_DAYS else None for m, r in rows.items()})
 
 
 def errors(db: DbSession, category_id: int, today: date, days: int) -> dict[str, float | None]:

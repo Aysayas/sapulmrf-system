@@ -147,3 +147,34 @@ def test_a_small_difference_is_not_a_gap(db, world, make_user):
     op = make_user()
     sort(db, world, op, 10.0, wet=4.0, dry=5.9, sorted_kg=5.9)  # 0.1 kg (1%)
     assert flags(db, "gap") == []
+
+
+def spaced(db, world, op, kg, day):
+    d = intake.record_delivery(db, DeliveryIn(source_area_id=world["purok1"], category_id=world["cat"]["Mixed household"],
+                                              weight_kg=kg, weighed_by="manual"), op, at=T0 + timedelta(days=day))
+    db.flush()
+    return d
+
+
+def test_a_lasting_change_stops_being_flagged_once_undecided_flags_age(db, world, make_user):
+    op = make_user()
+    for i, kg in enumerate(USUAL):
+        spaced(db, world, op, kg, i)
+    for day in range(10, 55):
+        spaced(db, world, op, 14.1, day)
+    last = spaced(db, world, op, 14.1, 55)
+    assert last.id not in {f.delivery_id for f in flags(db, "weight")}
+    assert len(flags(db, "weight")) >= 14  # flagged while the change was new
+
+
+def test_a_weight_decided_valid_never_rejoins_the_usual_weights(db, world, make_user):
+    op = make_user()
+    for i, kg in enumerate(USUAL):
+        spaced(db, world, op, kg, i)
+    for day in range(10, 55):
+        spaced(db, world, op, 14.1, day)
+        for f in flags(db, "weight"):
+            f.status = "valid"
+        db.flush()
+    last = spaced(db, world, op, 14.1, 55)
+    assert last.id in {f.delivery_id for f in flags(db, "weight")}
