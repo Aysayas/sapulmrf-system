@@ -132,6 +132,12 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 - [x] Staff screens at `/staff`, view only: Overview, Records, Reports and Notifications. No income, and grants decide the rest
 - [ ] Settle with Rhendel which of these the IoT floor station covers. Offline recording, the station PIN and live scale capture are left to the station
 
+## Report findings and AI summary (2026-11-11, see `docs/report-findings-plan.md`)
+- [x] Every report gets findings computed from the data (vs the previous period, what needs attention, what to do next), on the page, in the PDF and in the CSV
+- [x] Suggested questions on the admin and staff report views filter the findings
+- [x] Optional AI summary (local `qwen2.5:7b` via Ollama, `ai` profile). Its numbers are checked against the findings, and any failure falls back to the findings
+- [ ] Decide whether the home server can run it (needs a GPU with about 6 GB, or it falls back to findings only)
+
 ## Backend improvement pass (2026-11-01)
 Findings, measurements and decisions are in `docs/backend-improvement-plan.md`.
 - [x] Group 0: findings verified, baselines measured

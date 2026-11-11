@@ -3,6 +3,7 @@
 import csv
 import io
 from datetime import datetime
+from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
@@ -23,6 +24,8 @@ def to_csv(r: Report) -> bytes:
     w.writerow(safe_row([r.subtitle]))
     for row in r.summary:
         w.writerow(safe_row(row))
+    for f in r.findings:
+        w.writerow(safe_row(["Finding", f.text]))
     w.writerow([])
     w.writerow(r.columns)
     w.writerows(safe_row(row) for row in r.rows)
@@ -43,6 +46,10 @@ def to_pdf(r: Report, by: str, at: datetime) -> bytes:
         Paragraph("&nbsp;&nbsp;&nbsp;".join(f"<b>{k}:</b> {v}" for k, v in r.summary), st["Normal"]),
         Spacer(1, 5 * mm),
     ]
+    if r.findings:
+        story.append(Paragraph("<b>Findings</b>", st["Normal"]))
+        story += [Paragraph(escape(f.text), st["Normal"], bulletText="•") for f in r.findings]
+        story.append(Spacer(1, 5 * mm))
     money = [i for i, h in enumerate(r.columns) if "PHP" in h]  # pesos always show two decimals
     data = [r.columns] + [[f"{c:,.2f}" if i in money else str(c) for i, c in enumerate(row)] for row in r.rows] \
         if r.rows else [r.columns, ["No records in this range."]]

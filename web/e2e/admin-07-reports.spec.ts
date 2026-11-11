@@ -14,6 +14,11 @@ test('the admin previews a segregation report, exports it as CSV and PDF, and se
   const table = page.getByRole('table', { name: 'Segregation Compliance Report' })
   await expect(table.getByRole('row').nth(1)).toContainText('Purok')
 
+  const findings = page.getByRole('region', { name: 'Findings' })
+  await findings.getByRole('button', { name: 'What needs attention?' }).click()
+  await expect(findings.getByRole('button', { name: 'What needs attention?' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(findings.getByRole('listitem').first()).toContainText('lowest compliance')
+
   for (const [button, ext, magic] of [['Export CSV', 'csv', 'Barangay Sapul MRF'], ['Export PDF', 'pdf', '%PDF']] as const) {
     const [file] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: button }).click()])
     expect(file.suggestedFilename()).toMatch(new RegExp(`^segregation-report_.*\\.${ext}$`))
