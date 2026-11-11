@@ -130,7 +130,8 @@ Each phase ends in something you can demo in the browser. The ADM numbers are fr
 ### Operator and staff screens (see `docs/operator-staff-plan.md`)
 - [x] Operator screens at `/op`: Today, Intake, Segregation (with Undo), Sorting, Storage transfer, Compost, History and Profile
 - [x] Staff screens at `/staff`, view only: Overview, Records, Reports and Notifications. No income, and grants decide the rest
-- [ ] Settle with Rhendel which of these the IoT floor station covers. Offline recording, the station PIN and live scale capture are left to the station
+- [x] Device route for kiosk drop-offs: `POST /devices/deliveries` (`docs/device-contract.md`)
+- [ ] Settle with Rhendel which of these the IoT floor station covers. Offline recording, the station PIN and live scale capture are left to the station. His kiosk bridge must switch its upload to the new route
 
 ## Backend improvement pass (2026-11-01)
 Findings, measurements and decisions are in `docs/backend-improvement-plan.md`.

@@ -3,6 +3,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, StringConstraints
 
+from app.intake.schemas import ClientKey, Kg
+
 DeviceType = Literal["weighing_station", "compost_sensor", "sorting_camera"]
 Status = Literal["online", "offline", "never"]
 Code = Annotated[str, StringConstraints(strip_whitespace=True, to_upper=True, pattern=r"^[A-Za-z0-9-]{2,20}$")]
@@ -39,3 +41,17 @@ class DeviceUpdate(BaseModel):
 class Heartbeat(BaseModel):
     device: str
     status: Status
+
+
+class KioskDeliveryIn(BaseModel):
+    """A drop-off recorded at the resident kiosk. Purok and category by name, as the kiosk shows them."""
+
+    source_area: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+    category: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+    weight_kg: Kg
+    weighed_by: Literal["scale", "manual"]
+    client_key: ClientKey  # required: the kiosk resends unsent drop-offs, and this stops duplicates
+
+
+class KioskReceipt(BaseModel):
+    code: str

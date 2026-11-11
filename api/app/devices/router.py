@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session as DbSession
 
@@ -6,7 +8,10 @@ from app.compost.schemas import ReadingIn, ReadingOut
 from app.core.db import get_db
 from app.core.deps import require_role
 from app.devices import service
-from app.devices.schemas import DeviceCreate, DeviceOut, DeviceUpdate, DeviceWithKey, Heartbeat
+from app.devices.schemas import DeviceCreate, DeviceOut, DeviceUpdate, DeviceWithKey, Heartbeat, KioskDeliveryIn, KioskReceipt
+from app.intake import service as intake
+from app.intake.schemas import DeliveryIn
+from app.masterdata.models import SourceArea, WasteCategory
 from app.sorting import service as sorting
 from app.sorting.schemas import ClassificationOut, SuggestionIn
 from app.users.models import User
@@ -38,6 +43,20 @@ def cv_suggestion(body: SuggestionIn, x_device_key: str | None = Header(None), d
     d.last_seen_at = c.suggested_at
     db.commit()
     return sorting.out(db, c)
+
+
+@router.post("/deliveries", response_model=KioskReceipt, status_code=201)
+def kiosk_delivery(body: KioskDeliveryIn, x_device_key: str | None = Header(None), db: DbSession = Depends(get_db)):
+    """The resident kiosk records a drop-off itself. Same rules as an operator's delivery; the receipt code is ours."""
+    d = service.authenticate(db, x_device_key, expected_type="weighing_station")
+    d.last_seen_at = datetime.now(UTC)
+    rec = intake.record_delivery(db, DeliveryIn(
+        source_area_id=intake.by_name(db, SourceArea, body.source_area, "purok"),
+        category_id=intake.by_name(db, WasteCategory, body.category, "category"),
+        weight_kg=body.weight_kg, weighed_by=body.weighed_by, device_id=d.id, client_key=body.client_key,
+    ), actor=None)
+    db.commit()
+    return KioskReceipt(code=rec.code)
 
 
 @router.get("", response_model=list[DeviceOut])

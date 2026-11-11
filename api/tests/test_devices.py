@@ -80,3 +80,42 @@ def test_device_changes_are_logged_but_heartbeats_are_not(client, make_user, log
     client.post(f"/devices/{dev['id']}/new-key")
     actions = db.scalars(select(ActivityLog.action).order_by(ActivityLog.id)).all()
     assert actions[-2:] == ["Registered device", "Generated new device key"]
+
+
+def kiosk_drop(client, key, **over):
+    body = {"source_area": "purok 1", "category": "Recyclable", "weight_kg": 3.5, "weighed_by": "manual",
+            "client_key": "kiosk-0001-aaaa"} | over
+    return client.post("/devices/deliveries", json=body, headers={"X-Device-Key": key} if key else {})
+
+
+def test_the_kiosk_records_a_drop_off_with_its_own_key(client, make_user, login, db, world):
+    from app.intake.models import Delivery
+
+    as_admin(make_user, login)
+    dev = client.post("/devices", json=SCALE).json()
+    assert kiosk_drop(client, None).status_code == 401
+    assert kiosk_drop(client, "mrfk_wrong").status_code == 401
+    r = kiosk_drop(client, dev["key"])
+    assert r.status_code == 201
+    d = db.scalar(select(Delivery))
+    assert r.json() == {"code": d.code} and d.device_id == dev["id"] and d.recorded_by is None
+    assert d.source_area_id == world["purok1"] and d.category_id == world["cat"]["Recyclable"]
+    assert "by WS-01" in db.scalar(select(ActivityLog.record).where(ActivityLog.action == "Recorded delivery"))
+
+
+def test_a_resent_kiosk_drop_off_is_recorded_once(client, make_user, login, db, world):
+    from app.intake.models import Delivery
+
+    as_admin(make_user, login)
+    key = client.post("/devices", json=SCALE).json()["key"]
+    first, again = kiosk_drop(client, key).json(), kiosk_drop(client, key).json()
+    assert first == again and len(db.scalars(select(Delivery)).all()) == 1
+
+
+def test_the_kiosk_gets_a_clear_error_for_an_unknown_purok_or_a_camera_key(client, make_user, login, world):
+    as_admin(make_user, login)
+    key = client.post("/devices", json=SCALE).json()["key"]
+    r = kiosk_drop(client, key, source_area="Purok 99")
+    assert r.status_code == 422 and "Purok 99" in r.json()["detail"]
+    cam = client.post("/devices", json={"code": "CAM-01", "type": "sorting_camera"}).json()["key"]
+    assert kiosk_drop(client, cam).status_code == 403

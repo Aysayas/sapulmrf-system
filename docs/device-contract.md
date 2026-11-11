@@ -38,6 +38,18 @@ Response: `{"device": "SCALE-1", "stored_on": "B-12"}`. `stored_on` is the batch
 - `label` must match an active material name, or the API returns 422.
 - `image_url` must be an http or https address, or empty.
 
+## `POST /devices/deliveries`
+The resident kiosk records a drop-off. Only a weighing station's key is accepted (others get 403).
+
+`{"source_area": "Purok 3", "category": "Recyclable", "weight_kg": 4.25, "weighed_by": "scale", "client_key": "6f1c2e0a-..."}`
+
+- `source_area` and `category` are names, matched without regard to capitals. An unknown or inactive one gets 422.
+- `client_key` is required, 8 to 36 characters; a UUID is best. **Resending is safe:** the same `client_key` returns the first drop-off's code and stores nothing new. Keep unsent drop-offs and retry them with the same key, using the retry rules above.
+- **`scale` weights:** the station must have posted a `stable` reading in the last 10 minutes, and `weight_kg` must equal that reading. Otherwise 422; send `manual` if the weight was typed in.
+- The delivery is stored with this device and no user, and the activity log names the device.
+
+Response (201): `{"code": "D-0042"}`. Show this code on the receipt. A receipt made while offline needs its own prefix (e.g. `K-0007`) so it never looks like a server code.
+
 ## Open questions for Rhendel
 1. **Camera images:** where do photos live? The roadmap planned `image_id` and `taken_at`; the API takes `image_url` and has no `taken_at`. A photo must be reachable from the operator's browser.
 2. **Camera retries:** resending a suggestion creates a second one, since it has no ID yet. Can the camera send a unique ID per item?

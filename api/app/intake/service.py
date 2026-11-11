@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DbSession
 
 from app.activity.service import log
@@ -59,8 +59,17 @@ def _fresh_reading(db: DbSession, device_id: int | None) -> float:
     return reading["kg"]
 
 
-def record_delivery(db: DbSession, data: DeliveryIn, actor: User, at: datetime | None = None) -> Delivery:
-    """at is only passed by the history backfill; live records always use the server's clock."""
+def by_name(db: DbSession, model, name: str, what: str) -> int:
+    """The id of a purok or category a device named, ignoring capitals."""
+    item_id = db.scalar(select(model.id).where(func.lower(model.name) == name.strip().lower()))
+    if item_id is None:
+        raise AppError(422, f"Unknown {what}: {name}.")
+    return item_id
+
+
+def record_delivery(db: DbSession, data: DeliveryIn, actor: User | None, at: datetime | None = None) -> Delivery:
+    """at is only passed by the history backfill; live records always use the server's clock.
+    actor is None when a device (the kiosk) records it; data.device_id then names that device."""
     if data.client_key:
         advisory_lock(db, data.client_key)
         first = db.scalar(select(Delivery).where(Delivery.client_key == data.client_key))
@@ -81,7 +90,8 @@ def record_delivery(db: DbSession, data: DeliveryIn, actor: User, at: datetime |
     d = Delivery(
         source_area_id=area.id, category_id=data.category_id, weight_kg=round(data.weight_kg, 2),
         weighed_by=data.weighed_by, scale_kg=round(scale_kg, 2) if corrected else None,
-        correction_reason=data.correction_reason if corrected else None, recorded_by=actor.id, device_id=data.device_id,
+        correction_reason=data.correction_reason if corrected else None, recorded_by=actor.id if actor else None,
+        device_id=data.device_id,
         client_key=data.client_key,
     )
     if at:
@@ -92,7 +102,8 @@ def record_delivery(db: DbSession, data: DeliveryIn, actor: User, at: datetime |
     flags.check_weight(db, d)
     if not at:
         note = " (corrected)" if corrected else ""
-        log(db, actor.id, "Recorded delivery", f"{d.code} · {area.name} · {d.weight_kg} kg{note}")
+        by = "" if actor else f" · by {db.get(Device, d.device_id).code}"
+        log(db, actor.id if actor else None, "Recorded delivery", f"{d.code} · {area.name} · {d.weight_kg} kg{note}{by}")
     db.commit()
     return d
 
