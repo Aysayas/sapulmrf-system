@@ -47,8 +47,28 @@ The resident kiosk records a drop-off. Only a weighing station's key is accepted
 - `client_key` is required, 8 to 36 characters; a UUID is best. **Resending is safe:** the same `client_key` returns the first drop-off's code and stores nothing new. Keep unsent drop-offs and retry them with the same key, using the retry rules above.
 - **`scale` weights:** the station must have posted a `stable` reading in the last 10 minutes, and `weight_kg` must equal that reading. Otherwise 422; send `manual` if the weight was typed in.
 - The delivery is stored with this device and no user, and the activity log names the device.
+- **The kiosk is one device.** Register it once as a weighing station (e.g. `KIOSK-01`), even though it also runs the camera. Its laptop makes every call with that key.
+- **Optional camera result:** `"cv": {"category": "Recyclable", "counts": {"recyclable": 3, "residual": 1, "bio": 0}, "confidence": 0.82}`. It's kept beside the category the resident confirmed, so the two can be compared later.
+- **Optional `"photo"`:** the snapshot as a base64 JPEG, about 100 KB at most. Admins and operators see it at `GET /deliveries/{id}/photo`. A resend keeps the first photo. Bad base64, or a file that isn't a JPEG, gets 422.
 
-Response (201): `{"code": "D-0042"}`. Show this code on the receipt. A receipt made while offline needs its own prefix (e.g. `K-0007`) so it never looks like a server code.
+Response (201): `{"code": "D-0042", "actions": {"buzz": 1}}`.
+- Show the code on the receipt, and beep `buzz` times.
+- A receipt made while offline needs its own prefix (e.g. `K-0007`), so it never looks like a server code.
+
+## `GET /devices/kiosk-state` (kiosk laptop, every ~5 s)
+Weighing-station key only. Each call also counts as a heartbeat.
+
+`{"today": {"kg": 128.4, "drops": 17}, "alerts": [{"kind": "storage", "title": "…", "details": "…"}], "actuators": {"light": "red", "buzz": 0}}`
+
+- `alerts` lists the newest open alerts, up to 5.
+- `light` is decided here, not on the kiosk:
+  - `red` when any storage area is over capacity
+  - `amber` for any other open alert
+  - `green` otherwise
+
+## `GET /devices/kiosk-recent`
+Weighing-station key only. Returns this kiosk's latest 6 drop-offs, ready for its operator table:
+`[{"code": "D-0042", "time": "9:41 AM", "purok": "Purok 3", "cat": "Recyclable", "kg": "4.2 kg"}]`
 
 ## Open questions for Rhendel
 1. **Camera images:** where do photos live? The roadmap planned `image_id` and `taken_at`; the API takes `image_url` and has no `taken_at`. A photo must be reachable from the operator's browser.

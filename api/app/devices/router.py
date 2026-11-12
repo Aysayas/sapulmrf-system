@@ -7,8 +7,19 @@ from app.compost import service as compost
 from app.compost.schemas import ReadingIn, ReadingOut
 from app.core.db import get_db
 from app.core.deps import require_role
-from app.devices import service
-from app.devices.schemas import DeviceCreate, DeviceOut, DeviceUpdate, DeviceWithKey, Heartbeat, KioskDeliveryIn, KioskReceipt
+from app.devices import kiosk, service
+from app.devices.schemas import (
+    DeviceCreate,
+    DeviceOut,
+    DeviceUpdate,
+    DeviceWithKey,
+    Heartbeat,
+    KioskActions,
+    KioskDeliveryIn,
+    KioskReceipt,
+    KioskRow,
+    KioskState,
+)
 from app.intake import service as intake
 from app.intake.schemas import DeliveryIn
 from app.masterdata.models import SourceArea, WasteCategory
@@ -55,8 +66,30 @@ def kiosk_delivery(body: KioskDeliveryIn, x_device_key: str | None = Header(None
         category_id=intake.by_name(db, WasteCategory, body.category, "category"),
         weight_kg=body.weight_kg, weighed_by=body.weighed_by, device_id=d.id, client_key=body.client_key,
     ), actor=None)
+    kiosk.attach_cv(db, rec, body)
     db.commit()
-    return KioskReceipt(code=rec.code)
+    return KioskReceipt(code=rec.code, actions=KioskActions(buzz=1))
+
+
+def _kiosk(db: DbSession, key: str | None):
+    """The kiosk's laptop polls every few seconds; that also keeps the kiosk online."""
+    d = service.authenticate(db, key, expected_type="weighing_station")
+    d.last_seen_at = datetime.now(UTC)
+    db.commit()
+    return d
+
+
+@router.get("/kiosk-state", response_model=KioskState)
+def kiosk_state(x_device_key: str | None = Header(None), db: DbSession = Depends(get_db)):
+    """Today's totals, open alerts and what the kiosk's light and buzzer should do."""
+    _kiosk(db, x_device_key)
+    return kiosk.kiosk_state(db)
+
+
+@router.get("/kiosk-recent", response_model=list[KioskRow])
+def kiosk_recent(x_device_key: str | None = Header(None), db: DbSession = Depends(get_db)):
+    """This kiosk's latest drop-offs, for its operator screen."""
+    return kiosk.kiosk_recent(db, _kiosk(db, x_device_key))
 
 
 @router.get("", response_model=list[DeviceOut])
