@@ -2,7 +2,7 @@
 
 **SapulMRF: An IoT and AI-Based Material Recovery Facility Management System for Barangay Sapul, Calapan City.**
 
-This repo holds the real system. The admin, operator and staff screens are built, following `docs/roadmap.md`. `docs/deployment.md` covers the production setup, and `docs/device-contract.md` what devices send. The clickable design reference and prototype are in `C:\dev\sapulmrf-prototype`.
+This repo holds the real system. The admin, operator and staff screens are built, following `docs/roadmap.md`. `docs/deployment.md` covers the production setup, and `docs/device-contract.md` what devices send. The clickable design reference and prototype are in `C:\dev\sapulmrf-prototype`. The ESP32 drop-off kiosk and its camera bridge (separate repo, not yet connected to this API) are in `C:\dev\sapulmrf-kiosk`.
 
 ## Stack
 FastAPI (Python 3.12), PostgreSQL 16, React + TypeScript + Vite + Tailwind v4, all on Docker.
@@ -32,6 +32,43 @@ docker compose exec -it api python -m app.cli create-admin
 Log in at http://127.0.0.1:5174 with that account. After pulling new code, run `alembic upgrade head` again.
 
 Usernames ignore capitals. IoT devices are registered in Settings › IoT devices; each gets a key, shown once, which the device sends in an `X-Device-Key` header to `POST /devices/heartbeat` to show as online.
+
+## Open the app (every time)
+**One shot (cmd):** start Docker Desktop, then paste this. It starts only the database, API and website, waits until they're healthy, then opens the browser:
+```
+cd /d C:\dev\sapulmrf && docker compose up -d --wait web && start http://127.0.0.1:5174
+```
+With the AI summary too (the model warms up for 1–4 min after this):
+```
+cd /d C:\dev\sapulmrf && docker compose up -d --wait web && docker compose --profile ai up -d ollama && start http://127.0.0.1:5174
+```
+Stop: `cd /d C:\dev\sapulmrf && docker compose --profile sim --profile ai down`
+
+Step by step:
+1. Start **Docker Desktop** and wait until it says "Engine running".
+2. In a terminal in `C:\dev\sapulmrf`:
+   ```
+   docker compose up -d
+   ```
+3. Wait until `docker compose ps` shows `api`, `db` and `web` as `healthy` (about 30 s; a few minutes the first time).
+4. Open http://127.0.0.1:5174 and log in.
+
+Optional extras:
+| For | Run | Notes |
+|---|---|---|
+| Live simulated data | `docker compose --profile sim up -d sim` | Stop with `docker compose stop sim` |
+| AI report summaries | `docker compose --profile ai up -d ollama` | Needs `OLLAMA_URL=http://ollama:11434` in `.env` (then `docker compose up -d api`). Ready when `docker compose exec ollama ls /tmp/ready` prints the file, 1–4 min after start. Close games and Discord first; it needs about 4.6 GB of GPU memory. See `docs/report-findings-plan.md` |
+
+When it doesn't work:
+| What you see | Fix |
+|---|---|
+| `failed to connect to the docker API` | Docker Desktop isn't running. Start it, then step 2 again |
+| The page doesn't load | Wait for `web` to be healthy; check `docker compose logs web` |
+| "Something went wrong" or blank lists | `docker compose restart api`, or `docker compose logs api` for the error |
+| Errors after pulling new code | `docker compose exec api alembic upgrade head` |
+| "The AI summary isn't available" | The `ollama` service isn't up, isn't ready yet, or `OLLAMA_URL` is missing from `.env`. The findings still show |
+
+Stop everything with `docker compose --profile sim --profile ai down`. Your data is kept.
 
 ## Daily commands
 ```
