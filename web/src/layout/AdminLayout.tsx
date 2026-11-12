@@ -5,6 +5,17 @@ import { useAlertSummary } from '../api/alerts';
 import { useApprovalCounts } from '../api/approvals';
 import { ROLE_LABEL, useLogout, useMe } from '../api/auth';
 
+// Outline icons, 24px grid, 2px stroke (paths from Lucide, ISC licence).
+const ICON: Record<string, string[]> = {
+  '/admin': ['M3 3h7v9H3z', 'M14 3h7v5h-7z', 'M14 12h7v9h-7z', 'M3 16h7v5H3z'],
+  '/admin/approvals': ['M9 2h6v4H9z', 'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2', 'm9 14 2 2 4-4'],
+  '/admin/alerts': ['m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3', 'M12 9v4', 'M12 17h.01'],
+  '/admin/operations': ['M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z', 'M12 22V12', 'm3.3 7 7.7 4.73a2 2 0 0 0 2 0L20.7 7', 'm7.5 4.27 9 5.15'],
+  '/admin/insights': ['M22 7 13.5 15.5 8.5 10.5 2 17', 'M16 7h6v6'],
+  '/admin/reports': ['M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z', 'M14 2v4a2 2 0 0 0 2 2h4', 'M16 13H8', 'M16 17H8', 'M10 9H8'],
+  '/admin/settings': ['M21 4h-7', 'M10 4H3', 'M21 12h-9', 'M8 12H3', 'M21 20h-5', 'M12 20H3', 'M14 2v4', 'M8 10v4', 'M16 18v4'],
+};
+
 const NAV = [
   { section: 'Monitor', items: [{ to: '/admin', label: 'Overview', end: true }, { to: '/admin/approvals', label: 'Approvals' }, { to: '/admin/alerts', label: 'Alerts' }, { to: '/admin/operations', label: 'Operations', sub: [
     ['intake', 'Intake'], ['segregation', 'Segregation'], ['sorting', 'Sorting'], ['inventory', 'Inventory'], ['compost', 'Compost'], ['outgoing', 'Outgoing'], ['camera', 'Live camera'],
@@ -49,7 +60,9 @@ export default function AdminLayout() {
                     `flex items-center gap-2.5 rounded-md p-2 font-medium ${isActive && !i.sub ? 'bg-leaf-100 font-bold text-leaf-900' : isActive ? 'font-bold' : 'hover:bg-white/10'}`
                   }
                 >
-                  <span className="size-4 rounded border-[1.5px] border-current opacity-70" aria-hidden />
+                  <svg viewBox="0 0 24 24" className="size-[18px] shrink-0 fill-none stroke-current stroke-2 opacity-80" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    {ICON[i.to].map((d) => <path key={d} d={d} />)}
+                  </svg>
                   {i.label}
                   {badges[i.to]?.[0] > 0 && (
                     <span className={`ml-auto rounded-full px-2 text-xs font-bold text-white ${badges[i.to][1]}`} aria-label={`${badges[i.to][0]} waiting`}>
@@ -78,7 +91,6 @@ export default function AdminLayout() {
 
       <div className="flex min-w-0 flex-col">
         <header className="relative flex h-14 items-center gap-4 border-b border-line bg-white px-6">
-          <span className="text-sm text-muted">Barangay Sapul MRF</span>
           <Bell />
           <button
             className="flex items-center gap-2 rounded-lg px-2 py-1 text-left text-xs hover:bg-surface"

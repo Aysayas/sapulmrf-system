@@ -30,7 +30,7 @@ export function IntakeChart({ data, height = 220 }: { data: { day: string; kg: n
       <BarChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }} barCategoryGap={2}>
         <CartesianGrid vertical={false} stroke={GRID} />
         <XAxis dataKey="day" tickFormatter={day} tick={AXIS} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={18} />
-        <YAxis tick={AXIS} axisLine={false} tickLine={false} width={36} />
+        <YAxis tick={AXIS} axisLine={false} tickLine={false} width={44} tickFormatter={(v: number) => v.toLocaleString()} />
         <Tooltip cursor={{ fill: '#ddefe3', opacity: 0.6 }} content={({ active, payload }) =>
           active && payload?.[0] ? <TipBox title={day(String(payload[0].payload.day))} value={`${payload[0].value} kg received`} /> : null} />
         <Bar dataKey="kg" fill={SERIES} radius={[4, 4, 0, 0]} isAnimationActive={false} />
@@ -55,7 +55,7 @@ export function ForecastChart({ actual, forecast, height = 240 }: { actual: { da
         </defs>
         <CartesianGrid vertical={false} stroke={GRID} />
         <XAxis dataKey="day" tickFormatter={day} tick={AXIS} axisLine={false} tickLine={false} minTickGap={18} />
-        <YAxis tick={AXIS} axisLine={false} tickLine={false} width={36} />
+        <YAxis tick={AXIS} axisLine={false} tickLine={false} width={44} tickFormatter={(v: number) => v.toLocaleString()} />
         <Tooltip cursor={{ fill: '#ddefe3', opacity: 0.6 }} content={({ active, payload }) =>
           active && payload?.[0] ? (
             <TipBox title={day(String(payload[0].payload.day))}
@@ -119,17 +119,18 @@ export function ReadingChart({ data, field, unit, min, max, height = 200 }: {
 
 /** A storage area's fill. Colour shows state (warn at the alert level) and the words say it too. */
 export function FillBar({ area }: { area: AreaFill }) {
-  const full = area.pct >= area.alert_pct;
+  const over = area.pct > 100;
+  const full = !over && area.pct >= area.alert_pct;
   return (
     <div className="py-1.5">
-      <div className="flex justify-between gap-2 text-sm">
+      <div className="flex flex-wrap justify-between gap-x-2 text-sm">
         <span className="truncate">{area.name}</span>
-        <span className={`whitespace-nowrap ${full ? 'font-bold text-warn' : 'text-ink-2'}`}>
-          {area.pct}% · {Math.round(area.kg).toLocaleString()} / {area.capacity_kg.toLocaleString()} kg{full ? ' · almost full' : ''}
+        <span className={`whitespace-nowrap ${over ? 'font-bold text-crit' : full ? 'font-bold text-warn' : 'text-ink-2'}`}>
+          {area.pct}% · {Math.round(area.kg).toLocaleString()} / {area.capacity_kg.toLocaleString()} kg{over ? ' · over capacity' : full ? ' · almost full' : ''}
         </span>
       </div>
       <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-valuenow={area.pct} aria-valuemin={0} aria-valuemax={100} aria-label={`${area.name} fill`}>
-        <div className={`h-full rounded-full ${full ? 'bg-warn' : 'bg-leaf-600'}`} style={{ width: `${Math.min(100, area.pct)}%` }} />
+        <div className={`h-full rounded-full ${over ? 'bg-crit' : full ? 'bg-warn' : 'bg-leaf-600'}`} style={{ width: `${Math.min(100, area.pct)}%` }} />
       </div>
     </div>
   );

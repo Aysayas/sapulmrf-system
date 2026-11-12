@@ -91,7 +91,12 @@ def test_storage_at_its_alert_level(db, world):
     run_checks(db, NOW)
     [a] = open_alerts(db, "storage")
     assert a.title == "Area A almost full" and a.details == "92% of 500 kg (alert at 90%)"
-    db.add(StockMovement(material_id=None, storage_area_id=world["area_a"], kg=-100, kind="outgoing"))
+    db.add(StockMovement(material_id=None, storage_area_id=world["area_a"], kg=100, kind="sorted"))  # 112%
+    db.commit()
+    run_checks(db, NOW + MIN)
+    [a] = open_alerts(db, "storage")
+    assert a.title == "Area A over capacity"
+    db.add(StockMovement(material_id=None, storage_area_id=world["area_a"], kg=-200, kind="outgoing"))
     db.commit()
     run_checks(db, NOW + MIN)
     assert open_alerts(db, "storage") == []
