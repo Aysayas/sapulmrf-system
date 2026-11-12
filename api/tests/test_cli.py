@@ -11,8 +11,8 @@ from app.compost.models import CompostBatch
 from app.core.security import verify_password
 from app.devices.models import Device
 from app.intake.models import Delivery
-from app.masterdata.models import SourceArea, StorageArea, WasteCategory
-from app.sorting.models import StockMovement
+from app.masterdata.models import Material, SourceArea, StorageArea, WasteCategory
+from app.sorting.models import Classification, StockMovement
 from app.users.models import User
 
 
@@ -73,14 +73,22 @@ def test_remove_test_data_keeps_real_areas_and_devices(db, make_user):
                 ProblemReport(code="R-902", kind="record", record_ref="D-0139", details="real"),
                 ProblemReport(code="R-903", kind="record", record_ref="D-9001", details="about an e2e delivery"),
                 ProblemReport(code="R-904", kind="record", record_ref="D-9002", details="about a real delivery")])
+    db.flush()
+    mat = db.scalar(select(Material.id))
+    e2e_dev, real_dev = (db.scalar(select(Device.id).where(Device.code == c)) for c in ("E2E-X1", "WS-01"))
+    e2e_del, real_del = (db.scalar(select(Delivery.id).where(Delivery.code == c)) for c in ("D-9001", "D-9002"))
+    db.add_all([Classification(device_id=e2e_dev, suggested_material_id=mat, confidence=0.5),
+                Classification(device_id=real_dev, delivery_id=e2e_del, suggested_material_id=mat, confidence=0.5),
+                Classification(device_id=real_dev, delivery_id=real_del, suggested_material_id=mat, confidence=0.9)])
     db.commit()
     counts = remove_test_data(db)
     assert db.scalars(select(CompostBatch.code)).all() == ["B-902"]
     assert counts == {"compost batches": 1, "users": 1, "deliveries": 1, "stock movements": 1, "requests": 2, "alerts": 1,
-                      "problem reports": 2,
+                      "problem reports": 2, "camera suggestions": 2,
                       "source areas": 1, "storage areas": 1, "devices": 1}
     assert sorted(db.scalars(select(ProblemReport.code)).all()) == ["R-902", "R-904"]
     assert db.scalars(select(Delivery.code)).all() == ["D-9002"]
     assert db.scalars(select(StockMovement.storage_area_id)).all() == [real_area]
     assert db.scalars(select(SourceArea.name)).all() == ["Purok 1"]
     assert db.scalars(select(Device.code)).all() == ["WS-01"]
+    assert db.scalars(select(Classification.confidence)).all() == [0.9]

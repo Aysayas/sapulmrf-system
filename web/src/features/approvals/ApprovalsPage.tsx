@@ -226,7 +226,7 @@ function ChangeReviews({ onDone }: { onDone: (m: string) => void }) {
       {list.data?.map((c) => (
         <tr key={c.id}>
           <td className="whitespace-nowrap text-ink-2">{when(c.confirmed_at ?? c.suggested_at)}</td>
-          <td><img src={c.image_url} alt={`Item the camera called ${c.suggested}`} className="h-10 w-14 rounded object-cover" loading="lazy" /></td>
+          <td>{c.image_url && <img src={c.image_url} alt={`Item the camera called ${c.suggested}`} className="h-10 w-14 rounded object-cover" loading="lazy" />}</td>
           <td className="whitespace-nowrap">{c.suggested} · {Math.round(c.confidence * 100)}%</td>
           <td><Badge kind="warn">{c.final}</Badge></td>
           <td>{c.reason || '—'}</td>

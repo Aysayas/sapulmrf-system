@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { TYPE_LABEL, type DeviceType } from '../../api/devices';
+import { TYPE_LABEL, useLiveCameras, type DeviceType } from '../../api/devices';
 import { useOverview, type Classification, type Overview } from '../../api/operations';
 import { FillBar, IntakeChart, Kpi } from '../../components/charts';
 import { Badge, PageHeader } from '../../components/ui';
@@ -91,22 +91,25 @@ function Dashboard({ o }: { o: Overview }) {
   );
 }
 
-export function CameraTile({ c, large = false }: { c: Classification | null; large?: boolean }) {
+/** The kiosk camera (also the sorting-area camera): its latest suggestion and photo, and whether it's live now. */
+export function CameraTile({ c }: { c: Classification | null }) {
+  const live = useLiveCameras().data?.some((f) => f.live) ?? false;
   return (
-    <section aria-label="Sorting area camera" className="flex flex-col overflow-hidden rounded-xl bg-[#14231c] text-white">
+    <section aria-label="Kiosk camera" className="flex flex-col overflow-hidden rounded-xl bg-[#14231c] text-white">
       <div className="flex items-center gap-3 bg-black/40 px-3 py-2 text-xs">
-        <span className="flex items-center gap-1.5 font-bold tracking-wide"><span className="size-2 rounded-full bg-[#f04438]" />LATEST</span>
-        <span>Sorting area camera</span>
-        {!large && <Link to="/admin/operations/camera" className="ml-auto underline">Open live camera</Link>}
+        <span className="flex items-center gap-1.5 font-bold tracking-wide">
+          <span className={`size-2 rounded-full ${live ? 'bg-[#f04438] motion-safe:animate-pulse' : 'bg-white/40'}`} />
+          {live ? 'LIVE' : 'LATEST'}
+        </span>
+        <span>Kiosk camera</span>
+        <Link to="/admin/operations/camera" className="ml-auto underline">{live ? 'Watch live' : 'Open live camera'}</Link>
       </div>
-      <div className={`relative flex-1 bg-cover bg-center ${large ? 'min-h-[420px]' : 'min-h-[200px]'}`}
-        style={c?.image_url ? { backgroundImage: `linear-gradient(rgba(10,30,20,.15),rgba(10,30,20,.15)), url(${c.image_url})` } : undefined}>
+      <div className="relative min-h-[200px] flex-1 bg-black bg-cover bg-center"
+        style={c?.image_url ? { backgroundImage: `url(${c.image_url})` } : undefined}>
         {c ? (
-          <div className="absolute top-[28%] left-[33%] h-[46%] w-[32%] rounded-md border-[3px] border-white shadow-[0_0_0_9999px_rgba(10,30,20,.25)]">
-            <b className="absolute -top-7 -left-[3px] rounded-md rounded-bl-none bg-leaf-700 px-2.5 py-0.5 text-xs whitespace-nowrap">
-              {c.suggested} · {Math.round(c.confidence * 100)}%
-            </b>
-          </div>
+          <b className="absolute bottom-3 left-3 rounded-md bg-leaf-700 px-2.5 py-0.5 text-xs whitespace-nowrap">
+            Suggested {c.suggested} · {Math.round(c.confidence * 100)}%
+          </b>
         ) : (
           <p className="absolute inset-0 grid place-items-center text-sm">No camera results yet.</p>
         )}

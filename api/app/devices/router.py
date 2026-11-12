@@ -1,13 +1,16 @@
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Request, WebSocket
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session as DbSession
 
 from app.compost import service as compost
 from app.compost.schemas import ReadingIn, ReadingOut
 from app.core.db import get_db
-from app.core.deps import require_role
-from app.devices import kiosk, service
+from app.core.deps import current_user, require_role
+from app.core.errors import AppError
+from app.devices import kiosk, live, service
+from app.devices.models import Device
 from app.devices.schemas import (
     DeviceCreate,
     DeviceOut,
@@ -19,6 +22,7 @@ from app.devices.schemas import (
     KioskReceipt,
     KioskRow,
     KioskState,
+    LiveStatus,
 )
 from app.intake import service as intake
 from app.intake.schemas import DeliveryIn
@@ -66,7 +70,8 @@ def kiosk_delivery(body: KioskDeliveryIn, x_device_key: str | None = Header(None
         category_id=intake.by_name(db, WasteCategory, body.category, "category"),
         weight_kg=body.weight_kg, weighed_by=body.weighed_by, device_id=d.id, client_key=body.client_key,
     ), actor=None)
-    kiosk.attach_cv(db, rec, body)
+    if kiosk.attach_cv(db, rec, body):  # first time this drop-off arrives, not a resend
+        kiosk.attach_materials(db, rec, d, body)
     db.commit()
     return KioskReceipt(code=rec.code, actions=KioskActions(buzz=1))
 
@@ -110,3 +115,67 @@ def update(device_id: int, body: DeviceUpdate, db: DbSession = Depends(get_db), 
 @router.post("/{device_id}/new-key", response_model=DeviceWithKey)
 def new_key(device_id: int, db: DbSession = Depends(get_db), actor: User = Depends(admin_only)):
     return service.new_key(db, device_id, actor)
+
+
+@router.websocket("/kiosk-live")
+async def kiosk_live(ws: WebSocket):
+    """The kiosk's laptop pushes full-quality camera frames (binary JPEG) and their detections (JSON text)."""
+    with live.short_db(ws.app) as db:
+        try:
+            d = service.authenticate(db, ws.headers.get("x-device-key"), expected_type="weighing_station")
+        except AppError:
+            await ws.close(code=1008)
+            return
+        device_id, code = d.id, d.code
+    feed = live.feeds.setdefault(device_id, live.LiveFeed(device_id, code))
+    await ws.accept()
+    old, feed.bridge = feed.bridge, ws
+    if old is not None:  # a restarted bridge replaces the old connection
+        try:
+            await old.close()
+        except Exception:
+            pass
+    await feed.tell_bridge()
+    try:
+        while True:
+            msg = await ws.receive()
+            if msg["type"] == "websocket.disconnect":
+                break
+            if msg.get("bytes") is not None:
+                jpeg = msg["bytes"]
+                if len(jpeg) > live.MAX_FRAME or not jpeg.startswith(b"\xff\xd8"):
+                    await ws.close(code=1009)
+                    break
+                await feed.put_frame(jpeg)
+            elif msg.get("text"):
+                meta = live.parse_meta(msg["text"])
+                feed.det = meta.get("det") if isinstance(meta.get("det"), dict) else feed.det
+                feed.w, feed.h = int(meta.get("w") or feed.w), int(meta.get("h") or feed.h)
+    finally:
+        if feed.bridge is ws:
+            feed.bridge = None
+        await feed.wake_viewers()
+
+
+@router.get("/live", response_model=list[LiveStatus])
+def live_status(db: DbSession = Depends(get_db), _: User = Depends(can_list)):
+    """Which kiosk cameras are live right now, for the Live camera page. Removed or deactivated devices drop out."""
+    return [
+        LiveStatus(device_id=f.device_id, code=d.code, live=f.live, fps=round(f.fps_now, 1), w=f.w, h=f.h,
+                   det=f.det, viewers=f.viewers, last_frame_at=f.last_frame_at)
+        for f in list(live.feeds.values())
+        if (d := db.get(Device, f.device_id)) is not None and d.active
+    ]
+
+
+@router.get("/{device_id}/live.mjpg")
+async def live_mjpg(device_id: int, request: Request):
+    """The camera as an MJPEG stream (an <img> plays it). Auth is checked once, then no DB is held."""
+    with live.short_db(request.app) as db:
+        if current_user(request, db).role not in ("admin", "operator"):
+            raise AppError(403, "Your role can't do this.")
+    feed = live.feeds.get(device_id)
+    if not feed or not feed.live:
+        raise AppError(404, "This camera isn't live.")
+    return StreamingResponse(live.mjpeg(feed), media_type=f"multipart/x-mixed-replace; boundary={live.BOUNDARY}",
+                             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})

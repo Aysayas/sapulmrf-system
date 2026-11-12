@@ -13,17 +13,20 @@ from app.core.errors import AppError
 from app.devices import schemas as s
 from app.devices.models import Device
 from app.intake.models import Delivery, DeliveryPhoto
-from app.masterdata.models import SourceArea, WasteCategory
+from app.masterdata.models import Material, SourceArea, WasteCategory
 from app.operations.service import TZ, area_fill, since
+from app.sorting.models import Classification
 
 ALERTS_SHOWN = 5
 RECENT_ROWS = 6  # what fits the kiosk's operator table
 
 
-def attach_cv(db: DbSession, d: Delivery, body: s.KioskDeliveryIn) -> None:
-    """Keep what the camera saw. Skipped on a resend, so the first drop-off's photo stays."""
-    if not (body.cv or body.photo) or d.cv_category is not None or db.get(DeliveryPhoto, d.id):
-        return
+def attach_cv(db: DbSession, d: Delivery, body: s.KioskDeliveryIn) -> bool:
+    """Keep what the camera saw. Returns False on a resend, so the first drop-off's photo and suggestions stay."""
+    if d.cv_category is not None or db.get(DeliveryPhoto, d.id) or db.scalar(
+        select(Classification.id).where(Classification.delivery_id == d.id).limit(1)
+    ):
+        return False
     if body.cv:
         d.cv_category, d.cv_counts, d.cv_confidence = body.cv.category, body.cv.counts.model_dump(), body.cv.confidence
     if body.photo:
@@ -34,6 +37,18 @@ def attach_cv(db: DbSession, d: Delivery, body: s.KioskDeliveryIn) -> None:
         if not jpeg.startswith(b"\xff\xd8"):
             raise AppError(422, "The photo must be a JPEG.")
         db.add(DeliveryPhoto(delivery_id=d.id, jpeg=jpeg))
+    return True
+
+
+def attach_materials(db: DbSession, d: Delivery, device: Device, body: s.KioskDeliveryIn) -> None:
+    """The kiosk camera is also the sorting camera: each material it saw becomes a pending suggestion for the
+    operator, with this drop-off's photo. A label SapulMRF doesn't know is skipped, never failing the drop-off."""
+    for m in body.materials:
+        material = db.scalar(select(Material).where(func.lower(Material.name) == m.label.lower(), Material.active))
+        if material:
+            db.add(Classification(device_id=device.id, delivery_id=d.id, suggested_material_id=material.id,
+                                  confidence=round(m.confidence, 3), model_version="kiosk",
+                                  image_url=f"/api/deliveries/{d.id}/photo" if body.photo else ""))
 
 
 def light(db: DbSession) -> s.Light:

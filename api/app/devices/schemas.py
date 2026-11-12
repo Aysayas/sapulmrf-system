@@ -60,6 +60,13 @@ class CvResult(BaseModel):
     confidence: Annotated[float, Field(ge=0, le=1)] | None = None
 
 
+class MaterialGuess(BaseModel):
+    """A material the kiosk camera saw, for the operator's sorting review (the camera is also the sorting camera)."""
+
+    label: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)]
+    confidence: Annotated[float, Field(ge=0, le=1)]
+
+
 class KioskDeliveryIn(BaseModel):
     """A drop-off recorded at the resident kiosk. Purok and category by name, as the kiosk shows them."""
 
@@ -69,7 +76,8 @@ class KioskDeliveryIn(BaseModel):
     weighed_by: Literal["scale", "manual"]
     client_key: ClientKey  # required: the kiosk resends unsent drop-offs, and this stops duplicates
     cv: CvResult | None = None
-    photo: Annotated[str, StringConstraints(max_length=140_000)] | None = None  # base64 JPEG, about 100 KB at most
+    photo: Annotated[str, StringConstraints(max_length=2_800_000)] | None = None  # base64 JPEG, about 2 MB at most (full-res)
+    materials: Annotated[list[MaterialGuess], Field(max_length=10)] = []
 
 
 class KioskActions(BaseModel):
@@ -117,3 +125,16 @@ class KioskRow(BaseModel):
     cat: str
     kg: str
 
+
+class LiveStatus(BaseModel):
+    """One live camera feed, as the Live camera page shows it."""
+
+    device_id: int
+    code: str
+    live: bool
+    fps: float
+    w: int
+    h: int
+    det: dict | None
+    viewers: int
+    last_frame_at: datetime | None

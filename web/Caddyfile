@@ -8,6 +8,16 @@
 		Referrer-Policy same-origin
 	}
 
+	# Live camera (MJPEG): pass each frame through at once instead of buffering.
+	# encode only compresses text-like types, so the multipart JPEG stream is left alone.
+	@livecam path /api/devices/*/live.mjpg
+	handle @livecam {
+		uri strip_prefix /api
+		reverse_proxy api:8000 {
+			flush_interval -1
+		}
+	}
+
 	handle_path /api/* {
 		reverse_proxy api:8000
 	}

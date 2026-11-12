@@ -49,7 +49,10 @@ The resident kiosk records a drop-off. Only a weighing station's key is accepted
 - The delivery is stored with this device and no user, and the activity log names the device.
 - **The kiosk is one device.** Register it once as a weighing station (e.g. `KIOSK-01`), even though it also runs the camera. Its laptop makes every call with that key.
 - **Optional camera result:** `"cv": {"category": "Recyclable", "counts": {"recyclable": 3, "residual": 1, "bio": 0}, "confidence": 0.82}`. It's kept beside the category the resident confirmed, so the two can be compared later.
-- **Optional `"photo"`:** the snapshot as a base64 JPEG, about 100 KB at most. Admins and operators see it at `GET /deliveries/{id}/photo`. A resend keeps the first photo. Bad base64, or a file that isn't a JPEG, gets 422.
+- **Optional `"photo"`:** the snapshot as a base64 JPEG, about 2 MB at most. Admins and operators see it at `GET /deliveries/{id}/photo`. A resend keeps the first photo. Bad base64, or a file that isn't a JPEG, gets 422.
+- **Optional `"materials"`:** `[{"label": "Plastic", "confidence": 0.86}]`, at most 10. The kiosk camera is also the sorting-area camera, so each material becomes a pending suggestion in Operations › Sorting with this drop-off's photo, for the operator to confirm.
+  - Labels are matched to active materials without regard to capitals. An unknown label is skipped, and never fails the drop-off.
+  - A resend adds no new suggestions.
 
 Response (201): `{"code": "D-0042", "actions": {"buzz": 1}}`.
 - Show the code on the receipt, and beep `buzz` times.
@@ -69,6 +72,17 @@ Weighing-station key only. Each call also counts as a heartbeat.
 ## `GET /devices/kiosk-recent`
 Weighing-station key only. Returns this kiosk's latest 6 drop-offs, ready for its operator table:
 `[{"code": "D-0042", "time": "9:41 AM", "purok": "Purok 3", "cat": "Recyclable", "kg": "4.2 kg"}]`
+
+## `WS /devices/kiosk-live` (live camera for the website)
+The kiosk's laptop opens a WebSocket with the weighing station's `X-Device-Key`. A bad key is refused (close code 1008).
+- **SapulMRF sends** `{"viewers": n}` on connect and whenever the number of people watching changes. Send frames only while `n > 0`.
+- **The laptop sends:**
+  - each frame as one **binary** message: a JPEG, at most 2 MB, at the camera's resolution
+  - then a **text** message `{"det": {…the detection…}, "w": 1280, "h": 720}`
+
+  A frame that isn't a JPEG, or is too big, closes the socket (code 1009).
+- A new connection from the same device replaces the old one. Frames are kept in memory only, and nothing is recorded.
+- **Admins and operators watch** at `GET /devices/{id}/live.mjpg`, an MJPEG stream that an `<img>` plays. `GET /devices/live` lists the feeds with fps, size, viewers and the latest detection. A feed counts as live while frames arrive at least every 3 s.
 
 ## Open questions for Rhendel
 1. **Camera images:** where do photos live? The roadmap planned `image_id` and `taken_at`; the API takes `image_url` and has no `taken_at`. A photo must be reachable from the operator's browser.

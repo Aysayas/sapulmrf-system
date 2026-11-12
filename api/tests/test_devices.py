@@ -153,7 +153,7 @@ def test_a_resend_keeps_the_first_photo_and_bad_photos_are_refused(client, make_
     assert kiosk_drop(client, key, client_key="kiosk-0002-bbbb", photo="not base64!").status_code == 422
     png = base64.b64encode(b"\x89PNG not a jpeg").decode()
     assert kiosk_drop(client, key, client_key="kiosk-0003-cccc", photo=png).status_code == 422
-    assert kiosk_drop(client, key, client_key="kiosk-0004-dddd", photo="A" * 140_004).status_code == 422
+    assert kiosk_drop(client, key, client_key="kiosk-0004-dddd", photo="A" * 2_800_004).status_code == 422
 
 
 def test_kiosk_state_drives_the_light(client, make_user, login, db, world):
@@ -185,3 +185,32 @@ def test_kiosk_recent_lists_only_this_kiosks_drop_offs(client, make_user, login,
     kiosk_drop(client, other, client_key="kiosk-0009-zzzz")
     [row] = client.get("/devices/kiosk-recent", headers={"X-Device-Key": key}).json()
     assert row["purok"] == "Purok 1" and row["cat"] == "Recyclable" and row["kg"] == "3.5 kg" and row["code"].startswith("D-")
+
+
+def test_the_kiosk_camera_also_suggests_materials_for_sorting(client, make_user, login, db, world):
+    from app.intake.models import Delivery
+    from app.sorting.models import Classification
+
+    as_admin(make_user, login)
+    dev = client.post("/devices", json=SCALE).json()
+    materials = [{"label": "plastic", "confidence": 0.86}, {"label": "Metal", "confidence": 0.7},
+                 {"label": "Glass", "confidence": 0.9}]  # SapulMRF has no Glass: skipped, the drop-off still saves
+    assert kiosk_drop(client, dev["key"], cv=CV, photo=JPEG, materials=materials).status_code == 201
+    d = db.scalar(select(Delivery))
+    rows = db.scalars(select(Classification).order_by(Classification.id)).all()
+    mat = world["mat"]
+    assert [(c.suggested_material_id, c.confidence) for c in rows] == [(mat["Plastic"], 0.86), (mat["Metal"], 0.7)]
+    assert all(c.delivery_id == d.id and c.device_id == dev["id"] and c.confirmed_at is None for c in rows)
+    assert rows[0].image_url == f"/api/deliveries/{d.id}/photo"
+    kiosk_drop(client, dev["key"], cv=CV, photo=JPEG, materials=materials)  # a resend adds no suggestions
+    assert len(db.scalars(select(Classification)).all()) == 2
+
+
+def test_material_suggestions_without_a_photo_have_no_image(client, make_user, login, db, world):
+    from app.sorting.models import Classification
+
+    as_admin(make_user, login)
+    key = client.post("/devices", json=SCALE).json()["key"]
+    kiosk_drop(client, key, materials=[{"label": "Paper", "confidence": 0.5}])
+    assert db.scalar(select(Classification.image_url)) == ""
+    assert kiosk_drop(client, key, client_key="kiosk-0005-eeee", materials=[{"label": "x", "confidence": 2}]).status_code == 422
