@@ -22,7 +22,7 @@ export default function AlertsPage() {
 
   return (
     <>
-      <PageHeader title="Alerts" sub="Compost out of range, devices that stopped reporting, storage areas almost full, and problem reports from operators." />
+      <PageHeader title="Alerts" sub="Compost out of range, devices that stopped reporting, storage areas near or over capacity, and problem reports from operators." />
       <div role="tablist" aria-label="Alerts" className="flex gap-1 border-b border-line">
         {TABS.map(([key, label]) => {
           const n = key === 'open' ? summary?.unacknowledged : key === 'reports' ? summary?.open_reports : undefined;

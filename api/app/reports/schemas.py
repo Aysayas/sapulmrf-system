@@ -8,6 +8,16 @@ Format = Literal["csv", "pdf"]
 Cell = str | int | float
 
 
+Topic = Literal["compare", "attention", "next"]
+
+
+class Finding(BaseModel):
+    """One sentence computed from the data, so its numbers are always right. Topic matches a suggested question."""
+
+    topic: Topic
+    text: str
+
+
 class Report(BaseModel):
     """One report, the single structure the page, the CSV and the PDF are all drawn from."""
 
@@ -18,6 +28,11 @@ class Report(BaseModel):
     columns: list[str]
     rows: list[list[Cell]]
     total_rows: int = 0
+    findings: list[Finding] = []
+
+
+class Narrative(BaseModel):
+    text: str | None  # None: the AI is off or its paragraph failed the number check
 
 
 class RecentExport(BaseModel):

@@ -4,7 +4,7 @@ import { useOverview, type Classification, type Overview } from '../../api/opera
 import { FillBar, IntakeChart, Kpi } from '../../components/charts';
 import { Badge, PageHeader } from '../../components/ui';
 
-const kg = (n: number) => `${Math.round(n * 10) / 10} kg`;
+import { kg } from '../operations/shared';
 const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;  // whole pesos fit the tile; Outgoing shows centavos
 const ALERT_WORD = { compost: ['compost', 'compost'], device: ['device', 'devices'], storage: ['storage area', 'storage areas'] } as const;
 
@@ -31,7 +31,7 @@ function Dashboard({ o }: { o: Overview }) {
           <Kpi label="Pending approvals" value={String(o.pending_approvals)} sub="requests and reviews waiting" />
         </Link>
         <Kpi label="Segregation compliance" value={`${o.compliance_week_pct}%`} sub="last 7 days" />
-        <Kpi label="In storage" value={kg(o.in_storage_kg)} sub={`${o.areas.length} storage areas`} />
+        <Kpi label="In storage" value={`${Math.round(o.in_storage_kg).toLocaleString()} kg`} sub={`${o.areas.length} storage areas`} />
         <Link to="/admin/operations/outgoing" className="rounded-xl hover:ring-2 hover:ring-leaf-300">
           <Kpi label="Income this month" value={peso(o.income_month)} sub="approved sales" />
         </Link>

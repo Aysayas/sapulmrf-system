@@ -4,6 +4,7 @@ import { downloadExport, useExportView, useRecentReports } from '../../api/repor
 import { btn, Drawer, PageHeader } from '../../components/ui';
 import { Table, when } from '../operations/shared';
 import { Granted } from './shared';
+import ReportFindings from '../reports/ReportFindings';
 
 const dayLabel = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
 
@@ -59,6 +60,7 @@ function ExportSheet({ id, onClose }: { id: number; onClose: () => void }) {
           ))}
         </dl>
       )}
+      {r.data && <ReportFindings findings={r.data.findings} narrative={`/reports/exports/${id}/narrative`} />}
       <Table label="Report rows" head={r.data?.columns ?? ['Report']} state={{ isPending: r.isPending, error: r.error, count: r.data?.rows.length }}
         empty="No records in this report.">
         {r.data?.rows.map((row, i) => (

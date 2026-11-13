@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useItems } from '../../api/masterdata';
-import { useExportReport, useRecentReports, useReport, type ReportFormat, type ReportKind, type ReportParams } from '../../api/reports';
+import { narrativePath, useExportReport, useRecentReports, useReport, type ReportFormat, type ReportKind, type ReportParams } from '../../api/reports';
 import { btn, inputCls, PageHeader, Toast } from '../../components/ui';
 import { Table, when } from '../operations/shared';
+import ReportFindings from './ReportFindings';
 
 const KINDS: [ReportKind, string, string][] = [
   ['intake', 'Intake', 'Deliveries and weights per purok and category'],
@@ -124,6 +125,7 @@ function Preview({ p, onBack, onExport, busy }: {
           ))}
         </dl>
       )}
+      {r.data && <ReportFindings findings={r.data.findings} narrative={narrativePath(p)} />}
       <Table label={title} head={r.data?.columns ?? []} state={{ isPending: r.isPending, error: r.error, count: r.data?.rows.length }}
         empty="No records in this range.">
         {r.data?.rows.map((row, i) => (

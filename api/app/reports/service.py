@@ -7,14 +7,15 @@ from app.activity.service import log
 from app.core.errors import AppError
 from app.masterdata.models import SourceArea
 from app.operations.service import TZ
-from app.reports import render
+from app.reports import findings, narrate, render
 from app.reports.builders import BUILDERS, BY_AREA, TITLES
 from app.reports.models import ReportExport
-from app.reports.schemas import Format, Kind, RecentExport, Report
+from app.reports.schemas import Format, Kind, Narrative, RecentExport, Report
 from app.users.models import User
 
 PREVIEW_ROWS = 500
 MAX_DAYS = 366
+COMPARED = ("intake", "segregation", "outgoing", "income")  # composting batches span periods, inventory has none
 
 
 def _area_name(db: DbSession, area: int | None) -> str:
@@ -26,17 +27,27 @@ def _area_name(db: DbSession, area: int | None) -> str:
     return a.name
 
 
+def _window(from_day: date, to_day: date) -> tuple[datetime, datetime]:
+    start = datetime(from_day.year, from_day.month, from_day.day, tzinfo=TZ)
+    return start, datetime.combine(to_day + timedelta(days=1), datetime.min.time(), tzinfo=TZ)
+
+
 def build(db: DbSession, kind: Kind, from_day: date, to_day: date, area: int | None) -> Report:
     if to_day < from_day:
         raise AppError(422, "The end date is before the start date.")
     if (to_day - from_day).days >= MAX_DAYS:
         raise AppError(422, f"Pick a range of at most {MAX_DAYS} days.")
-    start = datetime(from_day.year, from_day.month, from_day.day, tzinfo=TZ)
-    end = datetime.combine(to_day + timedelta(days=1), datetime.min.time(), tzinfo=TZ)
-    r = BUILDERS[kind](db, start, end, area if kind in BY_AREA else None)
+    area = area if kind in BY_AREA else None
+    start, end = _window(from_day, to_day)
+    r = BUILDERS[kind](db, start, end, area)
     where = f" · {_area_name(db, area)}" if kind in BY_AREA else ""
     r.subtitle = "Stock as of now" if kind == "inventory" else f"{from_day:%b %d, %Y} to {to_day:%b %d, %Y}{where}"
     r.total_rows = len(r.rows)
+    prev = None
+    if kind in COMPARED:  # the same number of days just before this range
+        days = (to_day - from_day).days + 1
+        prev = BUILDERS[kind](db, *_window(from_day - timedelta(days=days), from_day - timedelta(days=1)), area)
+    r.findings = findings.find(db, r, prev, from_day, to_day, start, end, area)
     return r
 
 
@@ -87,6 +98,14 @@ def download_export(db: DbSession, export_id: int, actor: User, hidden: tuple[st
     log(db, actor.id, f"Downloaded {e.kind} report as {e.format.upper()}", r.subtitle)
     db.commit()
     return file
+
+
+def narrative(db: DbSession, kind: Kind, from_day: date, to_day: date, area: int | None) -> Narrative:
+    return Narrative(text=narrate.narrate(build(db, kind, from_day, to_day, area)))
+
+
+def export_narrative(db: DbSession, export_id: int, hidden: tuple[str, ...] = ()) -> Narrative:
+    return Narrative(text=narrate.narrate(_exported(db, export_id, hidden)[1]))
 
 
 def recent(db: DbSession, hidden: tuple[str, ...] = (), limit: int = 10) -> list[RecentExport]:

@@ -9,7 +9,7 @@ from app.core.deps import require_role
 from app.core.errors import AppError
 from app.operations.router import granted, viewer
 from app.reports import service
-from app.reports.schemas import Format, Kind, RecentExport, Report
+from app.reports.schemas import Format, Kind, Narrative, RecentExport, Report
 from app.users.models import User
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -48,6 +48,17 @@ def view_export(export_id: int, db: DbSession = Depends(get_db), actor: User = D
 @router.get("/exports/{export_id}/download")
 def download_export(export_id: int, db: DbSession = Depends(get_db), actor: User = Depends(exports_viewer)):
     return _file(*service.download_export(db, export_id, actor, hidden_kinds(db, actor)))
+
+
+@router.get("/exports/{export_id}/narrative", response_model=Narrative)
+def export_narrative(export_id: int, db: DbSession = Depends(get_db), actor: User = Depends(exports_viewer)):
+    return service.export_narrative(db, export_id, hidden_kinds(db, actor))
+
+
+@router.get("/{kind}/narrative", response_model=Narrative)
+def narrative(kind: Kind, from_: date = Query(alias="from"), to: date = Query(), area: int | None = None,
+              db: DbSession = Depends(get_db), _: User = Depends(admin_only)):
+    return service.narrative(db, kind, from_, to, area)
 
 
 @router.get("/{kind}", response_model=Report)

@@ -2,6 +2,7 @@ import csv
 import io
 from datetime import UTC, datetime, timedelta
 
+import httpx
 import pytest
 from sqlalchemy import func, select
 
@@ -227,3 +228,131 @@ def test_only_admins(client, make_user, login):
         assert client.get("/reports/recent").status_code == 403
         export = client.get("/reports/intake/export", params={"from": str(TODAY), "to": str(TODAY), "format": "csv"})
         assert export.status_code == 403
+
+
+# ---- findings
+
+
+def texts(r, topic=None):
+    return [f["text"] for f in r["findings"] if topic in (None, f["topic"])]
+
+
+def test_intake_findings_compare_with_the_previous_period(client, db, world, admin):
+    delivery(db, world, "purok1", 10.0)
+    delivery(db, world, "purok2", 5.0)
+    delivery(db, world, "purok1", 10.0, at=datetime.now(UTC) - timedelta(days=1))
+    r = get(client, "intake").json()
+    assert "Intake was 15.00 kg, up 50% from 10.00 kg in the day before." in texts(r, "compare")
+
+    delivery(db, world, "purok1", 4990.0, at=datetime.now(UTC) - timedelta(days=1))
+    later = get(client, "intake").json()
+    assert "Intake was 15.00 kg, down 99% from 5,000.00 kg in the day before." in texts(later)  # not "down 100%"
+    assert "Purok 1 brought the most: 10.00 kg (67% of the total)." in texts(r, "compare")
+
+
+def test_segregation_findings_name_the_lowest_purok(client, db, world, admin):
+    delivery(db, world, "purok1", 10.0, "segregated")
+    delivery(db, world, "purok1", 5.5, "mixed")
+    delivery(db, world, "purok2", 4.0, "segregated")
+    r = get(client, "segregation").json()
+    assert "Purok 1 had the lowest compliance: 50% (1 of 2 deliveries segregated)." in texts(r, "attention")
+    assert "Plan a segregation reminder or visit for Purok 1." in texts(r, "next")
+
+
+def test_composting_findings_flag_readings_out_of_range(client, db, admin):
+    b = CompostBatch(code="B-9", start_kg=80, started_at=datetime.now(UTC) - timedelta(days=2))
+    db.add(b)
+    db.flush()
+    db.add(CompostReading(batch_id=b.id, temp_c=70.0, moisture_pct=30.0))
+    db.commit()
+    r = get(client, "composting").json()
+    assert "Batch B-9 is at 70.0 C, above the 65.0 C limit." in texts(r, "attention")
+    assert "Add water to batch B-9." in texts(r, "next")
+
+
+def test_no_data_means_no_findings(client, world, admin):
+    assert get(client, "intake").json()["findings"] == []
+
+
+def test_findings_go_in_the_csv_above_the_table(client, db, world, admin):
+    delivery(db, world, "purok1", 10.0, "segregated")
+    delivery(db, world, "purok2", 4.0, "mixed")
+    r = client.get("/reports/segregation/export", params={"from": str(TODAY), "to": str(TODAY), "format": "csv"})
+    lines = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig"))))
+    header = lines.index(["Source area", "Deliveries", "Segregated", "Compliance (%)"])
+    assert ["Finding", "Purok 2 had the lowest compliance: 0% (0 of 1 delivery segregated)."] in lines[:header]
+
+
+# ---- AI summary
+
+
+def test_numbers_check_rejects_made_up_numbers():
+    from app.reports.narrate import numbers_ok
+
+    facts = ["Intake was 1,215.50 kg, up 18% from 1,030.00 kg in the previous 30 days."]
+    assert numbers_ok("Intake rose 18% to 1,215.50 kg compared with the previous 30 days.", facts)
+    assert numbers_ok("Intake rose to 1215.5 kg.", facts)  # same number, other formatting
+    assert not numbers_ok("Intake rose 20% to 1,215.50 kg.", facts)
+    assert not numbers_ok("Intake rose by about fifty percent.", facts)
+    assert numbers_ok("", facts)
+
+
+@pytest.fixture
+def ai(monkeypatch):
+    """Turns the AI on with a fake Ollama that answers with whatever `ai.reply` holds."""
+    from app.core.config import settings
+    from app.reports import narrate
+
+    class Fake:
+        reply, calls = "", 0
+
+    def post(url, json, timeout):
+        Fake.calls += 1
+        return httpx.Response(200, json={"response": Fake.reply}, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(settings, "ollama_url", "http://ollama:11434")
+    monkeypatch.setattr(narrate.httpx, "post", post)
+    monkeypatch.setattr(narrate, "_cache", {})
+    return Fake
+
+
+def narrative(client, kind="intake"):
+    return client.get(f"/reports/{kind}/narrative", params={"from": str(TODAY), "to": str(TODAY)})
+
+
+def test_summary_is_off_without_an_ollama_url(client, db, world, admin):
+    delivery(db, world, "purok1", 10.0)
+    assert narrative(client).json() == {"text": None}
+
+
+def test_summary_is_shown_only_when_its_numbers_match(client, db, world, admin, ai):
+    delivery(db, world, "purok1", 10.0)
+    ai.reply = "Intake was 10.00 kg today, with none the day before."
+    assert narrative(client).json()["text"] == ai.reply
+    narrative(client)
+    assert ai.calls == 1  # the same findings are not sent twice
+
+    delivery(db, world, "purok1", 2.0)
+    ai.reply = "Intake was 15.00 kg today."
+    assert narrative(client).json() == {"text": None}
+
+
+def test_summary_falls_back_when_ollama_is_down(client, db, world, admin, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "ollama_url", "http://127.0.0.1:9")  # nothing listens here
+    delivery(db, world, "purok1", 10.0)
+    assert narrative(client).json() == {"text": None}
+
+
+def test_staff_summary_follows_the_report_grants(client, db, make_user, login, ai):
+    make_user("maria", role="admin")
+    login("maria")
+    client.get("/reports/income/export", params={"from": str(TODAY), "to": str(TODAY), "format": "csv"})
+    income_id = client.get("/reports/recent").json()[0]["id"]
+    rosa = make_user("rosa", role="staff")
+    db.add(StaffAccess(user_id=rosa.id, screen="reports", granted=True))
+    db.commit()
+    login("rosa")
+    assert client.get(f"/reports/exports/{income_id}/narrative").status_code == 403
+    assert narrative(client).status_code == 403  # building new summaries is admin only

@@ -24,6 +24,8 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       WATCHFILES_FORCE_POLLING: "true"  # file changes from Windows don't reach the container as events
+      OLLAMA_URL: ${OLLAMA_URL:-}  # set to http://ollama:11434 to turn on AI report summaries
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
     ports:
       - "127.0.0.1:${API_PORT:-8001}:8000"
     volumes:
@@ -91,6 +93,26 @@ services:
       api:
         condition: service_healthy
 
+  ollama:
+    # Local LLM for the optional AI report summaries. Only runs when asked: docker compose --profile ai up -d ollama
+    profiles: ["ai"]
+    image: ollama/ollama:0.12.6
+    # Load the model and answer once at start-up (1–3 min): a load alone leaves its CPU part on disk until the first answer.
+    # /tmp/ready appears when it's warm.
+    entrypoint: ["/bin/sh", "-c", "ollama serve & until ollama list >/dev/null 2>&1; do sleep 1; done; ollama run ${OLLAMA_MODEL:-qwen2.5:7b} 'Say OK.' </dev/null >/dev/null 2>&1; touch /tmp/ready; wait"]
+    environment:
+      OLLAMA_KEEP_ALIVE: "-1"  # loading the model takes ~50 s on a 6 GB laptop GPU, so keep it loaded (holds ~4.6 GB)
+      OLLAMA_MAX_LOADED_MODELS: "1"
+    volumes:
+      - ollama_models:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
   adminer:
     image: adminer:4
     environment:
@@ -104,3 +126,4 @@ volumes:
   db_data:
   web_node_modules:
   sim_state:
+  ollama_models:

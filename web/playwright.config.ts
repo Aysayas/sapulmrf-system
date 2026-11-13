@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
 // The test admin's login lives in the repo's git-ignored .env (E2E_ADMIN_USERNAME / E2E_ADMIN_PASSWORD).
-process.loadEnvFile('../.env')
+process.loadEnvFile(new URL('../.env', import.meta.url))  // relative to this file, so VS Code's Playwright panel finds it too
 
 export default defineConfig({
   testDir: './e2e',

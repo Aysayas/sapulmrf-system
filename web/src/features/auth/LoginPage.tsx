@@ -5,7 +5,7 @@ import { Navigate, useNavigate } from 'react-router';
 import { z } from 'zod';
 import { HOME, useLogin, useMe } from '../../api/auth';
 
-const BALES = 'https://images.unsplash.com/photo-1764529310915-f73129d29c22?w=1800&q=70&auto=format&fit=crop';
+const BALES = '/login-bales.jpg'; // Unsplash photo, kept in public/ so the login page works offline
 
 const schema = z.object({
   username: z.string().trim().min(1, 'Enter your username.'),
