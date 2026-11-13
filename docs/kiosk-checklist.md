@@ -11,7 +11,8 @@ Fixes for the drop-off kiosk in `C:\dev\sapulmrf-kiosk` (repo commit `34a087e`).
 
 ### 2. Point the upload at SapulMRF's device route
 `pc_bridge/kiosk_bridge.py` L65, L173–184
-- [ ] Replace the `/api/intake` POST with a Bearer token by `POST {SAPULMRF_API}/devices/deliveries` with header `X-Device-Key: <weighing station key from Settings › Devices>`.
+- [ ] Register the kiosk once in SapulMRF (Settings › IoT devices) as a **weighing station**, e.g. `KIOSK-01`. The kiosk is one device even though it weighs and runs the camera: the camera's result is sent as the drop-off's `category`, and it doesn't use the sorting-camera routes. Put the key, shown only once, in the bridge's environment as `SAPULMRF_KEY`, never in git.
+- [ ] Replace the `/api/intake` POST and its `SAPULMRF_TOKEN` Bearer header with `POST {SAPULMRF_API}/devices/deliveries` and header `X-Device-Key: {SAPULMRF_KEY}`.
 - [ ] Body: `{"source_area": "Purok 3", "category": "Recyclable", "weight_kg": 4.25, "weighed_by": "manual" | "scale", "client_key": "<uuid4>"}`. Generate `client_key` once per drop-off and reuse it on every retry. The server then stores it only once.
 - [ ] Show the server's code from the 201 response `{"code": "D-0042"}` on the receipt.
 - [ ] When the server can't be reached (timeout, 5xx), save the CSV row as `pending` with its `client_key`, and show an offline code with its own prefix, e.g. `K-0007`. Never make up `D-` codes (L181): they clash with the server's.
