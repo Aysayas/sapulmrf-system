@@ -87,7 +87,8 @@ def _storage(db: DbSession) -> dict[int, tuple[str, str] | None]:
     for a in db.scalars(select(StorageArea)):
         pct = round(float(kg.get(a.id, 0)) / a.capacity_kg * 100) if a.capacity_kg else 0
         found[a.id] = (
-            (f"{a.name} {'over capacity' if pct > 100 else 'almost full'}", f"{pct}% of {a.capacity_kg:,} kg (alert at {a.alert_pct}%)")
+            (f"{a.name} {'over capacity' if pct > 100 else 'almost full'}",
+             f"{pct}% of {a.capacity_kg:,} kg (alert at {a.alert_pct}%)")
             if a.active and pct >= a.alert_pct
             else None
         )
