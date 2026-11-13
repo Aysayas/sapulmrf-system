@@ -4,9 +4,11 @@ docker compose exec api python -m app.cli create-admin
 """
 
 import argparse
+import csv
 import getpass
 import re
 import sys
+from pathlib import Path
 
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session
@@ -18,8 +20,8 @@ from app.compost.models import CompostBatch
 from app.core.db import SessionLocal
 from app.core.security import hash_password
 from app.devices.models import Device
-from app.intake.models import Delivery
-from app.masterdata.models import SourceArea, StorageArea
+from app.intake.models import Delivery, DeliveryPhoto
+from app.masterdata.models import Material, SourceArea, StorageArea, WasteCategory
 from app.sorting.models import Classification, StockMovement
 from app.users.models import User
 
@@ -95,6 +97,33 @@ def remove_test_data(db: Session) -> dict[str, int]:
     return counts
 
 
+def export_photos(db: Session, out: Path) -> int:
+    """Every stored drop-off photo, plus labels.csv: what was recorded and what operators confirmed. For labelling
+    a waste model (see the kiosk's pc_bridge/TRAINING.md)."""
+    out.mkdir(parents=True, exist_ok=True)
+    mats = dict(db.execute(select(Material.id, Material.name)).all())
+    rows = db.execute(
+        select(Delivery, WasteCategory.name, DeliveryPhoto.jpeg)
+        .join(DeliveryPhoto, DeliveryPhoto.delivery_id == Delivery.id)
+        .join(WasteCategory, WasteCategory.id == Delivery.category_id)
+        .order_by(Delivery.id)
+    ).all()
+    with open(out / "labels.csv", "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["file", "code", "received_at", "category", "camera_category", "camera_confidence", "materials"])
+        for d, category, jpeg in rows:
+            (out / f"{d.code}.jpg").write_bytes(jpeg)
+            confirmed = db.execute(
+                select(Classification.final_material_id, Classification.suggested_material_id,
+                       Classification.not_recyclable)
+                .where(Classification.delivery_id == d.id, Classification.confirmed_at.is_not(None))
+            ).all()
+            materials = sorted({"not recyclable" if nr else mats.get(final or sug, "?") for final, sug, nr in confirmed})
+            w.writerow([f"{d.code}.jpg", d.code, d.received_at.isoformat(timespec="seconds"), category,
+                        d.cv_category or "", d.cv_confidence if d.cv_confidence is not None else "", ";".join(materials)])
+    return len(rows)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -102,7 +131,15 @@ def main(argv: list[str] | None = None) -> int:
     ca.add_argument("--name", default=None)
     ca.add_argument("--username", default=None)
     sub.add_parser("remove-test-data", help="delete the users, areas and devices the browser tests created")
+    ex = sub.add_parser("export-photos", help="write every drop-off photo and labels.csv, for labelling a waste model")
+    ex.add_argument("--out", default="exports/photos")
     args = parser.parse_args(argv)
+
+    if args.command == "export-photos":
+        with SessionLocal() as db:
+            n = export_photos(db, Path(args.out))
+        print(f"Exported {n} photos to {Path(args.out).resolve()} (labels.csv lists what each one is)")
+        return 0
 
     if args.command == "remove-test-data":
         with SessionLocal() as db:

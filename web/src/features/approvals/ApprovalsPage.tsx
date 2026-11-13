@@ -192,11 +192,13 @@ function FlaggedRecords({ onDone }: { onDone: (m: string) => void }) {
   const decide = useDecideFlag();
   const mark = (id: number, code: string, d: 'valid' | 'incorrect') =>
     decide.mutate({ id, decision: d }, { onSuccess: () => onDone(`${code} marked ${d === 'valid' ? 'valid' : 'a false alarm'}`) });
+  const busy = (id: number) => decide.isPending && decide.variables?.id === id;   // only the row being decided waits
   return (
     <>
+      {decide.error && <p role="alert" className="rounded-lg bg-crit-100 px-3 py-2 text-sm font-semibold text-crit">{decide.error.message}</p>}
       <p className="text-sm text-ink-2">Flagged records are never changed automatically. Valid means the weight really is unusual, and it stays out of the usual weights. False alarm means the weight is normal, and it counts toward them. To fix a wrong weight, use a problem report.</p>
       <Table label="Flagged records" head={['Record', 'Source', 'Value', 'Expected', 'Why flagged', 'Your decision']}
-        state={{ isPending: list.isPending, error: list.error ?? decide.error, count: list.data?.length }} empty="No flagged records to review.">
+        state={{ isPending: list.isPending, error: list.error, count: list.data?.length }} empty="No flagged records to review.">
         {list.data?.map((f) => (
           <tr key={f.id}>
             <td className="font-semibold whitespace-nowrap">{f.code}<span className="block text-xs font-normal text-muted">{when(f.received_at)}</span></td>
@@ -205,8 +207,8 @@ function FlaggedRecords({ onDone }: { onDone: (m: string) => void }) {
             <td>{f.expected}</td>
             <td><Badge kind="warn">{f.why}</Badge></td>
             <td className="whitespace-nowrap">
-              <button className={`${small} ${btn.secondary}`} aria-label={`Mark ${f.code} valid`} disabled={decide.isPending} onClick={() => mark(f.id, f.code, 'valid')}>Valid</button>{' '}
-              <button className={`${small} ${btn.secondary}`} aria-label={`Mark ${f.code} a false alarm`} disabled={decide.isPending} onClick={() => mark(f.id, f.code, 'incorrect')}>False alarm</button>
+              <button className={`${small} ${btn.secondary}`} aria-label={`Mark ${f.code} valid`} disabled={busy(f.id)} onClick={() => mark(f.id, f.code, 'valid')}>Valid</button>{' '}
+              <button className={`${small} ${btn.secondary}`} aria-label={`Mark ${f.code} a false alarm`} disabled={busy(f.id)} onClick={() => mark(f.id, f.code, 'incorrect')}>False alarm</button>
             </td>
           </tr>
         ))}

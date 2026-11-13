@@ -107,3 +107,27 @@ def test_camera_accuracy_counts_the_last_30_days(db, world, make_user):
     db.commit()
     acc = service.camera_accuracy(db)
     assert (acc.confirmed, acc.kept, acc.kept_pct, acc.changed, acc.reviewed_wrong) == (3, 2, 67, 1, 1)
+
+
+def test_camera_accuracy_per_material_per_confidence_and_kiosk_category(db, world, make_user):
+    from app.intake.models import Delivery
+    from app.sorting import service as sorting
+    from app.sorting.schemas import ConfirmIn, SuggestionIn
+
+    op = make_user()
+    for label, conf, final, not_rec in (("Plastic", 0.9, None, False), ("Plastic", 0.85, world["mat"]["Metal"], False),
+                                        ("Paper", 0.5, None, True), ("Paper", 0.7, None, False)):
+        c = sorting.create_suggestion(db, None, SuggestionIn(label=label, confidence=conf))
+        sorting.confirm(db, c.id, ConfirmIn(final_material_id=final, not_recyclable=not_rec), op)
+    rec = world["cat"]["Recyclable"]
+    db.add_all([Delivery(code=f"K-{i}", source_area_id=world["purok1"], category_id=rec, weight_kg=1, weighed_by="manual",
+                         cv_category=cv) for i, cv in enumerate(("Recyclable", "Recyclable", "Residual"))])
+    db.commit()
+    acc = service.camera_accuracy(db)
+    plastic = next(m for m in acc.by_material if m.material == "Plastic")
+    paper = next(m for m in acc.by_material if m.material == "Paper")
+    assert (plastic.suggested, plastic.kept, plastic.changed_to) == (2, 1, "Metal")
+    assert (paper.kept, paper.changed_to) == (1, "Not recyclable")
+    bands = {b.band: (b.confirmed, b.kept_pct) for b in acc.by_confidence}
+    assert bands == {"Below 60%": (1, 0), "60–80%": (1, 100), "80% and up": (2, 50)}
+    assert (acc.kiosk.with_camera, acc.kiosk.matched, acc.kiosk.matched_pct) == (3, 2, 67)

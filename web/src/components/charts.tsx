@@ -44,7 +44,7 @@ export function IntakeChart({ data, height = 220 }: { data: { day: string; kg: n
 export function ForecastChart({ actual, forecast, height = 240 }: { actual: { day: string; kg: number }[]; forecast: { day: string; kg: number }[]; height?: number }) {
   const data = [...actual.map((d) => ({ ...d, predicted: false })), ...forecast.map((d) => ({ ...d, predicted: true }))];
   return (
-    <div role="img" aria-label={`Line chart of kg received and forecast per day: ${span([...actual, ...forecast].map((d) => d.kg), 'kg')}`}>
+    <div role="img" aria-label={`Bar chart of kg received and forecast per day: ${span([...actual, ...forecast].map((d) => d.kg), 'kg')}`}>
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }} barCategoryGap={2}>
         <defs>

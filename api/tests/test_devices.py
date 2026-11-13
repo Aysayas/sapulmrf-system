@@ -214,3 +214,13 @@ def test_material_suggestions_without_a_photo_have_no_image(client, make_user, l
     kiosk_drop(client, key, materials=[{"label": "Paper", "confidence": 0.5}])
     assert db.scalar(select(Classification.image_url)) == ""
     assert kiosk_drop(client, key, client_key="kiosk-0005-eeee", materials=[{"label": "x", "confidence": 2}]).status_code == 422
+
+
+def test_kiosk_suggestions_record_which_model_made_them(client, make_user, login, db, world):
+    from app.sorting.models import Classification
+
+    as_admin(make_user, login)
+    key = client.post("/devices", json=SCALE).json()["key"]
+    kiosk_drop(client, key, cv=CV, photo=JPEG, materials=[{"label": "Plastic", "confidence": 0.9}],
+               model_version="waste:1a2b3c4d")
+    assert db.scalar(select(Classification.model_version)) == "waste:1a2b3c4d"

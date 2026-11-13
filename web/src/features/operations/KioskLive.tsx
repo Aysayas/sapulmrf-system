@@ -83,7 +83,7 @@ function Frame({ title, status, viewers, offline = false, lastLive, det, childre
           <div className="absolute inset-0 grid place-items-center content-center gap-1 px-6 text-center">
             <p className="text-base font-semibold">Kiosk camera offline</p>
             <p className="max-w-[46ch] text-sm text-white/75">
-              The laptop bridge isn’t sending video. Start <code className="text-white">kiosk_bridge.py</code> with the kiosk’s SapulMRF key set.
+              The kiosk laptop isn’t sending video. Start the camera program on the kiosk laptop, or check that it’s on.
             </p>
             {lastLive && <p className="mt-2 text-xs text-white/60">Last live {time(lastLive)}</p>}
           </div>

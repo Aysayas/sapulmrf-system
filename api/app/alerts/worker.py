@@ -12,7 +12,7 @@ from sqlalchemy import update
 from app.alerts.checks import run_checks
 from app.core.config import settings
 from app.core.db import SessionLocal
-from app.insights.forecast import make_forecasts
+from app.insights.forecast import catch_up
 from app.settings.models import Settings
 
 EVERY_SECONDS = 30
@@ -28,8 +28,8 @@ def main() -> int:
                 db.execute(update(Settings).values(worker_seen_at=datetime.now(UTC)))
                 db.commit()
                 today = datetime.now(ZoneInfo(settings.timezone)).date()
-                if today != forecast_day:  # make_forecasts skips rows that exist, so a restart doesn't duplicate
-                    added = make_forecasts(db, today)
+                if today != forecast_day:  # rows that exist are skipped, so a restart doesn't duplicate
+                    added = catch_up(db, today)  # also the days missed while the laptop was off
                     forecast_day = today
                     print(f"{datetime.now():%H:%M:%S} forecasts for {today}: {added} saved", flush=True)
             if any(counts.values()):

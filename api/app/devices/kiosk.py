@@ -55,7 +55,7 @@ def attach_materials(db: DbSession, d: Delivery, device: Device, body: s.KioskDe
         material = db.scalar(select(Material).where(func.lower(Material.name) == m.label.lower(), Material.active))
         if material:
             db.add(Classification(device_id=device.id, delivery_id=d.id, suggested_material_id=material.id,
-                                  confidence=round(m.confidence, 3), model_version="kiosk",
+                                  confidence=round(m.confidence, 3), model_version=body.model_version or "kiosk",
                                   image_url=f"/api/deliveries/{d.id}/photo" if body.photo else ""))
 
 

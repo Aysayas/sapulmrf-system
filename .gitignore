@@ -38,3 +38,6 @@ web/src/**/*.js
 
 # Database backups
 backups/
+
+# Drop-off photos exported for labelling (python -m app.cli export-photos)
+api/exports/

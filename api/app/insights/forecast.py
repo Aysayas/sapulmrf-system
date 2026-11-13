@@ -111,6 +111,21 @@ def ready(db: DbSession, made_on: date) -> bool:
     return days_of_records(db, made_on - timedelta(days=1)) >= ranges.get(db).prediction_min_days
 
 
+CATCH_UP_DAYS = 14
+
+
+def catch_up(db: DbSession, today: date) -> int:
+    """Today's forecasts, plus any day since the last one that was missed while the system was off (up to
+    CATCH_UP_DAYS back). Each is made only from the records before its own day, exactly as on the day itself."""
+    last = db.scalar(select(func.max(Forecast.made_on)).where(Forecast.made_on <= today))
+    first = max(last + timedelta(days=1), today - timedelta(days=CATCH_UP_DAYS - 1)) if last else today
+    added, d = 0, min(first, today)
+    while d <= today:
+        added += make_forecasts(db, d)
+        d += timedelta(days=1)
+    return added
+
+
 def make_forecasts(db: DbSession, made_on: date) -> int:
     """Saves both models' next-7-day forecasts for every category. Does nothing for rows that already exist."""
     if not ready(db, made_on):
@@ -173,9 +188,9 @@ def pick_model(db: DbSession, category_id: int, today: date) -> Literal["baselin
 
 
 def errors(db: DbSession, category_id: int, today: date, days: int) -> dict[str, float | None]:
-    """Each model's MAPE over the `days` full days before today."""
+    """Each model's total kg error (WAPE) over the `days` full days before today: the measure the model is picked by."""
     start, end = today - timedelta(days=days), today - timedelta(days=1)
-    return {m: mape(comparison(db, category_id, m, start, end)) for m in MODELS}
+    return {m: wape(comparison(db, category_id, m, start, end)) for m in MODELS}
 
 
 def best_model(errs: dict[str, float | None]) -> Literal["baseline", "ml"]:

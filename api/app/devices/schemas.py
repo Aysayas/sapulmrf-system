@@ -76,6 +76,7 @@ class KioskDeliveryIn(BaseModel):
     weight_kg: Kg
     weighed_by: Literal["scale", "manual"]
     client_key: ClientKey  # required: the kiosk resends unsent drop-offs, and this stops duplicates
+    model_version: Annotated[str, StringConstraints(strip_whitespace=True, max_length=40)] = "kiosk"  # e.g. "waste:1a2b3c4d"
     cv: CvResult | None = None
     photo: Annotated[str, StringConstraints(max_length=2_800_000)] | None = None  # base64 JPEG, about 2 MB at most (full-res)
     materials: Annotated[list[MaterialGuess], Field(max_length=10)] = []

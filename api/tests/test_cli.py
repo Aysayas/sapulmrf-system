@@ -6,7 +6,7 @@ from sqlalchemy import select
 from app.activity.models import ActivityLog
 from app.alerts.models import Alert, ProblemReport
 from app.approvals.models import AdjustmentRequest, Outgoing
-from app.cli import create_admin, remove_test_data, remove_test_users
+from app.cli import create_admin, export_photos, remove_test_data, remove_test_users
 from app.compost.models import CompostBatch
 from app.core.security import verify_password
 from app.devices.models import Device
@@ -92,3 +92,25 @@ def test_remove_test_data_keeps_real_areas_and_devices(db, make_user):
     assert db.scalars(select(SourceArea.name)).all() == ["Purok 1"]
     assert db.scalars(select(Device.code)).all() == ["WS-01"]
     assert db.scalars(select(Classification.confidence)).all() == [0.9]
+
+
+JPEG = b"\xff\xd8 tiny jpeg"
+
+
+def test_export_photos_writes_each_photo_and_what_it_is(db, world, tmp_path):
+    import csv
+
+    from app.intake.models import DeliveryPhoto
+
+    d = Delivery(code="D-0001", source_area_id=world["purok1"], category_id=world["cat"]["Recyclable"], weight_kg=2,
+                 weighed_by="manual", cv_category="Recyclable", cv_confidence=0.8)
+    db.add(d)
+    db.flush()
+    db.add(DeliveryPhoto(delivery_id=d.id, jpeg=JPEG))
+    db.add(Classification(delivery_id=d.id, suggested_material_id=world["mat"]["Plastic"], confidence=0.9,
+                          final_material_id=world["mat"]["Plastic"], changed=False, confirmed_at=datetime.now(UTC)))
+    db.commit()
+    assert export_photos(db, tmp_path) == 1
+    assert (tmp_path / "D-0001.jpg").read_bytes() == JPEG
+    row = next(csv.DictReader(open(tmp_path / "labels.csv", encoding="utf-8")))
+    assert (row["category"], row["camera_category"], row["materials"]) == ("Recyclable", "Recyclable", "Plastic")

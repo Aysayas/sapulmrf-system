@@ -16,10 +16,17 @@ export interface Predictions {
   forecast: DayKg[];
   made_on: string | null;
   compared: { day: string; predicted: number; actual: number; diff: number; pct: number | null }[];
+  missing_days: number;
   avg_error_pct: number | null;
   outlook: { area: string; pct: number; kg: number; capacity_kg: number; alert_pct: number; per_day_kg: number; days_to_full: number | null; days_to_alert: number | null }[];
   schedule: { on: string; what: string; why: string }[];
-  camera: { confirmed: number; kept: number; kept_pct: number; changed: number; reviewed_wrong: number } | null;
+  camera: Camera | null;
+}
+export interface Camera {
+  confirmed: number; kept: number; kept_pct: number; changed: number; reviewed_wrong: number;
+  by_material: { material: string; suggested: number; kept: number; changed: number; changed_to: string | null }[];
+  by_confidence: { band: string; confirmed: number; kept_pct: number }[];
+  kiosk: { with_camera: number; matched: number; matched_pct: number } | null;
 }
 export interface Flag {
   id: number;

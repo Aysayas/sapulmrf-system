@@ -156,3 +156,13 @@ def test_capping_holds_down_one_typo_among_weekly_data():
     y = [300.0 if i % 7 == 5 else 100.0 for i in range(60)]
     y[40] = 3000.0  # usually 300 kg, so at most 450 kg stays
     assert fc.capped(y)[40] <= 450.0
+
+
+def test_catch_up_fills_the_days_the_system_was_off(db, world):
+    history(db, world, weekly, 45)
+    fc.make_forecasts(db, START + timedelta(days=40))
+    today = START + timedelta(days=44)          # off for days 41-43
+    assert fc.catch_up(db, today) > 0
+    made = set(db.scalars(select(Forecast.made_on).distinct()))
+    assert {START + timedelta(days=i) for i in range(40, 45)} <= made
+    assert fc.catch_up(db, today) == 0          # running again adds nothing

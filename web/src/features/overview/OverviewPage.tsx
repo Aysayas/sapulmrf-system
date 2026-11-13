@@ -30,7 +30,7 @@ function Dashboard({ o }: { o: Overview }) {
         <Link to="/admin/approvals" className="rounded-xl hover:ring-2 hover:ring-leaf-300">
           <Kpi label="Pending approvals" value={String(o.pending_approvals)} sub="requests and reviews waiting" />
         </Link>
-        <Kpi label="Segregation compliance" value={`${o.compliance_week_pct}%`} sub="last 7 days" />
+        <Kpi label="Segregation compliance" value={o.compliance_week_pct === null ? '—' : `${o.compliance_week_pct}%`} sub="last 7 days" />
         <Kpi label="In storage" value={`${Math.round(o.in_storage_kg).toLocaleString()} kg`} sub={`${o.areas.length} storage areas`} />
         <Link to="/admin/operations/outgoing" className="rounded-xl hover:ring-2 hover:ring-leaf-300">
           <Kpi label="Income this month" value={peso(o.income_month)} sub="approved sales" />
@@ -78,7 +78,7 @@ function Dashboard({ o }: { o: Overview }) {
             {o.devices.map((d) => (
               <li key={d.code} className="flex items-center gap-2 border-b border-line/60 py-2 text-sm last:border-0">
                 <span className="font-semibold">{d.code}</span>
-                <span className="truncate text-ink-2">{TYPE_LABEL[d.type as DeviceType]}</span>
+                <span className="text-ink-2">{TYPE_LABEL[d.type as DeviceType]}</span>
                 <span className="ml-auto">
                   {d.status === 'online' ? <Badge kind="ok">● Online</Badge> : d.status === 'offline' ? <Badge kind="crit">○ Offline</Badge> : <Badge kind="dash">Never</Badge>}
                 </span>

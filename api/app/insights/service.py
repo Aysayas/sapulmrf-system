@@ -1,3 +1,4 @@
+from collections import Counter
 from datetime import UTC, date, datetime, timedelta
 from math import ceil
 
@@ -93,8 +94,60 @@ def camera_accuracy(db: DbSession, days: int = 30) -> s.CameraAccuracy:
     ).one()
     kept = confirmed - changed
     return s.CameraAccuracy(
-        confirmed=confirmed, kept=kept, kept_pct=ops.pct(kept, confirmed), changed=changed, reviewed_wrong=wrong
+        confirmed=confirmed, kept=kept, kept_pct=ops.pct(kept, confirmed), changed=changed, reviewed_wrong=wrong,
+        by_material=_by_material(db, since), by_confidence=_by_confidence(db, since), kiosk=_kiosk_accuracy(db, since),
     )
+
+
+def _confirmed(db: DbSession, since: datetime):
+    return db.execute(
+        select(Classification.suggested_material_id, Classification.final_material_id, Classification.not_recyclable,
+               Classification.changed, Classification.confidence)
+        .where(Classification.confirmed_at >= since)
+    ).all()
+
+
+def _by_material(db: DbSession, since: datetime) -> list[s.MaterialAccuracy]:
+    """Per suggested material: how often operators kept it, and what they chose instead."""
+    names = dict(db.execute(select(Material.id, Material.name)).all())
+    rows: dict[int, dict] = {}
+    for sug, final, not_rec, changed, _ in _confirmed(db, since):
+        r = rows.setdefault(sug, {"n": 0, "kept": 0, "to": Counter()})
+        r["n"] += 1
+        if changed:
+            r["to"]["Not recyclable" if not_rec else names.get(final, "?")] += 1
+        else:
+            r["kept"] += 1
+    return sorted(
+        (s.MaterialAccuracy(material=names.get(m, "?"), suggested=r["n"], kept=r["kept"], changed=r["n"] - r["kept"],
+                            changed_to=r["to"].most_common(1)[0][0] if r["to"] else None) for m, r in rows.items()),
+        key=lambda x: -x.suggested,
+    )
+
+
+BANDS = (("Below 60%", 0.0, 0.6), ("60–80%", 0.6, 0.8), ("80% and up", 0.8, 1.01))
+
+
+def _by_confidence(db: DbSession, since: datetime) -> list[s.ConfidenceBand]:
+    """Is "86% sure" worth anything? How often each confidence band was kept by the operator."""
+    rows = _confirmed(db, since)
+    out = []
+    for band, lo, hi in BANDS:
+        inside = [changed for *_, changed, conf in rows if lo <= conf < hi]
+        if inside:
+            out.append(s.ConfidenceBand(band=band, confirmed=len(inside),
+                                        kept_pct=ops.pct(sum(1 for c in inside if not c), len(inside))))
+    return out
+
+
+def _kiosk_accuracy(db: DbSession, since: datetime) -> s.KioskAccuracy | None:
+    """Kiosk drop-offs: was the camera's category the one recorded? None until the kiosk has sent any."""
+    total, matched = db.execute(
+        select(func.count(Delivery.id), func.count(Delivery.id).filter(Delivery.cv_category == WasteCategory.name))
+        .join(WasteCategory, WasteCategory.id == Delivery.category_id)
+        .where(Delivery.cv_category.is_not(None), Delivery.received_at >= since)
+    ).one()
+    return s.KioskAccuracy(with_camera=total, matched=matched, matched_pct=ops.pct(matched, total)) if total else None
 
 
 def predictions(db: DbSession, category: int = ALL, on: date | None = None) -> s.Predictions:
@@ -151,7 +204,8 @@ def predictions(db: DbSession, category: int = ALL, on: date | None = None) -> s
             )
             for d, p, a in reversed(rows)
         ],
-        avg_error_pct=fc.mape(rows),
+        missing_days=7 - len(rows),
+        avg_error_pct=fc.wape(rows),
         outlook=areas,
         schedule=schedule(db, areas, on),
         camera=camera_accuracy(db),
