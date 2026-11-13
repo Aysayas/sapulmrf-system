@@ -22,4 +22,11 @@ class User(Base):
     last_login_at: Mapped[datetime | None] = mapped_column(default=None)
     failed_attempts: Mapped[int] = mapped_column(default=0)
     locked_until: Mapped[datetime | None] = mapped_column(default=None)
+    kiosk_pin_hash: Mapped[str | None] = mapped_column(String(255), default=None)  # operators sign in at the kiosk
+    kiosk_pin_failures: Mapped[int] = mapped_column(default=0)
+    kiosk_locked_until: Mapped[datetime | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    @property
+    def has_kiosk_pin(self) -> bool:
+        return self.kiosk_pin_hash is not None

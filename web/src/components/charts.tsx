@@ -123,8 +123,9 @@ export function FillBar({ area }: { area: AreaFill }) {
   const full = !over && area.pct >= area.alert_pct;
   return (
     <div className="py-1.5">
+      {/* wraps instead of cutting the name: "Demo Area B · Paper & cardboard" is what tells areas apart */}
       <div className="flex flex-wrap justify-between gap-x-2 text-sm">
-        <span className="truncate">{area.name}</span>
+        <span>{area.name}</span>
         <span className={`whitespace-nowrap ${over ? 'font-bold text-crit' : full ? 'font-bold text-warn' : 'text-ink-2'}`}>
           {area.pct}% · {Math.round(area.kg).toLocaleString()} / {area.capacity_kg.toLocaleString()} kg{over ? ' · over capacity' : full ? ' · almost full' : ''}
         </span>

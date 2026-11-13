@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, String, func
+from sqlalchemy import JSON, CheckConstraint, ForeignKey, LargeBinary, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -34,6 +34,19 @@ class Delivery(Base):
     review: Mapped[str | None] = mapped_column(String(8), default=None)
     reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), default=None)
     reviewed_at: Mapped[datetime | None] = mapped_column(default=None)
+    # What the kiosk camera saw, kept beside the category the resident confirmed.
+    cv_category: Mapped[str | None] = mapped_column(String(40), default=None)
+    cv_counts: Mapped[dict | None] = mapped_column(JSON, default=None)
+    cv_confidence: Mapped[float | None] = mapped_column(default=None)
+
+
+class DeliveryPhoto(Base):
+    """The kiosk camera's snapshot of a drop-off. Kept apart so delivery lists never load the bytes."""
+
+    __tablename__ = "delivery_photos"
+
+    delivery_id: Mapped[int] = mapped_column(ForeignKey("deliveries.id", ondelete="CASCADE"), primary_key=True)
+    jpeg: Mapped[bytes] = mapped_column(LargeBinary)
 
 
 class SegregationCheck(Base):

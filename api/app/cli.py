@@ -20,7 +20,7 @@ from app.core.security import hash_password
 from app.devices.models import Device
 from app.intake.models import Delivery
 from app.masterdata.models import SourceArea, StorageArea
-from app.sorting.models import StockMovement
+from app.sorting.models import Classification, StockMovement
 from app.users.models import User
 
 
@@ -54,7 +54,8 @@ def remove_test_users(db: Session) -> int:
 def remove_test_data(db: Session) -> dict[str, int]:
     """Deletes what the e2e tests create: e2e.<role>.<id> users, 'e2e …' source areas with their deliveries,
     'e2e …' storage areas with their stock, requests and alerts, E2E-… devices, and problem reports about E2E-… devices
-    or about those e2e deliveries, and compost batches started by e2e users with their alerts."""
+    or about those e2e deliveries, camera suggestions from E2E-… devices or about those e2e deliveries,
+    and compost batches started by e2e users with their alerts."""
     e2e_batches = select(CompostBatch.id).where(CompostBatch.started_by.in_(select(User.id).where(User.username.like("e2e.%.%"))))
     batch_alerts = db.execute(delete(Alert).where(Alert.kind == "compost", Alert.subject_id.in_(e2e_batches))).rowcount
     # Before the users go: deleting them clears started_by.
@@ -67,6 +68,12 @@ def remove_test_data(db: Session) -> dict[str, int]:
     counts["problem reports"] = db.execute(
         delete(ProblemReport).where(or_(ProblemReport.record_ref.like("E2E-%"), ProblemReport.record_ref.in_(e2e_codes),
                                         ProblemReport.device_id.in_(e2e_devices)))
+    ).rowcount
+    e2e_deliveries = select(Delivery.id).where(Delivery.source_area_id.in_(e2e_puroks))
+    counts["camera suggestions"] = db.execute(
+        delete(Classification).where(
+            or_(Classification.device_id.in_(e2e_devices), Classification.delivery_id.in_(e2e_deliveries))
+        )
     ).rowcount
     counts["deliveries"] = db.execute(delete(Delivery).where(Delivery.source_area_id.in_(e2e_puroks))).rowcount
     counts["stock movements"] = db.execute(delete(StockMovement).where(StockMovement.storage_area_id.in_(e2e_areas))).rowcount

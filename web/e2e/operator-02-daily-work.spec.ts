@@ -153,6 +153,19 @@ test('an operator takes a delivery through the whole day from a phone, then chan
     await form.getByRole('button', { name: 'Change password' }).click()
     await expect(form.getByRole('status')).toContainText('Password changed')
 
+    // Kiosk PIN: mismatched confirm is caught here, then set, then removed.
+    const pin = page.getByRole('form', { name: 'Kiosk PIN' })
+    await pin.getByLabel('PIN', { exact: true }).fill('2468')
+    await pin.getByLabel('Confirm PIN').fill('2469')
+    await pin.getByRole('button', { name: 'Set PIN' }).click()
+    await expect(pin.getByText('The two PINs don’t match.')).toBeVisible()
+    await pin.getByLabel('Confirm PIN').fill('2468')
+    await pin.getByRole('button', { name: 'Set PIN' }).click()
+    await expect(pin.getByRole('status')).toContainText('Kiosk PIN saved')
+    await pin.getByRole('button', { name: 'Remove PIN' }).click()
+    await expect(pin.getByRole('status')).toContainText('Kiosk PIN removed')
+    await expect(pin.getByRole('button', { name: 'Set PIN' })).toBeVisible()
+
     await page.getByRole('button', { name: 'Log out' }).click()
     await expect(page).toHaveURL(/\/login$/)
     await page.getByLabel('Username').fill(op.username)

@@ -15,6 +15,8 @@ class Classification(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     suggested_at: Mapped[datetime] = mapped_column(server_default=func.now(), index=True)
     device_id: Mapped[int | None] = mapped_column(ForeignKey("devices.id", ondelete="SET NULL"))
+    # Set when the kiosk camera suggested it during a drop-off; that drop-off's photo is the suggestion's image.
+    delivery_id: Mapped[int | None] = mapped_column(ForeignKey("deliveries.id", ondelete="SET NULL"), default=None)
     image_url: Mapped[str] = mapped_column(String(500), default="")
     suggested_material_id: Mapped[int] = mapped_column(ForeignKey("materials.id"))
     confidence: Mapped[float]

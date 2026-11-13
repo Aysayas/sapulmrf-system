@@ -29,7 +29,7 @@ export default function SortingPage() {
         {s.data?.classifications.map((c) => (
           <tr key={c.id}>
             <td className="whitespace-nowrap text-ink-2">{when(c.suggested_at)}</td>
-            <td><img src={c.image_url} alt={`Item suggested as ${c.suggested}`} className="h-10 w-14 rounded object-cover" loading="lazy" /></td>
+            <td>{c.image_url && <img src={c.image_url} alt={`Item suggested as ${c.suggested}`} className="h-10 w-14 rounded object-cover" loading="lazy" />}</td>
             <td className="whitespace-nowrap">{c.suggested} · {Math.round(c.confidence * 100)}%</td>
             <td className="whitespace-nowrap">
               {c.final === null ? <Badge kind="dash">Waiting</Badge> : c.changed ? <Badge kind="warn">Changed to {c.final}</Badge> : <Badge kind="ok">{c.final}</Badge>}

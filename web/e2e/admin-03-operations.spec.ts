@@ -27,7 +27,7 @@ test('the dashboard and every Operations page show data', async ({ adminPage: pa
     await expect(page.getByRole('table', { name: table }).locator('tbody tr td').nth(1)).toBeVisible()
     await expect(page.getByRole('table', { name: table })).not.toContainText(/Loading|No |Nothing/)
   }
-  await expect(page.getByRole('region', { name: 'Sorting area camera' })).toContainText('LATEST')
+  await expect(page.getByRole('region', { name: 'Kiosk camera' })).toContainText(/LIVE|LATEST/)  // LIVE while the kiosk bridge streams
 })
 
 test('a delivery recorded by an operator appears in Intake', async ({ adminPage: page, baseURL }) => {

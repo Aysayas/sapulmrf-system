@@ -38,6 +38,71 @@ Response: `{"device": "SCALE-1", "stored_on": "B-12"}`. `stored_on` is the batch
 - `label` must match an active material name, or the API returns 422.
 - `image_url` must be an http or https address, or empty.
 
+## `POST /devices/deliveries`
+The resident kiosk records a drop-off. Only a weighing station's key is accepted (others get 403).
+
+`{"source_area": "Purok 3", "category": "Recyclable", "weight_kg": 4.25, "weighed_by": "scale", "client_key": "6f1c2e0a-..."}`
+
+- `source_area` and `category` are names, matched without regard to capitals. An unknown or inactive one gets 422.
+- `client_key` is required, 8 to 36 characters; a UUID is best. **Resending is safe:** the same `client_key` returns the first drop-off's code and stores nothing new. Keep unsent drop-offs and retry them with the same key, using the retry rules above.
+- **`scale` weights:** the station must have posted a `stable` reading in the last 10 minutes, and `weight_kg` must equal that reading. Otherwise 422; send `manual` if the weight was typed in.
+- The delivery is stored with this device and no user, and the activity log names the device.
+- **The kiosk is one device.** Register it once as a weighing station (e.g. `KIOSK-01`), even though it also runs the camera. Its laptop makes every call with that key.
+- **Optional camera result:** `"cv": {"category": "Recyclable", "counts": {"recyclable": 3, "residual": 1, "bio": 0}, "confidence": 0.82}`. It's kept beside the category the resident confirmed, so the two can be compared later.
+- **Optional `"photo"`:** the snapshot as a base64 JPEG, about 2 MB at most. Admins and operators see it at `GET /deliveries/{id}/photo`. A resend keeps the first photo. Bad base64, or a file that isn't a JPEG, gets 422.
+- **Optional `"materials"`:** `[{"label": "Plastic", "confidence": 0.86}]`, at most 10. The kiosk camera is also the sorting-area camera, so each material becomes a pending suggestion in Operations › Sorting with this drop-off's photo, for the operator to confirm.
+  - Labels are matched to active materials without regard to capitals. An unknown label is skipped, and never fails the drop-off.
+  - A resend adds no new suggestions.
+
+Response (201): `{"code": "D-0042", "actions": {"buzz": 1}}`.
+- Show the code on the receipt, and beep `buzz` times.
+- A receipt made while offline needs its own prefix (e.g. `K-0007`), so it never looks like a server code.
+
+## `GET /devices/kiosk-state` (kiosk laptop, every ~5 s)
+Weighing-station key only. Each call also counts as a heartbeat.
+
+`{"today": {"kg": 128.4, "drops": 17}, "alerts": [{"kind": "storage", "title": "…", "details": "…"}], "actuators": {"light": "red", "buzz": 0}}`
+
+- `alerts` lists the newest open alerts, up to 5.
+- `light` is decided here, not on the kiosk:
+  - `red` when any storage area is over capacity
+  - `amber` for any other open alert
+  - `green` otherwise
+
+## `GET /devices/kiosk-recent`
+Weighing-station key only. Returns this kiosk's latest 6 drop-offs, ready for its operator table:
+`[{"code": "D-0042", "time": "9:41 AM", "purok": "Purok 3", "cat": "Recyclable", "kg": "4.2 kg"}]`
+
+## Operators on the kiosk (`GET /devices/kiosk-operators`, `POST /devices/kiosk-login`)
+MRF operators sign in at the kiosk with their **own kiosk PIN** (4–6 digits). They set it on the website (Profile › Kiosk PIN, operators only). An admin can clear a forgotten one (Users › Edit › Clear kiosk PIN) but never sees it.
+- **`GET /devices/kiosk-operators`** (weighing-station key): `[{"id": 3, "name": "Juan Dela Cruz"}]`. Active operators who have a PIN, for the kiosk's name buttons.
+- **`POST /devices/kiosk-login`** (weighing-station key): `{"user_id": 3, "pin": "2468"}`.
+  - **Right PIN:** returns `{"token": "…", "name": "Juan Dela Cruz", "expires_in_s": 1800}`. The token is a normal SapulMRF session for that operator, capped at 30 minutes. The Activity log reads "Kiosk sign-in", with the kiosk's code.
+  - **Wrong PIN:** 401 `Wrong PIN.`
+  - **Lockout:** 5 wrong tries lock that operator's kiosk PIN for 5 minutes (423, and the message says how long). The lockout is logged too.
+  - **Who can't sign in:** admins, staff, disabled accounts and operators without a PIN all get 401.
+- **Using the session:** the laptop keeps the token in memory only and sends it as `Cookie: sapulmrf_session=<token>` to the **same operator routes the website uses**, so validation, capacity checks and the Activity log stay identical:
+  - `GET /overview`
+  - `GET /classifications/pending` and `POST /classifications/{id}/confirm`
+  - `GET /deliveries/{id}/photo`
+  - `GET /operations/intake?waiting=segregation|sorting`
+  - `POST /deliveries/{id}/segregation`
+  - `GET /masterdata/materials|storage-areas`
+  - `POST /sorting`
+- **Camera suggestions while sorting:** the kiosk shows each drop-off's top pending suggestion when the operator picks the material. After `POST /sorting` succeeds, the laptop calls `POST /classifications/{id}/confirm`: an empty body when the material matches, `final_material_id` when it differs, and `not_recyclable` for Residual.
+- **Signing out:** on Lock, after 5 minutes idle, or when the kiosk disconnects, the laptop calls `POST /auth/logout` with the cookie. A 401 on any call means the session ended, and the kiosk returns to Welcome.
+
+## `WS /devices/kiosk-live` (live camera for the website)
+The kiosk's laptop opens a WebSocket with the weighing station's `X-Device-Key`. A bad key is refused (close code 1008).
+- **SapulMRF sends** `{"viewers": n}` on connect and whenever the number of people watching changes. Send frames only while `n > 0`.
+- **The laptop sends:**
+  - each frame as one **binary** message: a JPEG, at most 2 MB, at the camera's resolution
+  - then a **text** message `{"det": {…the detection…}, "w": 1280, "h": 720}`
+
+  A frame that isn't a JPEG, or is too big, closes the socket (code 1009).
+- A new connection from the same device replaces the old one. Frames are kept in memory only, and nothing is recorded.
+- **Admins and operators watch** at `GET /devices/{id}/live.mjpg`, an MJPEG stream that an `<img>` plays. `GET /devices/live` lists the feeds with fps, size, viewers and the latest detection. A feed counts as live while frames arrive at least every 3 s.
+
 ## Open questions for Rhendel
 1. **Camera images:** where do photos live? The roadmap planned `image_id` and `taken_at`; the API takes `image_url` and has no `taken_at`. A photo must be reachable from the operator's browser.
 2. **Camera retries:** resending a suggestion creates a second one, since it has no ID yet. Can the camera send a unique ID per item?

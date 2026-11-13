@@ -42,3 +42,30 @@ export const useUpdateDevice = () =>
   );
 
 export const useNewDeviceKey = () => useDeviceMutation((id: number) => api<DeviceWithKey>(`/devices/${id}/new-key`, { method: 'POST' }));
+
+/** What the kiosk camera sees right now (from the laptop's YOLO). */
+export interface LiveDetection {
+  category: string;
+  recyclable: number;
+  residual: number;
+  bio: number;
+  conf: number | null;
+  progress?: number;
+}
+export interface LiveFeed {
+  device_id: number;
+  code: string;
+  live: boolean;
+  fps: number;
+  w: number;
+  h: number;
+  det: LiveDetection | null;
+  viewers: number;
+  last_frame_at: string | null;
+}
+
+/** Live kiosk cameras. Polled every 2 s for status; the video itself is an MJPEG stream at liveUrl(). */
+export const useLiveCameras = () =>
+  useQuery({ queryKey: ['devices', 'live'], queryFn: () => api<LiveFeed[]>('/devices/live'), refetchInterval: 2_000 });
+
+export const liveUrl = (deviceId: number, attempt = 0) => `/api/devices/${deviceId}/live.mjpg?a=${attempt}`;

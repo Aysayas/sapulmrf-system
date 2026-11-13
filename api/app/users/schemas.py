@@ -22,6 +22,7 @@ class UserOut(BaseModel):
     username: str
     role: Role
     active: bool
+    has_kiosk_pin: bool = False
     last_login_at: datetime | None
     created_at: datetime
 
