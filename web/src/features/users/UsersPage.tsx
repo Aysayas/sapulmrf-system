@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { ROLE_LABEL, useMe, type User } from '../../api/auth';
 import { ApiError } from '../../api/client';
-import { useSaveUser, useUsers } from '../../api/users';
+import { useClearKioskPin, useSaveUser, useUsers } from '../../api/users';
 import { Badge, btn, Drawer, inputCls, Toast } from '../../components/ui';
 
 const when = (iso: string | null) =>
@@ -38,7 +38,9 @@ export default function UsersPage() {
               <tr key={u.id} className="border-b border-line/60 last:border-0">
                 <td className="px-3 py-2.5 font-semibold">{u.name}</td>
                 <td className="px-3 py-2.5">{u.username}</td>
-                <td className="px-3 py-2.5">{ROLE_LABEL[u.role]}</td>
+                <td className="px-3 py-2.5">
+                  {ROLE_LABEL[u.role]} {u.has_kiosk_pin && <Badge>Kiosk PIN</Badge>}
+                </td>
                 <td className="px-3 py-2.5">{u.active ? <Badge kind="ok">Active</Badge> : <Badge kind="dash">Disabled</Badge>}</td>
                 <td className="px-3 py-2.5 text-ink-2">{when(u.last_login_at)}</td>
                 <td className="px-3 py-2.5 text-right">
@@ -143,6 +145,22 @@ function UserDrawer({ user, onClose, onSaved }: { user: User | null; onClose: ()
         <input type="checkbox" {...register('active')} disabled={isSelf} className="accent-leaf-700" />
         Account active {isSelf && <span className="text-xs text-muted">(you can’t disable yourself)</span>}
       </label>
+      {user?.has_kiosk_pin && <ClearKioskPin user={user} onCleared={onSaved} />}
     </Drawer>
+  );
+}
+
+function ClearKioskPin({ user, onCleared }: { user: User; onCleared: (msg: string) => void }) {
+  const clear = useClearKioskPin();
+  return (
+    <div className="flex flex-col gap-1 rounded-lg border border-line p-3 text-sm">
+      <span className="font-semibold">Kiosk PIN is set</span>
+      <span className="text-xs text-muted">If they forgot it, clear it. They set a new one on their Profile.</span>
+      {clear.error && <span role="alert" className="text-xs text-crit">{clear.error.message}</span>}
+      <button type="button" className={`${btn.base} ${btn.secondary} ${btn.small} self-start`} disabled={clear.isPending}
+        onClick={() => clear.mutate(user.id, { onSuccess: () => onCleared(`${user.name}'s kiosk PIN cleared`) })}>
+        Clear kiosk PIN
+      </button>
+    </div>
   );
 }

@@ -73,6 +73,25 @@ Weighing-station key only. Each call also counts as a heartbeat.
 Weighing-station key only. Returns this kiosk's latest 6 drop-offs, ready for its operator table:
 `[{"code": "D-0042", "time": "9:41 AM", "purok": "Purok 3", "cat": "Recyclable", "kg": "4.2 kg"}]`
 
+## Operators on the kiosk (`GET /devices/kiosk-operators`, `POST /devices/kiosk-login`)
+MRF operators sign in at the kiosk with their **own kiosk PIN** (4–6 digits). They set it on the website (Profile › Kiosk PIN, operators only). An admin can clear a forgotten one (Users › Edit › Clear kiosk PIN) but never sees it.
+- **`GET /devices/kiosk-operators`** (weighing-station key): `[{"id": 3, "name": "Juan Dela Cruz"}]`. Active operators who have a PIN, for the kiosk's name buttons.
+- **`POST /devices/kiosk-login`** (weighing-station key): `{"user_id": 3, "pin": "2468"}`.
+  - **Right PIN:** returns `{"token": "…", "name": "Juan Dela Cruz", "expires_in_s": 1800}`. The token is a normal SapulMRF session for that operator, capped at 30 minutes. The Activity log reads "Kiosk sign-in", with the kiosk's code.
+  - **Wrong PIN:** 401 `Wrong PIN.`
+  - **Lockout:** 5 wrong tries lock that operator's kiosk PIN for 5 minutes (423, and the message says how long). The lockout is logged too.
+  - **Who can't sign in:** admins, staff, disabled accounts and operators without a PIN all get 401.
+- **Using the session:** the laptop keeps the token in memory only and sends it as `Cookie: sapulmrf_session=<token>` to the **same operator routes the website uses**, so validation, capacity checks and the Activity log stay identical:
+  - `GET /overview`
+  - `GET /classifications/pending` and `POST /classifications/{id}/confirm`
+  - `GET /deliveries/{id}/photo`
+  - `GET /operations/intake?waiting=segregation|sorting`
+  - `POST /deliveries/{id}/segregation`
+  - `GET /masterdata/materials|storage-areas`
+  - `POST /sorting`
+- **Camera suggestions while sorting:** the kiosk shows each drop-off's top pending suggestion when the operator picks the material. After `POST /sorting` succeeds, the laptop calls `POST /classifications/{id}/confirm`: an empty body when the material matches, `final_material_id` when it differs, and `not_recyclable` for Residual.
+- **Signing out:** on Lock, after 5 minutes idle, or when the kiosk disconnects, the laptop calls `POST /auth/logout` with the cookie. A 401 on any call means the session ended, and the kiosk returns to Welcome.
+
 ## `WS /devices/kiosk-live` (live camera for the website)
 The kiosk's laptop opens a WebSocket with the weighing station's `X-Device-Key`. A bad key is refused (close code 1008).
 - **SapulMRF sends** `{"viewers": n}` on connect and whenever the number of people watching changes. Send frames only while `n > 0`.

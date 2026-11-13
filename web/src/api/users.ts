@@ -24,3 +24,15 @@ export function useSaveUser() {
     },
   });
 }
+
+/** For a forgotten kiosk PIN. The admin never sees it; the operator sets a new one on their Profile. */
+export function useClearKioskPin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api<void>(`/users/${id}/kiosk-pin`, { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
+    },
+  });
+}

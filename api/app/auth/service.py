@@ -111,3 +111,21 @@ def logout(db: DbSession, token: str | None) -> None:
         log(db, s.user_id, "Logged out")
         db.delete(s)
         db.commit()
+
+
+def set_kiosk_pin(db: DbSession, user: User, pin: str) -> None:
+    if user.role != "operator":
+        raise AppError(403, "Only MRF operators sign in at the kiosk.")
+    action = "Changed own kiosk PIN" if user.kiosk_pin_hash else "Set own kiosk PIN"
+    user.kiosk_pin_hash = hash_password(pin)
+    user.kiosk_pin_failures, user.kiosk_locked_until = 0, None
+    log(db, user.id, action)
+    db.commit()
+
+
+def clear_kiosk_pin(db: DbSession, user: User, actor: User) -> None:
+    if user.kiosk_pin_hash:
+        user.kiosk_pin_hash, user.kiosk_pin_failures, user.kiosk_locked_until = None, 0, None
+        log(db, actor.id, "Removed own kiosk PIN" if user.id == actor.id else "Cleared kiosk PIN",
+            "" if user.id == actor.id else f"{user.name} ({user.username})")
+        db.commit()

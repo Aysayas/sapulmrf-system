@@ -19,6 +19,9 @@ from app.devices.schemas import (
     Heartbeat,
     KioskActions,
     KioskDeliveryIn,
+    KioskLoginIn,
+    KioskLoginOut,
+    KioskOperator,
     KioskReceipt,
     KioskRow,
     KioskState,
@@ -95,6 +98,20 @@ def kiosk_state(x_device_key: str | None = Header(None), db: DbSession = Depends
 def kiosk_recent(x_device_key: str | None = Header(None), db: DbSession = Depends(get_db)):
     """This kiosk's latest drop-offs, for its operator screen."""
     return kiosk.kiosk_recent(db, _kiosk(db, x_device_key))
+
+
+@router.get("/kiosk-operators", response_model=list[KioskOperator])
+def kiosk_operators(x_device_key: str | None = Header(None), db: DbSession = Depends(get_db)):
+    """Operators who set a kiosk PIN, for the kiosk's sign-in buttons."""
+    _kiosk(db, x_device_key)
+    return kiosk.kiosk_operators(db)
+
+
+@router.post("/kiosk-login", response_model=KioskLoginOut)
+def kiosk_login(body: KioskLoginIn, x_device_key: str | None = Header(None), db: DbSession = Depends(get_db)):
+    """An operator's PIN at the kiosk opens a 30-minute session; the laptop then uses the operator routes with it."""
+    user, token = kiosk.kiosk_login(db, _kiosk(db, x_device_key), body.user_id, body.pin)
+    return KioskLoginOut(token=token, name=user.name, expires_in_s=kiosk.SESSION_MIN * 60)
 
 
 @router.get("", response_model=list[DeviceOut])

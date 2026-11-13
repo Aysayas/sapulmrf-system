@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session as DbSession
 
 from app.auth import service
-from app.auth.schemas import LoginIn, PasswordIn, ProfileIn
+from app.auth.schemas import KioskPinIn, LoginIn, PasswordIn, ProfileIn
 from app.core.config import settings
 from app.core.db import get_db
 from app.core.deps import COOKIE, current_user
@@ -40,3 +40,14 @@ def update_me(body: ProfileIn, db: DbSession = Depends(get_db), user: User = Dep
 def change_my_password(body: PasswordIn, request: Request, db: DbSession = Depends(get_db),
                        user: User = Depends(current_user)):
     service.change_password(db, user, body, request.cookies.get(COOKIE))
+
+
+@router.put("/me/kiosk-pin", status_code=204)
+def set_my_kiosk_pin(body: KioskPinIn, db: DbSession = Depends(get_db), user: User = Depends(current_user)):
+    """Operators sign in at the resident kiosk by tapping their name and typing this PIN."""
+    service.set_kiosk_pin(db, user, body.pin)
+
+
+@router.delete("/me/kiosk-pin", status_code=204)
+def remove_my_kiosk_pin(db: DbSession = Depends(get_db), user: User = Depends(current_user)):
+    service.clear_kiosk_pin(db, user, user)

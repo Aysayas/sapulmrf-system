@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useChangePassword, useMe, useUpdateProfile, type User } from '../../api/auth';
+import { useChangePassword, useKioskPin, useMe, useUpdateProfile, type User } from '../../api/auth';
 import { btn, inputCls, PageHeader, Toast } from '../../components/ui';
 import { Field, touch } from './shared';
 
@@ -14,6 +14,7 @@ export default function ProfilePage() {
       {me.error && <p role="alert" className="text-crit">{me.error.message}</p>}
       {me.data && <DetailsForm user={me.data} />}
       {me.data && <PasswordForm />}
+      {me.data?.role === 'operator' && <KioskPinForm hasPin={me.data.has_kiosk_pin} />}
     </>
   );
 }
@@ -88,6 +89,47 @@ function PasswordForm() {
       <p className="text-sm text-ink-2">Changing it signs you out on other devices.</p>
       <button className={`${btn.base} ${btn.secondary} ${touch}`} disabled={change.isPending}>Change password</button>
       <Toast message={change.isSuccess ? 'Password changed' : null} />
+    </form>
+  );
+}
+
+// Mirrors KioskPinIn on the server.
+const pinSchema = z.object({
+  pin: z.string().regex(/^[0-9]{4,6}$/, '4 to 6 digits.'),
+  confirm: z.string(),
+}).refine((f) => f.pin === f.confirm, { path: ['confirm'], message: 'The two PINs don’t match.' });
+type Pin = z.infer<typeof pinSchema>;
+
+function KioskPinForm({ hasPin }: { hasPin: boolean }) {
+  const save = useKioskPin();
+  const { register, handleSubmit, reset, formState: { errors: e } } = useForm<Pin>({
+    resolver: zodResolver(pinSchema),
+    defaultValues: { pin: '', confirm: '' },
+  });
+  const pinInput = { type: 'password', inputMode: 'numeric', autoComplete: 'off', maxLength: 6, className: `${inputCls} ${touch}` } as const;
+
+  return (
+    <form aria-label="Kiosk PIN" className="flex flex-col gap-3 rounded-xl border border-line bg-white p-3"
+      onSubmit={handleSubmit(({ pin }) => save.mutate(pin, { onSuccess: () => reset() }))}>
+      <h2 className="text-lg font-bold">Kiosk PIN</h2>
+      <p className="text-sm text-ink-2">
+        {hasPin ? 'You can sign in at the kiosk: tap your name, then type your PIN.' : 'Set a PIN to sign in at the drop-off kiosk.'}
+        {' '}5 wrong tries lock it for 5 minutes.
+      </p>
+      <ServerError error={save.error} />
+      <Field label={hasPin ? 'New PIN' : 'PIN'} error={e.pin?.message}>
+        <input {...pinInput} aria-invalid={!!e.pin} {...register('pin')} />
+      </Field>
+      <Field label="Confirm PIN" error={e.confirm?.message}>
+        <input {...pinInput} aria-invalid={!!e.confirm} {...register('confirm')} />
+      </Field>
+      <button className={`${btn.base} ${btn.secondary} ${touch}`} disabled={save.isPending}>{hasPin ? 'Change PIN' : 'Set PIN'}</button>
+      {hasPin && (
+        <button type="button" className={`${btn.base} ${btn.secondary} ${touch} text-crit`} disabled={save.isPending} onClick={() => save.mutate(null)}>
+          Remove PIN
+        </button>
+      )}
+      <Toast message={save.isSuccess ? (save.variables ? 'Kiosk PIN saved' : 'Kiosk PIN removed') : null} />
     </form>
   );
 }

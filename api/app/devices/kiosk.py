@@ -4,21 +4,29 @@ The kiosk is a remote terminal. Its laptop polls kiosk_state() and forwards it, 
 """
 import base64
 import binascii
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DbSession
 
+from app.activity.service import log
 from app.alerts.models import Alert
+from app.auth.models import Session
 from app.core.errors import AppError
+from app.core.security import new_session_token, verify_password
 from app.devices import schemas as s
 from app.devices.models import Device
 from app.intake.models import Delivery, DeliveryPhoto
 from app.masterdata.models import Material, SourceArea, WasteCategory
 from app.operations.service import TZ, area_fill, since
 from app.sorting.models import Classification
+from app.users.models import User
 
 ALERTS_SHOWN = 5
 RECENT_ROWS = 6  # what fits the kiosk's operator table
+PIN_TRIES = 5  # then that operator's kiosk PIN is locked
+PIN_LOCK_MIN = 5
+SESSION_MIN = 30  # a kiosk sign-in is a normal session, but short: the kiosk is in a public place
 
 
 def attach_cv(db: DbSession, d: Delivery, body: s.KioskDeliveryIn) -> bool:
@@ -86,3 +94,41 @@ def kiosk_recent(db: DbSession, device: Device) -> list[s.KioskRow]:
                    purok=area, cat=cat, kg=f"{d.weight_kg:.1f} kg")
         for d, area, cat in rows
     ]
+
+
+def _operator(db: DbSession, user_id: int) -> User | None:
+    u = db.get(User, user_id)
+    return u if u and u.active and u.role == "operator" and u.kiosk_pin_hash else None
+
+
+def kiosk_operators(db: DbSession) -> list[s.KioskOperator]:
+    rows = db.scalars(select(User).where(User.active, User.role == "operator", User.kiosk_pin_hash.is_not(None))
+                      .order_by(User.name))
+    return [s.KioskOperator(id=u.id, name=u.name) for u in rows]
+
+
+def kiosk_login(db: DbSession, device: Device, user_id: int, pin: str) -> tuple[User, str]:
+    """An operator signs in at the kiosk with their own PIN. Returns them and a session token for their laptop."""
+    now = datetime.now(UTC)
+    user = _operator(db, user_id)
+    if not user:
+        raise AppError(401, "That operator can't sign in here. Set a kiosk PIN on the website first.")
+    if user.kiosk_locked_until and user.kiosk_locked_until > now:
+        minutes = max(1, round((user.kiosk_locked_until - now).total_seconds() / 60))
+        raise AppError(423, f"Too many wrong PINs. Try again in {minutes} minute{'s' if minutes > 1 else ''}.")
+    if not verify_password(pin, user.kiosk_pin_hash):
+        user = db.get(User, user.id, with_for_update=True, populate_existing=True)  # parallel guesses must each count
+        user.kiosk_pin_failures += 1
+        if user.kiosk_pin_failures >= PIN_TRIES:
+            user.kiosk_pin_failures, user.kiosk_locked_until = 0, now + timedelta(minutes=PIN_LOCK_MIN)
+            log(db, user.id, "Kiosk PIN locked", f"{PIN_TRIES} wrong PINs on {device.code}")
+            db.commit()
+            raise AppError(423, f"Too many wrong PINs. Try again in {PIN_LOCK_MIN} minutes.")
+        db.commit()
+        raise AppError(401, "Wrong PIN.")
+    user.kiosk_pin_failures, user.kiosk_locked_until, user.last_login_at = 0, None, now
+    token, hashed = new_session_token()
+    db.add(Session(token_hash=hashed, user_id=user.id, expires_at=now + timedelta(minutes=SESSION_MIN)))
+    log(db, user.id, "Kiosk sign-in", device.code)
+    db.commit()
+    return user, token

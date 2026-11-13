@@ -10,6 +10,7 @@ export interface User {
   username: string;
   role: Role;
   active: boolean;
+  has_kiosk_pin: boolean;
   last_login_at: string | null;
   created_at: string;
 }
@@ -68,5 +69,18 @@ export function useChangePassword() {
   return useMutation({
     mutationFn: (body: { current_password: string; new_password: string }) => api<void>('/auth/me/password', { method: 'POST', body }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['activity'] }),
+  });
+}
+
+/** Operators sign in at the resident kiosk by tapping their name and typing this PIN. */
+export function useKioskPin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (pin: string | null) =>
+      pin ? api<void>('/auth/me/kiosk-pin', { method: 'PUT', body: { pin } }) : api<void>('/auth/me/kiosk-pin', { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['me'] });
+      qc.invalidateQueries({ queryKey: ['activity'] });
+    },
   });
 }

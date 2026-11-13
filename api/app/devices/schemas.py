@@ -3,6 +3,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints
 
+from app.auth.schemas import KioskPin
 from app.intake.schemas import ClientKey, Kg
 
 DeviceType = Literal["weighing_station", "compost_sensor", "sorting_camera"]
@@ -138,3 +139,21 @@ class LiveStatus(BaseModel):
     det: dict | None
     viewers: int
     last_frame_at: datetime | None
+
+
+class KioskOperator(BaseModel):
+    id: int
+    name: str
+
+
+class KioskLoginIn(BaseModel):
+    user_id: int
+    pin: KioskPin
+
+
+class KioskLoginOut(BaseModel):
+    """The token goes in the laptop's Cookie header (sapulmrf_session) for the operator's own API calls."""
+
+    token: str
+    name: str
+    expires_in_s: int
