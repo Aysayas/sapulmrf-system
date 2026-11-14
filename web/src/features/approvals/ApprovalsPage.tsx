@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import {
-  OUTGOING_TYPE, useApprovals, useChangeReviews, useDecide, useReview, useReviewOutgoing, useWeightReviews,
-  type Adjustment, type Counts, type Outgoing,
+  OUTGOING_TYPE, useApprovals, useChangeReviews, useDecide, useMarkFix, useReview, useReviewAdjustment, useReviewOutgoing,
+  useWeightReviews, type Adjustment, type Counts, type Fix, type Outgoing,
 } from '../../api/approvals';
 import { useDecideFlag, useFlags } from '../../api/insights';
 import { Badge, btn, Drawer, inputCls, PageHeader, Toast } from '../../components/ui';
@@ -10,13 +10,16 @@ import { kg, peso, Table, when } from '../operations/shared';
 
 const TABS: [keyof Counts, string][] = [
   ['outgoing_review', 'Outgoing to review'],
+  ['adjustments_review', 'Recounts to review'],
+  ['fixes', 'Fixes to review'],
   ['outgoing', 'Old outgoing requests'],
-  ['adjustments', 'Adjustments'],
+  ['adjustments', 'Old recount requests'],
   ['weights', 'Corrected weights'],
   ['classifications', 'Corrected classifications'],
   ['flagged', 'Flagged records'],
 ];
 const small = `${btn.base} ${btn.small}`;
+const OLD: (keyof Counts)[] = ['outgoing', 'adjustments'];
 type Open = { kind: 'outgoing'; row: Outgoing } | { kind: 'adjustments'; row: Adjustment };
 
 export default function ApprovalsPage() {
@@ -31,7 +34,7 @@ export default function ApprovalsPage() {
     <>
       <PageHeader title="Approvals" sub="Everything waiting for your decision, in one place." />
       <div role="tablist" aria-label="Approvals" className="flex gap-1 border-b border-line">
-        {TABS.filter(([key]) => key !== 'outgoing' || tab === key || inbox.data?.counts.outgoing).map(([key, label]) => (  // old requests: only while some wait
+        {TABS.filter(([key]) => !OLD.includes(key) || tab === key || inbox.data?.counts[key]).map(([key, label]) => (  // old requests: only while some wait
           <button key={key} role="tab" aria-selected={tab === key} onClick={() => setParams({ tab: key })}
             className={`-mb-px flex items-center gap-1.5 border-b-2 px-3.5 py-2 text-sm whitespace-nowrap ${tab === key ? 'border-leaf-700 font-bold text-leaf-700' : 'border-transparent text-ink-2 hover:text-ink'}`}>
             {label}
@@ -43,6 +46,8 @@ export default function ApprovalsPage() {
       </div>
 
       {tab === 'outgoing_review' && <OutgoingReviews rows={inbox.data?.outgoing_review} state={state} onDone={setToast} />}
+      {tab === 'adjustments_review' && <RecountReviews rows={inbox.data?.adjustments_review} state={state} onDone={setToast} />}
+      {tab === 'fixes' && <FixReviews rows={inbox.data?.fixes} state={state} onDone={setToast} />}
 
       {tab === 'outgoing' && (
         <Table label="Outgoing waiting for approval" head={['No.', 'Requested', 'Type', 'Material', 'Recipient', 'Total', 'Requested by', '']}
@@ -271,19 +276,100 @@ function OutgoingReviews({ rows, state, onDone }: { rows: Outgoing[] | undefined
             <td>{o.total === null ? '—' : peso(o.total)}</td>
             <td className="text-ink-2">{o.requested_by ?? '—'}</td>
             <td className="whitespace-nowrap">
-              {reversing === o.id ? (
-                <span className="flex items-center gap-1.5">
-                  <input aria-label={`Why reverse ${o.code}`} className={`${inputCls} w-48`} placeholder="Why? e.g. buyer returned it"
-                    value={why} onChange={(e) => setWhy(e.target.value)} maxLength={200} autoFocus />
-                  <button className={`${small} ${btn.primary}`} disabled={!why.trim() || busy(o.id)} onClick={() => send(o, 'reverse')}>Reverse</button>
-                  <button className={`${small} ${btn.secondary}`} onClick={() => { setReversing(null); setWhy(''); }}>Cancel</button>
-                </span>
-              ) : (
-                <span className="flex gap-1.5">
-                  <button className={`${small} ${btn.primary}`} aria-label={`Mark ${o.code} OK`} disabled={busy(o.id)} onClick={() => send(o, 'ok')}>OK</button>
-                  <button className={`${small} ${btn.secondary}`} aria-label={`Reverse ${o.code}`} disabled={busy(o.id)} onClick={() => setReversing(o.id)}>Reverse…</button>
-                </span>
-              )}
+              <OkOrReverse name={o.code} busy={busy(o.id)} open={reversing === o.id} why={why} setWhy={setWhy}
+                onOpen={() => setReversing(o.id)} onCancel={() => { setReversing(null); setWhy(''); }}
+                onOk={() => send(o, 'ok')} onReverse={() => send(o, 'reverse')} placeholder="Why? e.g. buyer returned it" />
+            </td>
+          </tr>
+        ))}
+      </Table>
+    </>
+  );
+}
+
+/** OK, or Reverse with a reason typed inline (no modal). */
+function OkOrReverse({ name, busy, open, why, setWhy, onOpen, onCancel, onOk, onReverse, placeholder }: {
+  name: string; busy: boolean; open: boolean; why: string; setWhy: (s: string) => void; onOpen: () => void; onCancel: () => void;
+  onOk: () => void; onReverse: () => void; placeholder: string;
+}) {
+  return open ? (
+    <span className="flex items-center gap-1.5">
+      <input aria-label={`Why reverse ${name}`} className={`${inputCls} w-48`} placeholder={placeholder}
+        value={why} onChange={(e) => setWhy(e.target.value)} maxLength={200} autoFocus />
+      <button className={`${small} ${btn.primary}`} disabled={!why.trim() || busy} onClick={onReverse}>Reverse</button>
+      <button className={`${small} ${btn.secondary}`} onClick={onCancel}>Cancel</button>
+    </span>
+  ) : (
+    <span className="flex gap-1.5">
+      <button className={`${small} ${btn.primary}`} aria-label={`Mark ${name} OK`} disabled={busy} onClick={onOk}>OK</button>
+      <button className={`${small} ${btn.secondary}`} aria-label={`Reverse ${name}`} disabled={busy} onClick={onOpen}>Reverse…</button>
+    </span>
+  );
+}
+
+/** Recounts operators saved: stock already changed. OK them, or reverse one (the old count comes back today). */
+function RecountReviews({ rows, state, onDone }: { rows: Adjustment[] | undefined; state: { isPending: boolean; error: Error | null }; onDone: (m: string) => void }) {
+  const review = useReviewAdjustment();
+  const [reversing, setReversing] = useState<number | null>(null);
+  const [why, setWhy] = useState('');
+  const busy = (id: number) => review.isPending && review.variables?.id === id;
+  const name = (a: Adjustment) => `${a.material} in ${a.area}`;
+  const send = (a: Adjustment, decision: 'ok' | 'reverse') =>
+    review.mutate({ id: a.id, decision, comment: decision === 'reverse' ? why.trim() : '' }, {
+      onSuccess: () => { setReversing(null); setWhy(''); onDone(decision === 'ok' ? `Recount of ${name(a)} marked OK` : `Recount of ${name(a)} reversed`); },
+    });
+  return (
+    <>
+      {review.error && <p role="alert" className="rounded-lg bg-crit-100 px-3 py-2 text-sm font-semibold text-crit">{review.error.message}</p>}
+      <Table label="Recounts to review" head={['When', 'Material', 'Storage area', 'Was', 'Counted', 'Reason', 'By', '']}
+        state={{ ...state, count: rows?.length }} empty="Nothing to review. Recounts from the kiosk show here.">
+        {rows?.map((a) => (
+          <tr key={a.id}>
+            <td className="whitespace-nowrap text-ink-2">{when(a.decided_at ?? a.requested_at)}</td>
+            <td>{a.material}</td>
+            <td>{a.area}</td>
+            <td>{kg(a.system_kg)}</td>
+            <td className="font-semibold">{kg(a.actual_kg)}</td>
+            <td>{a.reason}</td>
+            <td className="text-ink-2">{a.requested_by ?? '—'}</td>
+            <td className="whitespace-nowrap">
+              <OkOrReverse name={name(a)} busy={busy(a.id)} open={reversing === a.id} why={why} setWhy={setWhy}
+                onOpen={() => setReversing(a.id)} onCancel={() => { setReversing(null); setWhy(''); }}
+                onOk={() => send(a, 'ok')} onReverse={() => send(a, 'reverse')} placeholder="Why? e.g. counted again" />
+            </td>
+          </tr>
+        ))}
+      </Table>
+    </>
+  );
+}
+
+const UNDONE = { sort: 'Sort undone', segregation: 'Wet/dry and sort undone', delivery: 'Record removed' } as const;
+
+/** Records operators undid at the kiosk (or the admin from Intake). A mark only: the undo already happened. */
+function FixReviews({ rows, state, onDone }: { rows: Fix[] | undefined; state: { isPending: boolean; error: Error | null }; onDone: (m: string) => void }) {
+  const mark = useMarkFix();
+  const busy = (id: number) => mark.isPending && mark.variables?.id === id;
+  const send = (f: Fix, review: 'ok' | 'wrong') =>
+    mark.mutate({ id: f.id, review }, { onSuccess: () => onDone(`Fix of ${f.record_code} marked ${review === 'ok' ? 'OK' : 'wrong'}`) });
+  return (
+    <>
+      {mark.error && <p role="alert" className="rounded-lg bg-crit-100 px-3 py-2 text-sm font-semibold text-crit">{mark.error.message}</p>}
+      <Table label="Fixes to review" head={['When', 'Record', 'What was undone', 'Why', 'By', 'Recorded again as', '']}
+        state={{ ...state, count: rows?.length }} empty="Nothing to review. Records undone at the kiosk show here.">
+        {rows?.map((f) => (
+          <tr key={f.id}>
+            <td className="whitespace-nowrap text-ink-2">{when(f.at)}</td>
+            <td className="font-semibold">{f.record_code}</td>
+            <td><b>{UNDONE[f.kind]}</b><span className="block text-xs text-ink-2">{f.summary}</span></td>
+            <td>{f.reason}</td>
+            <td className="text-ink-2">{f.by ?? '—'}</td>
+            <td>{f.redone_as ?? '—'}</td>
+            <td className="whitespace-nowrap">
+              <span className="flex gap-1.5">
+                <button className={`${small} ${btn.primary}`} aria-label={`Mark fix of ${f.record_code} OK`} disabled={busy(f.id)} onClick={() => send(f, 'ok')}>OK</button>
+                <button className={`${small} ${btn.secondary}`} aria-label={`Mark fix of ${f.record_code} wrong`} disabled={busy(f.id)} onClick={() => send(f, 'wrong')}>Wrong</button>
+              </span>
             </td>
           </tr>
         ))}

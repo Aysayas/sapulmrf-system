@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-Kind = Literal["categories", "puroks", "materials", "storage-areas"]
+Kind = Literal["categories", "puroks", "materials", "storage-areas", "buyers"]
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
 Capacity = Annotated[int, Field(ge=1, le=1_000_000)]
 AlertPct = Annotated[int, Field(ge=1, le=100)]

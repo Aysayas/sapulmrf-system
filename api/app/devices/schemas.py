@@ -80,6 +80,7 @@ class KioskDeliveryIn(BaseModel):
     cv: CvResult | None = None
     photo: Annotated[str, StringConstraints(max_length=2_800_000)] | None = None  # base64 JPEG, about 2 MB at most (full-res)
     materials: Annotated[list[MaterialGuess], Field(max_length=10)] = []
+    replaces: Annotated[str, StringConstraints(strip_whitespace=True, max_length=12)] | None = None  # an undone D- code
 
 
 class KioskActions(BaseModel):

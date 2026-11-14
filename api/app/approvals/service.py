@@ -19,6 +19,7 @@ from app.approvals.schemas import (
 from app.compost.models import CompostBatch
 from app.core.db import advisory_lock, preload
 from app.core.errors import AppError
+from app.corrections import service as corrections
 from app.insights.models import Flag
 from app.intake import service as intake
 from app.intake.models import Delivery
@@ -61,7 +62,7 @@ def adjustment_out(db: DbSession, r: AdjustmentRequest) -> AdjustmentOut:
                          system_kg=r.system_kg, actual_kg=r.actual_kg, reason=r.reason, details=r.details,
                          current_kg=current, area_kg=area_kg, area_after_kg=round(area_kg + r.actual_kg - current, 2),
                          capacity_kg=area.capacity_kg, status=r.status, requested_by=_name(db, r.requested_by),
-                         decided_by=_name(db, r.decided_by), decided_at=r.decided_at, comment=r.comment)
+                         decided_by=_name(db, r.decided_by), decided_at=r.decided_at, comment=r.comment, review=r.review)
 
 
 def outgoing_out(db: DbSession, o: Outgoing, balances: bool = True) -> OutgoingOut:
@@ -87,15 +88,63 @@ def request_adjustment(db: DbSession, data: AdjustmentIn, actor: User, at: datet
     area = _area(db, data.storage_area_id)
     if data.material_id is not None and not db.get(Material, data.material_id):
         raise AppError(422, "Pick a recyclable material, or leave it empty for residual.")
-    r = AdjustmentRequest(material_id=data.material_id, storage_area_id=area.id,
-                          system_kg=material_kg(db, data.material_id, area.id), actual_kg=round(data.actual_kg, 2),
-                          reason=data.reason, details=data.details, requested_by=actor.id)
-    if at:
-        r.requested_at = at
+    lock_areas(db, [area.id])  # read the count and change it in one go
+    now = at or datetime.now(UTC)
+    current = material_kg(db, data.material_id, area.id)
+    # It counts at once: stock is set to the count now; the admin reviews it afterwards (ok / reverse).
+    r = AdjustmentRequest(material_id=data.material_id, storage_area_id=area.id, system_kg=current,
+                          actual_kg=round(data.actual_kg, 2), reason=data.reason, details=data.details,
+                          requested_by=actor.id, requested_at=now, status="approved", decided_by=actor.id, decided_at=now)
     db.add(r)
+    db.flush()
+    _apply_count(db, r, current, actor)
     if not at:
-        log(db, actor.id, "Requested inventory adjustment",
+        log(db, actor.id, "Recounted stock",
             f"{_material(db, r.material_id)} · {area.name} · {r.system_kg} → {r.actual_kg} kg · {r.reason}")
+    db.commit()
+    return r
+
+
+def _apply_count(db: DbSession, r: AdjustmentRequest, current: float, actor: User) -> None:
+    """Sets the ledger to the count with one adjustment row (bags follow the kg)."""
+    change = round(r.actual_kg - current, 2)
+    if change:
+        bags = material_bags(db, r.material_id, r.storage_area_id)
+        taken = bags if r.actual_kg <= 0 else max(0, min(bags - 1, round(bags * -change / current))) if change < 0 else 0
+        db.add(StockMovement(material_id=r.material_id, storage_area_id=r.storage_area_id, kg=change, bags=-taken,
+                             kind="adjustment", by=actor.id, note=f"Adjustment #{r.id}: {r.reason}"[:200], at=r.decided_at))
+
+
+def review_adjustment(db: DbSession, request_id: int, data: OutgoingReviewIn, actor: User) -> AdjustmentRequest:
+    """The admin's look at a recount: ok, or reverse it (the change is undone today with a row of its own)."""
+    r = db.get(AdjustmentRequest, request_id, with_for_update=True)
+    if r is None:
+        raise AppError(404, "Recount not found.")
+    if r.status != "approved":
+        raise AppError(409, f"This recount is {r.status}: approve or reject it instead.")
+    if r.review:
+        raise AppError(409, f"This recount was already reviewed ({r.review}).")
+    if data.decision == "reverse" and not data.comment:
+        raise AppError(422, "Say why it's reversed.")
+    r.review = "ok" if data.decision == "ok" else "reversed"
+    r.reviewed_by, r.reviewed_at = actor.id, datetime.now(UTC)
+    if data.comment:
+        r.comment = data.comment
+    if r.review == "reversed":
+        lock_areas(db, [r.storage_area_id])
+        made = db.scalar(select(StockMovement).where(StockMovement.kind == "adjustment",
+                                                     StockMovement.note.like(f"Adjustment #{r.id}:%")))
+        if made:
+            later = db.scalar(select(StockMovement.id).where(  # a sale, move or count since: the old figure is stale
+                StockMovement.material_id.is_(None) if r.material_id is None else StockMovement.material_id == r.material_id,
+                StockMovement.storage_area_id == r.storage_area_id, StockMovement.id > made.id).limit(1))
+            if later:
+                raise AppError(409, "Stock changed since this recount, so it can't be put back. Recount again instead.")
+            db.add(StockMovement(material_id=r.material_id, storage_area_id=r.storage_area_id, kg=-made.kg,
+                                 bags=-made.bags, kind="adjustment", by=actor.id,
+                                 note=f"Adjustment #{r.id} reversed", at=r.reviewed_at))
+    verb = "Marked recount OK" if r.review == "ok" else "Reversed recount"
+    log(db, actor.id, verb, f"{_material(db, r.material_id)} · {r.system_kg} → {r.actual_kg} kg {r.comment}".strip())
     db.commit()
     return r
 
@@ -212,11 +261,9 @@ def decide_adjustment(db: DbSession, request_id: int, data: DecisionIn, actor: U
                             "Reject it and ask for a new count.")
     _decide(r, data, actor, at)
     change = round(r.actual_kg - current, 2)
-    if r.status == "approved" and change:
-        bags = material_bags(db, r.material_id, r.storage_area_id)
-        taken = bags if r.actual_kg <= 0 else max(0, min(bags - 1, round(bags * -change / current))) if change < 0 else 0
-        db.add(StockMovement(material_id=r.material_id, storage_area_id=r.storage_area_id, kg=change, bags=-taken,
-                             kind="adjustment", by=actor.id, note=f"Adjustment #{r.id}: {r.reason}"[:200], at=r.decided_at))
+    if r.status == "approved":  # the admin decided it, so it needs no review after
+        r.review, r.reviewed_by, r.reviewed_at = "ok", actor.id, r.decided_at
+        _apply_count(db, r, current, actor)
     if not at:
         verb = "Approved inventory adjustment" if r.status == "approved" else "Rejected inventory adjustment"
         area = db.get(StorageArea, r.storage_area_id).name
@@ -293,6 +340,9 @@ def counts(db: DbSession) -> dict[str, int]:
     return {"adjustments": n(AdjustmentRequest.id, AdjustmentRequest.status == "pending"),
             "outgoing": n(Outgoing.id, Outgoing.status == "pending"),
             "outgoing_review": n(Outgoing.id, Outgoing.status == "approved", Outgoing.review.is_(None)),
+            "adjustments_review": n(AdjustmentRequest.id, AdjustmentRequest.status == "approved",
+                                    AdjustmentRequest.review.is_(None)),
+            "fixes": corrections.count_to_review(db),
             "weights": n(Delivery.id, *UNREVIEWED_WEIGHTS),
             "classifications": n(Classification.id, *UNREVIEWED_CHANGES),
             "flagged": n(Flag.id, Flag.status == "open")}
@@ -307,7 +357,12 @@ def pending(db: DbSession) -> ApprovalsOut:
                            .order_by(Outgoing.decided_at)).all()
     return ApprovalsOut(counts=counts(db), adjustments=[adjustment_out(db, r) for r in adjustments],
                         outgoing=[outgoing_out(db, o) for o in outgoing],
-                        outgoing_review=[outgoing_out(db, o, balances=False) for o in to_review])
+                        outgoing_review=[outgoing_out(db, o, balances=False) for o in to_review],
+                        adjustments_review=[adjustment_out(db, r) for r in db.scalars(
+                            select(AdjustmentRequest).where(AdjustmentRequest.status == "approved",
+                                                            AdjustmentRequest.review.is_(None))
+                            .order_by(AdjustmentRequest.decided_at))],
+                        fixes=[corrections.out(db, c) for c in corrections.to_review(db)])
 
 
 def my_adjustments(db: DbSession, actor: User, days: int) -> list[AdjustmentOut]:

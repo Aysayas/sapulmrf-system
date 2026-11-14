@@ -13,6 +13,7 @@ from app.auth.router import router as auth_router
 from app.compost.router import router as compost_router
 from app.core import errors
 from app.core.db import engine
+from app.corrections.router import router as corrections_router
 from app.devices.router import router as devices_router
 from app.insights.router import router as insights_router
 from app.intake.router import router as intake_router
@@ -38,6 +39,7 @@ app.include_router(sorting_router)
 app.include_router(compost_router)
 app.include_router(operations_router)
 app.include_router(approvals_router)
+app.include_router(corrections_router)
 app.include_router(alerts_router)
 app.include_router(insights_router)
 app.include_router(reports_router)

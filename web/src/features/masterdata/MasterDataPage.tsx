@@ -11,6 +11,7 @@ const CARDS: { kind: Kind; title: string; noun: string; empty: string }[] = [
   { kind: 'puroks', title: 'Source areas', noun: 'source area', empty: 'Add each purok that delivers to the MRF.' },
   { kind: 'materials', title: 'Recyclable materials', noun: 'material', empty: '' },
   { kind: 'storage-areas', title: 'Storage areas', noun: 'storage area', empty: 'Add each storage area with its capacity.' },
+  { kind: 'buyers', title: 'Buyers', noun: 'buyer', empty: 'Add the junkshops and recipients the kiosk shows as buttons.' },
 ];
 
 export default function MasterDataPage() {

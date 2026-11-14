@@ -31,6 +31,12 @@ class Material(NamedItem, Base):
     __tablename__ = "materials"
 
 
+class Buyer(NamedItem, Base):
+    """A regular buyer or recipient (junkshop, purok gardens, the ENRO truck). The kiosk shows them as buttons."""
+
+    __tablename__ = "buyers"
+
+
 class StorageArea(NamedItem, Base):
     __tablename__ = "storage_areas"
 

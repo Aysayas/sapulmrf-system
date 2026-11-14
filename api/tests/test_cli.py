@@ -85,7 +85,7 @@ def test_remove_test_data_keeps_real_areas_and_devices(db, make_user):
     assert db.scalars(select(CompostBatch.code)).all() == ["B-902"]
     assert counts == {"compost batches": 1, "users": 1, "deliveries": 1, "stock movements": 1, "requests": 2, "alerts": 1,
                       "problem reports": 2, "camera suggestions": 2,
-                      "source areas": 1, "storage areas": 1, "devices": 1}
+                      "source areas": 1, "storage areas": 1, "buyers": 0, "devices": 1}
     assert sorted(db.scalars(select(ProblemReport.code)).all()) == ["R-902", "R-904"]
     assert db.scalars(select(Delivery.code)).all() == ["D-9002"]
     assert db.scalars(select(StockMovement.storage_area_id)).all() == [real_area]

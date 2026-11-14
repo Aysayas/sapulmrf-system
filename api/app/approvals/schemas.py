@@ -3,6 +3,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, model_validator
 
+from app.corrections.schemas import CorrectionOut
 from app.intake.schemas import ClientKey
 
 Text = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
@@ -75,6 +76,7 @@ class AdjustmentOut(Decided):
     area_kg: float
     area_after_kg: float
     capacity_kg: int
+    review: str | None = None
 
 
 class OutgoingOut(Decided):
@@ -100,6 +102,8 @@ class ApprovalsOut(BaseModel):
     adjustments: list[AdjustmentOut]
     outgoing: list[OutgoingOut]  # old-flow rows still waiting for approve / reject
     outgoing_review: list[OutgoingOut] = []  # recorded at once by operators, waiting for the admin's ok / reverse
+    adjustments_review: list[AdjustmentOut] = []  # recounts that already changed stock
+    fixes: list[CorrectionOut] = []  # records operators undid
 
 
 class OutgoingReviewIn(BaseModel):

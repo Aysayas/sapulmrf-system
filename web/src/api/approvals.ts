@@ -18,6 +18,7 @@ export interface Adjustment extends Decided {
   actual_kg: number;
   reason: string;
   details: string;
+  review: 'ok' | 'reversed' | null; // a recount counts at once; the admin then looks
   current_kg: number;
   area_kg: number;
   area_after_kg: number;
@@ -40,12 +41,22 @@ export interface Outgoing extends Decided {
   capacity_kg: number | null;
   review: 'ok' | 'reversed' | null; // recorded at once by an operator; the admin then looks
 }
-export type Counts = { outgoing_review: number; adjustments: number; outgoing: number; weights: number; classifications: number; flagged: number };
+export type Counts = {
+  outgoing_review: number; adjustments_review: number; fixes: number; adjustments: number; outgoing: number;
+  weights: number; classifications: number; flagged: number;
+};
+/** A record an operator (today's) or the admin undid with a reason. */
+export interface Fix {
+  id: number; kind: 'sort' | 'segregation' | 'delivery'; record_code: string; summary: string; reason: string;
+  by: string | null; at: string; redone_as: string | null; review: 'ok' | 'wrong' | null;
+}
 export interface Approvals {
   counts: Counts;
   adjustments: Adjustment[];
   outgoing: Outgoing[]; // old records still waiting for approve / reject
   outgoing_review: Outgoing[];
+  adjustments_review: Adjustment[];
+  fixes: Fix[];
 }
 
 /** What an outgoing record's badge says: an operator's record counts at once; a reversed one says so. */
@@ -87,6 +98,37 @@ export function useReviewOutgoing() {
     onSuccess: refresh,
   });
 }
+
+export function useReviewAdjustment() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: number; decision: 'ok' | 'reverse'; comment: string }) =>
+      api<Adjustment>(`/approvals/adjustments/${id}/review`, { method: 'POST', body }),
+    onSuccess: refresh,
+  });
+}
+
+export function useMarkFix() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: ({ id, review }: { id: number; review: 'ok' | 'wrong' }) => api<Fix>(`/corrections/${id}/review`, { method: 'POST', body: { review } }),
+    onSuccess: refresh,
+  });
+}
+
+/** Undo a delivery's newest steps down to `to` (operators: today's only; the admin: any day). */
+export function useUndo() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: (body: { delivery_id: number; to: 'sort' | 'segregation' | 'delivery'; reason: string }) =>
+      api<Fix>('/corrections/undo', { method: 'POST', body }),
+    onSuccess: refresh,
+  });
+}
+
+/** What a recount's badge says: an operator's counts at once; a reversed one says so. */
+export const recountState = (a: Adjustment) =>
+  a.review === 'reversed' ? 'reversed' as const : a.status === 'approved' && a.review !== 'ok' ? 'recorded' as const : a.status;
 
 export function useReview() {
   const refresh = useRefresh();

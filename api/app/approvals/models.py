@@ -13,7 +13,8 @@ class AdjustmentRequest(Base):
     """An operator's count that differs from the ledger. Stock changes only when an admin approves it."""
 
     __tablename__ = "adjustment_requests"
-    __table_args__ = (CheckConstraint(STATUS_CHECK, name="ck_adjustment_status"),)
+    __table_args__ = (CheckConstraint(STATUS_CHECK, name="ck_adjustment_status"),
+                      CheckConstraint("review IN ('ok', 'reversed')", name="ck_adjustment_review"))
 
     id: Mapped[int] = mapped_column(primary_key=True)
     material_id: Mapped[int | None] = mapped_column(ForeignKey("materials.id"))  # None means residual
@@ -28,6 +29,10 @@ class AdjustmentRequest(Base):
     decided_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), default=None)
     decided_at: Mapped[datetime | None] = mapped_column(default=None)
     comment: Mapped[str] = mapped_column(String(200), default="")
+    # An operator's recount counts at once; the admin then marks it ok, or reverses it.
+    review: Mapped[str | None] = mapped_column(String(8), default=None)
+    reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), default=None)
+    reviewed_at: Mapped[datetime | None] = mapped_column(default=None)
 
 
 class Outgoing(Base):

@@ -26,6 +26,14 @@ test('admin adds a purok and a storage area in master data', async ({ adminPage:
   await page.getByRole('dialog').getByLabel('Active').uncheck()
   await page.getByRole('button', { name: 'Save changes' }).click()
   await expect(puroks.getByRole('listitem').filter({ hasText: purok })).toContainText('Inactive')
+
+  // buyers: the names the kiosk shows as buttons when selling
+  const buyer = `e2e Buyer ${id()}`
+  const buyers = page.getByRole('region', { name: 'Buyers' })
+  await buyers.getByRole('button', { name: '+ Add' }).click()
+  await page.getByRole('dialog').getByLabel('Name').fill(buyer)
+  await page.getByRole('button', { name: 'Add buyer' }).click()
+  await expect(buyers.getByText(buyer)).toBeVisible()
 })
 
 test('a registered device shows its key once and goes online after a heartbeat', async ({ adminPage: page, request }) => {

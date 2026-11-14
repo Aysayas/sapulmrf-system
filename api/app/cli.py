@@ -21,7 +21,7 @@ from app.core.db import SessionLocal
 from app.core.security import hash_password
 from app.devices.models import Device
 from app.intake.models import Delivery, DeliveryPhoto
-from app.masterdata.models import Material, SourceArea, StorageArea, WasteCategory
+from app.masterdata.models import Buyer, Material, SourceArea, StorageArea, WasteCategory
 from app.sorting.models import Classification, StockMovement
 from app.users.models import User
 
@@ -90,7 +90,7 @@ def remove_test_data(db: Session) -> dict[str, int]:
             )
         )
     ).rowcount
-    for label, model in (("source areas", SourceArea), ("storage areas", StorageArea)):
+    for label, model in (("source areas", SourceArea), ("storage areas", StorageArea), ("buyers", Buyer)):
         counts[label] = db.execute(delete(model).where(func.lower(model.name).like("e2e %"))).rowcount
     counts["devices"] = db.execute(delete(Device).where(Device.code.like("E2E-%"))).rowcount
     db.commit()

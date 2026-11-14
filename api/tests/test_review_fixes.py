@@ -122,10 +122,22 @@ def test_recording_an_outgoing_locks_the_area(db, world, make_user, locks):
 
 def test_approving_an_adjustment_locks_the_record_and_the_area(db, world, make_user, locks):
     admin = make_user("maria", role="admin")
-    r = approvals.request_adjustment(db, AdjustmentIn(material_id=world["mat"]["Plastic"], storage_area_id=world["area_a"],
-                                                      actual_kg=5, reason="Recount"), admin)
+    from app.approvals.models import AdjustmentRequest
+    r = AdjustmentRequest(material_id=world["mat"]["Plastic"], storage_area_id=world["area_a"], system_kg=0,
+                          actual_kg=5, reason="Recount")  # an old-flow pending count
+    db.add(r)
+    db.commit()
+    locks.clear()
     approvals.decide_adjustment(db, r.id, DecisionIn(decision="approve"), admin)
     assert locks == ["adjustment_requests", "storage_areas"]
+
+
+def test_a_recount_locks_the_area(db, world, make_user, locks):
+    admin = make_user("maria", role="admin")
+    locks.clear()
+    approvals.request_adjustment(db, AdjustmentIn(material_id=world["mat"]["Plastic"], storage_area_id=world["area_a"],
+                                                  actual_kg=5, reason="Recount"), admin)
+    assert locks == ["storage_areas"]
 
 
 def separated(db, world, dry=6):

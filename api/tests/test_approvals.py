@@ -123,26 +123,32 @@ def test_disposal_takes_residual_from_its_area(client, db, world, as_operator):
     assert material_kg(db, None, world["area_d"]) == 0.0
 
 
-def test_an_approved_adjustment_sets_stock_to_the_count(client, db, world, as_operator, make_user, login):
+def pending_count(db, world, actual, system=100.0):
+    """A recount from before recounts counted at once: it still waits for approve / reject."""
+    from app.approvals.models import AdjustmentRequest
+    r = AdjustmentRequest(material_id=world["mat"]["Plastic"], storage_area_id=world["area_a"], system_kg=system,
+                          actual_kg=actual, reason="Recount")
+    db.add(r)
+    db.commit()
+    return r
+
+
+def test_a_recount_sets_stock_to_the_count_at_once(client, db, world, as_operator, make_user, login):
     stock(db, world, kg=100)
     body = {"material_id": world["mat"]["Plastic"], "storage_area_id": world["area_a"], "actual_kg": 92.5,
             "reason": "Wet bags removed as residual"}
     r = client.post("/inventory/adjustments", json=body)
     assert r.status_code == 201 and r.json()["system_kg"] == 100.0 and r.json()["area_after_kg"] == 92.5
-    as_admin(make_user, login)
-    assert client.post("/inventory/adjustments", json=body).status_code == 403
-    d = client.post(f"/approvals/adjustments/{r.json()['id']}", json={"decision": "approve"})
-    assert d.status_code == 200
     assert material_kg(db, world["mat"]["Plastic"], world["area_a"]) == 92.5
     rows = db.scalars(select(StockMovement.kg).where(StockMovement.kind == "adjustment")).all()
     assert rows == [-7.5]
+    as_admin(make_user, login)
     assert client.post(f"/approvals/adjustments/{r.json()['id']}", json={"decision": "reject", "comment": "x"}).status_code == 409
 
 
-def test_a_rejected_adjustment_changes_nothing(client, db, world, as_operator, make_user, login):
+def test_a_rejected_old_adjustment_changes_nothing(client, db, world, make_user, login):
     stock(db, world, kg=100)
-    r = client.post("/inventory/adjustments", json={"material_id": world["mat"]["Plastic"], "storage_area_id": world["area_a"],
-                                                    "actual_kg": 50, "reason": "Recount"}).json()
+    r = {"id": pending_count(db, world, 50).id}
     as_admin(make_user, login)
     client.post(f"/approvals/adjustments/{r['id']}", json={"decision": "reject", "comment": "Count again"})
     assert material_kg(db, world["mat"]["Plastic"], world["area_a"]) == 100.0

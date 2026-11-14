@@ -9,6 +9,7 @@ from app.compost.schemas import ReadingIn, ReadingOut
 from app.core.db import get_db
 from app.core.deps import current_user, require_role
 from app.core.errors import AppError
+from app.corrections import service as corrections
 from app.devices import kiosk, live, service
 from app.devices.models import Device
 from app.devices.schemas import (
@@ -75,6 +76,7 @@ def kiosk_delivery(body: KioskDeliveryIn, x_device_key: str | None = Header(None
     ), actor=None)
     if kiosk.attach_cv(db, rec, body):  # first time this drop-off arrives, not a resend
         kiosk.attach_materials(db, rec, d, body)
+        corrections.link_redo(db, body.replaces, rec.code)
     db.commit()
     return KioskReceipt(code=rec.code, actions=KioskActions(buzz=1))
 

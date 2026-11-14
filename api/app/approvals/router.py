@@ -25,11 +25,11 @@ from app.users.models import User
 router = APIRouter(tags=["approvals"])
 operator_only = require_role("operator")
 admin_only = require_role("admin")
-records_outgoing = require_role("operator", "admin")  # the admin can record what the operators do
+records_outgoing = require_role("operator", "admin")  # the admin can record outgoing and recounts too
 
 
 @router.post("/inventory/adjustments", response_model=AdjustmentOut, status_code=201)
-def request_adjustment(body: AdjustmentIn, db: DbSession = Depends(get_db), actor: User = Depends(operator_only)):
+def request_adjustment(body: AdjustmentIn, db: DbSession = Depends(get_db), actor: User = Depends(records_outgoing)):
     return service.adjustment_out(db, service.request_adjustment(db, body, actor))
 
 
@@ -47,6 +47,12 @@ def request_outgoing(body: OutgoingIn, db: DbSession = Depends(get_db), actor: U
 def outgoing_recipients(type: Literal["sale", "compost", "disposal"], db: DbSession = Depends(get_db),
                         _: User = Depends(records_outgoing)):
     return service.recipients(db, type)
+
+
+@router.post("/approvals/adjustments/{request_id}/review", response_model=AdjustmentOut)
+def review_adjustment(request_id: int, body: OutgoingReviewIn, db: DbSession = Depends(get_db),
+                      actor: User = Depends(admin_only)):
+    return service.adjustment_out(db, service.review_adjustment(db, request_id, body, actor))
 
 
 @router.post("/approvals/outgoing/{outgoing_id}/review", response_model=OutgoingOut)

@@ -178,9 +178,15 @@ def inventory(db: DbSession) -> s.InventoryView:
             func.max(StockMovement.at),
         ).group_by(StockMovement.material_id, StockMovement.storage_area_id)
     ).all()
+    prices: dict[int, float] = {}
+    for m, price in db.execute(select(Outgoing.material_id, Outgoing.price_per_kg)
+                               .where(Outgoing.type == "sale", Outgoing.status == "approved",
+                                      Outgoing.review.is_distinct_from("reversed"), Outgoing.price_per_kg.is_not(None))
+                               .order_by(Outgoing.decided_at.desc(), Outgoing.id.desc())):
+        prices.setdefault(m, float(price))  # newest first: keep the first seen
     stock = [
         s.StockRow(material=materials.get(m, "Residual"), area=areas[a], kg=round(float(kg), 2), bags=int(bags), last_change=at,
-                   material_id=m, storage_area_id=a)
+                   material_id=m, storage_area_id=a, last_price_per_kg=prices.get(m))
         for m, a, kg, bags, at in rows
         if kg > 0.005
     ]

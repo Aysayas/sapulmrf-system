@@ -23,7 +23,7 @@ def test_operators_see_only_their_own_requests_newest_first(client, db, world, m
 
     mine = client.get("/inventory/adjustments/mine").json()
     assert [r["id"] for r in mine] == [second["id"], first["id"]]
-    assert mine[0]["status"] == "pending" and mine[0]["actual_kg"] == 97
+    assert mine[0]["status"] == "approved" and mine[0]["actual_kg"] == 97  # a recount counts at once
     assert len(client.get("/inventory/adjustments/mine?days=60").json()) == 3
     assert pedro.id != juan.id
 

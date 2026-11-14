@@ -76,3 +76,26 @@ test('marking a corrected weight OK takes it off the list', async ({ adminPage: 
     await operator.dispose()
   }
 })
+
+test('the admin undoes a sort from Intake with a reason, then marks the fix OK', async ({ adminPage: page, baseURL }) => {
+  const { operator } = await setUp(page, baseURL!)
+  try {
+    const sorted = await page.request.get('/api/operations/intake?days=1&limit=5').then((r) => r.json())
+    const d = sorted.find((x: { status: string }) => x.status === 'sorted')
+    await page.goto('/admin/operations/intake')
+    await page.getByRole('searchbox', { name: 'Search deliveries' }).fill(d.code)
+    await page.getByRole('button', { name: `Undo ${d.code}` }).click()
+    await page.getByLabel(`What to undo on ${d.code}`).selectOption('sort')
+    await page.getByLabel(`Why undo ${d.code}`).fill('Wrong area')
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect(page.getByRole('status')).toContainText(`${d.code}: undone`)
+
+    await page.goto('/admin/approvals?tab=fixes')
+    const fixes = page.getByRole('table', { name: 'Fixes to review' })
+    await expect(fixes.getByRole('row').filter({ hasText: d.code })).toContainText('Sort undone')
+    await fixes.getByRole('button', { name: `Mark fix of ${d.code} OK` }).click()
+    await expect(page.getByRole('status')).toContainText(`Fix of ${d.code} marked OK`)
+  } finally {
+    await operator.dispose()
+  }
+})

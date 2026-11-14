@@ -22,9 +22,10 @@ def adjustment(client, world, kg):
     return client.post("/inventory/adjustments", json=body).json()
 
 
-def test_a_stale_adjustment_cant_be_approved(client, db, world, as_operator, make_user, login):
+def test_a_stale_old_adjustment_cant_be_approved(client, db, world, make_user, login):
+    from tests.test_approvals import pending_count
     stock(db, world, kg=100)
-    r = adjustment(client, world, 90)
+    r = {"id": pending_count(db, world, 90).id}
     stock(db, world, kg=-50, bags=0)  # sold before the admin decides
     as_admin(make_user, login)
     d = client.post(f"/approvals/adjustments/{r['id']}", json={"decision": "approve"})
@@ -35,11 +36,9 @@ def test_a_stale_adjustment_cant_be_approved(client, db, world, as_operator, mak
 
 
 @pytest.mark.parametrize("actual,bags_left", [(0, 0), (50, 5), (120, 10)])
-def test_adjustments_keep_bags_in_step(client, db, world, as_operator, make_user, login, actual, bags_left):
+def test_adjustments_keep_bags_in_step(client, db, world, as_operator, actual, bags_left):
     stock(db, world, kg=100, bags=10)
-    r = adjustment(client, world, actual)
-    as_admin(make_user, login)
-    assert client.post(f"/approvals/adjustments/{r['id']}", json={"decision": "approve"}).status_code == 200
+    assert adjustment(client, world, actual)["status"] == "approved"  # a recount counts at once
     assert material_bags(db, world["mat"]["Plastic"], world["area_a"]) == bags_left
 
 
@@ -120,16 +119,15 @@ def test_amounts_that_cant_be_stored_are_refused(client, db, world, as_operator)
         SortRow(material_id=None, bags=0, kg=0.001, storage_area_id=1)
 
 
-def test_a_partial_count_leaves_at_least_one_bag(client, db, world, as_operator, make_user, login):
+def test_a_partial_count_leaves_at_least_one_bag(client, db, world, as_operator):
     stock(db, world, kg=100, bags=3)
-    r = adjustment(client, world, 10)
-    as_admin(make_user, login)
-    assert client.post(f"/approvals/adjustments/{r['id']}", json={"decision": "approve"}).status_code == 200
+    adjustment(client, world, 10)
     assert material_bags(db, world["mat"]["Plastic"], world["area_a"]) == 1
 
 
-def test_a_count_cant_add_stock_to_an_inactive_area(client, db, world, as_operator, make_user, login):
-    r = adjustment(client, world, 10)
+def test_a_count_cant_add_stock_to_an_inactive_area(client, db, world, make_user, login):
+    from tests.test_approvals import pending_count
+    r = {"id": pending_count(db, world, 10, system=0).id}  # an old pending count; new recounts need an active area
     as_admin(make_user, login)
     assert client.patch(f"/masterdata/storage-areas/{world['area_a']}", json={"active": False}).status_code == 200
     d = client.post(f"/approvals/adjustments/{r['id']}", json={"decision": "approve"})

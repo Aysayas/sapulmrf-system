@@ -133,11 +133,7 @@ Selling and recount had no real alternative once "happens now, review later" was
 ## Settled after the builder check (my calls: check these)
 - **"Redo everything" on the kiosk runs the resident drop-off flow** (purok → camera scan → kind → weight), so the new delivery gets its photo, camera result and offline queue like any drop-off. The bridge links it to the fix by sending the undone code in the drop-off body (`replaces: "D-4502"`). The API stores that on the correction row.
 - **Which day counts for "today only":** the date of the step being undone. A sort made today on yesterday's delivery can be fixed at the kiosk. The kiosk list shows deliveries with any step done today.
-- **Admin fixes of older records keep the original day:**
-  - The admin panel gets a redo on the Intake page that re-records the delivery, segregation and sort.
-  - It takes the undone record's date (the API accepts `at` for admins only), so past reports end up corrected.
-  - The correction row records it.
-  - Recording delivery, segregation and sort is opened to admins for this.
+- **Admin fixes of older records (changed 2026-11-14, the user's choice):** the admin can undo any record, any day, from the Intake page, with a reason. Re-recording happens the normal way, by an operator at the kiosk, dated today. There's no back-dated admin redo.
 - **Reversal dates:**
   - Reversing a sale or recount is a **negative entry on the day it's reversed.** The original row and day stay as they were, so past income and stock reports don't shift silently.
   - `compost_on_hand` and stock checks count reversals.

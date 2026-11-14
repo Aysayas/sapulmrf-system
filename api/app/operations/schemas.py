@@ -60,6 +60,7 @@ class StockRow(BaseModel):
     last_change: datetime
     material_id: int | None = None  # None = residual
     storage_area_id: int = 0
+    last_price_per_kg: float | None = None  # the newest sale of this material (reversed ones left out)
 
 
 class InventoryView(BaseModel):

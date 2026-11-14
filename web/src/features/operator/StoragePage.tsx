@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useMyAdjustments, useRequestAdjustment } from '../../api/approvals';
+import { recountState, useMyAdjustments, useRequestAdjustment } from '../../api/approvals';
 import { useItems } from '../../api/masterdata';
 import { useInventory, useTransfer, type InventoryView } from '../../api/operations';
 import { FillBar } from '../../components/charts';
@@ -32,7 +32,7 @@ export default function StoragePage() {
       )}
 
       <h2 className="text-lg font-bold">Stock</h2>
-      <p className="-mt-3 text-sm text-ink-2">Counted something different? Tap the row to ask for an adjustment.</p>
+      <p className="-mt-3 text-sm text-ink-2">Counted something different? Tap the row to save your count. Stock updates at once.</p>
       <ul aria-label="Stock" className="flex flex-col gap-2">
         {inv.data?.stock.length === 0 && <li className="text-muted">Nothing in storage.</li>}
         {inv.data?.stock.map((s) => (
@@ -54,12 +54,12 @@ export default function StoragePage() {
       <ul aria-label="My requests" className="flex flex-col gap-2">
         {mine.isPending && <li className="text-muted">Loading…</li>}
         {mine.error && <li className="text-crit">{mine.error.message}</li>}
-        {mine.data?.length === 0 && <li className="text-muted">No adjustment requests in the last 30 days.</li>}
+        {mine.data?.length === 0 && <li className="text-muted">No recounts in the last 30 days.</li>}
         {mine.data?.map((r) => (
           <Card key={r.id} label={`${r.material} in ${r.area}`}>
             <div className="flex items-start gap-2">
               <b className="flex-1">{r.material} · {r.area}</b>
-              <StatusBadge status={r.status} />
+              <StatusBadge status={recountState(r)} />
             </div>
             <p className="text-sm text-ink-2">{kg(r.system_kg)} → {kg(r.actual_kg)} · {r.reason}</p>
             <p className="text-xs text-muted">Sent {when(r.requested_at)}{r.decided_by ? ` · ${r.status} by ${r.decided_by}` : ''}</p>
@@ -179,13 +179,13 @@ function AdjustSheet({ row, onClose, onSent }: { row: StockRow; onClose: () => v
 
   const onSubmit = (f: Form) =>
     send.mutate({ material_id: materialId!, storage_area_id: areaId!, ...f },
-      { onSuccess: () => onSent(`Adjustment sent for approval · ${row.material}, ${row.area}`) });
+      { onSuccess: () => onSent(`Recount saved · stock updated · ${row.material}, ${row.area}`) });
 
   return (
     <Drawer title="Request inventory adjustment" onClose={onClose} footer={
       <>
         <button className={`${btn.base} ${btn.secondary} ${touch}`} onClick={onClose}>Cancel</button>
-        <button className={`${btn.base} ${btn.primary} ${touch}`} disabled={!ready || send.isPending} onClick={handleSubmit(onSubmit)}>Send for approval</button>
+        <button className={`${btn.base} ${btn.primary} ${touch}`} disabled={!ready || send.isPending} onClick={handleSubmit(onSubmit)}>Save count</button>
       </>
     }>
       {send.error && <p role="alert" className="rounded-lg bg-crit-100 px-3 py-2 text-sm font-semibold text-crit">{send.error.message}</p>}

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 
-export type Kind = 'categories' | 'puroks' | 'materials' | 'storage-areas';
+export type Kind = 'categories' | 'puroks' | 'materials' | 'storage-areas' | 'buyers';
 export interface Item {
   id: number;
   name: string;

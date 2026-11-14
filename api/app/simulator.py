@@ -291,7 +291,9 @@ def backfill(db, days: int, seed: int = 11, now: datetime | None = None) -> dict
                     user,
                     at=recount,
                 )
-                decide(approvals.decide_adjustment, r, recount, reject=rnd.random() < 0.25)
+                if recount <= now - RECENT:  # counts at once; the admin has looked at older ones
+                    r.review, r.reviewed_by, r.reviewed_at = "ok", admin.id, recount + timedelta(hours=2)
+                    db.commit()
                 counts["adjustments"] += 1
 
         # compost: start a batch in a free bay every ~6 days from the wet waste collected; logged by hand
@@ -401,7 +403,8 @@ def remove(db) -> dict[str, int]:
     # approvals of the sim's requests were written by an admin, so find those ledger rows by their request
     codes = list(db.scalars(select(Outgoing.code).where(Outgoing.requested_by == user_id)))
     adjusted = [
-        f"Adjustment #{i}:%" for i in db.scalars(select(AdjustmentRequest.id).where(AdjustmentRequest.requested_by == user_id))
+        p for i in db.scalars(select(AdjustmentRequest.id).where(AdjustmentRequest.requested_by == user_id))
+        for p in (f"Adjustment #{i}:%", f"Adjustment #{i} reversed")
     ]
     counts["stock movements"] = db.execute(
         delete(StockMovement).where(

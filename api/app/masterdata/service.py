@@ -3,17 +3,19 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.activity.service import log
 from app.core.errors import AppError
-from app.masterdata.models import Material, SourceArea, StorageArea, WasteCategory
+from app.masterdata.models import Buyer, Material, SourceArea, StorageArea, WasteCategory
 from app.masterdata.schemas import ItemCreate, ItemUpdate, Kind
 from app.sorting.service import lock_areas, stock_kg
 from app.users.models import User
 
-MODELS = {"categories": WasteCategory, "puroks": SourceArea, "materials": Material, "storage-areas": StorageArea}
+MODELS = {"categories": WasteCategory, "puroks": SourceArea, "materials": Material, "storage-areas": StorageArea,
+          "buyers": Buyer}
 LABELS = {
     "categories": "waste category",
     "puroks": "source area",
     "materials": "material",
     "storage-areas": "storage area",
+    "buyers": "buyer",
 }
 
 
