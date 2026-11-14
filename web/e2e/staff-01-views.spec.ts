@@ -74,7 +74,7 @@ test('staff with the reports grant preview a shared outgoing report and see no m
   try {
     const recipient = `Buyer ${id}`
     const sale = await post('/outgoing', { type: 'sale', material_id: plastic, storage_area_id: storage.id, kg: 2, recipient, price_per_kg: 37.5 })
-    expect((await admin.request.post(`/api/approvals/outgoing/${sale.id}`, { data: { decision: 'approve' } })).ok()).toBe(true)
+    expect(sale.status).toBe('approved')  // an operator's sale counts at once
 
     // Export rows have no e2e prefix and remove-test-data keeps them, so reuse today's when there is one.
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })

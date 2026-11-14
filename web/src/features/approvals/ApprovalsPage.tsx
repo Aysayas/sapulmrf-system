@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import {
-  OUTGOING_TYPE, useApprovals, useChangeReviews, useDecide, useReview, useWeightReviews,
+  OUTGOING_TYPE, useApprovals, useChangeReviews, useDecide, useReview, useReviewOutgoing, useWeightReviews,
   type Adjustment, type Counts, type Outgoing,
 } from '../../api/approvals';
 import { useDecideFlag, useFlags } from '../../api/insights';
@@ -9,7 +9,8 @@ import { Badge, btn, Drawer, inputCls, PageHeader, Toast } from '../../component
 import { kg, peso, Table, when } from '../operations/shared';
 
 const TABS: [keyof Counts, string][] = [
-  ['outgoing', 'Outgoing'],
+  ['outgoing_review', 'Outgoing to review'],
+  ['outgoing', 'Old outgoing requests'],
   ['adjustments', 'Adjustments'],
   ['weights', 'Corrected weights'],
   ['classifications', 'Corrected classifications'],
@@ -20,7 +21,7 @@ type Open = { kind: 'outgoing'; row: Outgoing } | { kind: 'adjustments'; row: Ad
 
 export default function ApprovalsPage() {
   const [params, setParams] = useSearchParams();
-  const tab = (TABS.find(([k]) => k === params.get('tab'))?.[0] ?? 'outgoing') as keyof Counts;
+  const tab = (TABS.find(([k]) => k === params.get('tab'))?.[0] ?? 'outgoing_review') as keyof Counts;
   const inbox = useApprovals();
   const [open, setOpen] = useState<Open | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -30,7 +31,7 @@ export default function ApprovalsPage() {
     <>
       <PageHeader title="Approvals" sub="Everything waiting for your decision, in one place." />
       <div role="tablist" aria-label="Approvals" className="flex gap-1 border-b border-line">
-        {TABS.map(([key, label]) => (
+        {TABS.filter(([key]) => key !== 'outgoing' || tab === key || inbox.data?.counts.outgoing).map(([key, label]) => (  // old requests: only while some wait
           <button key={key} role="tab" aria-selected={tab === key} onClick={() => setParams({ tab: key })}
             className={`-mb-px flex items-center gap-1.5 border-b-2 px-3.5 py-2 text-sm whitespace-nowrap ${tab === key ? 'border-leaf-700 font-bold text-leaf-700' : 'border-transparent text-ink-2 hover:text-ink'}`}>
             {label}
@@ -40,6 +41,8 @@ export default function ApprovalsPage() {
           </button>
         ))}
       </div>
+
+      {tab === 'outgoing_review' && <OutgoingReviews rows={inbox.data?.outgoing_review} state={state} onDone={setToast} />}
 
       {tab === 'outgoing' && (
         <Table label="Outgoing waiting for approval" head={['No.', 'Requested', 'Type', 'Material', 'Recipient', 'Total', 'Requested by', '']}
@@ -240,5 +243,51 @@ function ChangeReviews({ onDone }: { onDone: (m: string) => void }) {
         </tr>
       ))}
     </Table>
+  );
+}
+
+/** Sales and give-outs operators recorded at the kiosk: they already left stock. OK them, or reverse one (stock goes back today). */
+function OutgoingReviews({ rows, state, onDone }: { rows: Outgoing[] | undefined; state: { isPending: boolean; error: Error | null }; onDone: (m: string) => void }) {
+  const review = useReviewOutgoing();
+  const [reversing, setReversing] = useState<number | null>(null);
+  const [why, setWhy] = useState('');
+  const busy = (id: number) => review.isPending && review.variables?.id === id;
+  const send = (o: Outgoing, decision: 'ok' | 'reverse') =>
+    review.mutate({ id: o.id, decision, comment: decision === 'reverse' ? why.trim() : '' }, {
+      onSuccess: () => { setReversing(null); setWhy(''); onDone(decision === 'ok' ? `${o.code} marked OK` : `${o.code} reversed · stock is back`); },
+    });
+  return (
+    <>
+      {review.error && <p role="alert" className="rounded-lg bg-crit-100 px-3 py-2 text-sm font-semibold text-crit">{review.error.message}</p>}
+      <Table label="Outgoing to review" head={['No.', 'When', 'Type', 'Material', 'Recipient', 'Total', 'Recorded by', '']}
+        state={{ ...state, count: rows?.length }} empty="Nothing to review. Sales and give-outs from the kiosk show here.">
+        {rows?.map((o) => (
+          <tr key={o.id}>
+            <td className="font-semibold">{o.code}</td>
+            <td className="whitespace-nowrap text-ink-2">{when(o.decided_at ?? o.requested_at)}</td>
+            <td>{OUTGOING_TYPE[o.type]}</td>
+            <td className="whitespace-nowrap">{o.material}{o.area ? ` · ${o.area}` : ''} · {kg(o.kg)}</td>
+            <td>{o.recipient}</td>
+            <td>{o.total === null ? '—' : peso(o.total)}</td>
+            <td className="text-ink-2">{o.requested_by ?? '—'}</td>
+            <td className="whitespace-nowrap">
+              {reversing === o.id ? (
+                <span className="flex items-center gap-1.5">
+                  <input aria-label={`Why reverse ${o.code}`} className={`${inputCls} w-48`} placeholder="Why? e.g. buyer returned it"
+                    value={why} onChange={(e) => setWhy(e.target.value)} maxLength={200} autoFocus />
+                  <button className={`${small} ${btn.primary}`} disabled={!why.trim() || busy(o.id)} onClick={() => send(o, 'reverse')}>Reverse</button>
+                  <button className={`${small} ${btn.secondary}`} onClick={() => { setReversing(null); setWhy(''); }}>Cancel</button>
+                </span>
+              ) : (
+                <span className="flex gap-1.5">
+                  <button className={`${small} ${btn.primary}`} aria-label={`Mark ${o.code} OK`} disabled={busy(o.id)} onClick={() => send(o, 'ok')}>OK</button>
+                  <button className={`${small} ${btn.secondary}`} aria-label={`Reverse ${o.code}`} disabled={busy(o.id)} onClick={() => setReversing(o.id)}>Reverse…</button>
+                </span>
+              )}
+            </td>
+          </tr>
+        ))}
+      </Table>
+    </>
   );
 }

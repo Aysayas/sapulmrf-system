@@ -9,6 +9,7 @@ from sqlalchemy import event, select
 from app.access.models import StaffAccess
 from app.activity.models import ActivityLog
 from app.approvals import service as approvals
+from app.approvals.models import Outgoing
 from app.approvals.schemas import AdjustmentIn, DecisionIn, OutgoingIn
 from app.compost.models import CompostBatch, CompostReading
 from app.core.config import settings
@@ -41,7 +42,7 @@ def test_staff_get_outgoing_records_without_any_money(client, db, world, make_us
     o = approvals.request_outgoing(db, OutgoingIn(type="sale", material_id=world["mat"]["Plastic"],
                                                   storage_area_id=world["area_a"], kg=10, recipient="Junk shop",
                                                   price_per_kg=12), admin)
-    approvals.decide_outgoing(db, o.id, DecisionIn(decision="approve"), admin)
+    assert o.status == "approved"  # recorded by the admin: it counts at once
     make_user("rosa", role="staff")
     login("rosa")
     v = client.get("/operations/outgoing").json()
@@ -101,10 +102,22 @@ def locks(db):
 def test_approving_an_outgoing_locks_the_record_and_the_area(db, world, make_user, locks):
     admin = make_user("maria", role="admin")
     stock(db, world)
-    o = approvals.request_outgoing(db, OutgoingIn(type="sale", material_id=world["mat"]["Plastic"], price_per_kg=1,
-                                                  storage_area_id=world["area_a"], kg=10, recipient="Hauler"), admin)
+    o = Outgoing(code="O-9999", type="sale", material_id=world["mat"]["Plastic"], price_per_kg=1, total=10,
+                 storage_area_id=world["area_a"], kg=10, recipient="Hauler")  # an old-flow pending record
+    db.add(o)
+    db.commit()
+    locks.clear()
     approvals.decide_outgoing(db, o.id, DecisionIn(decision="approve"), admin)
     assert locks == ["outgoing", "storage_areas"]
+
+
+def test_recording_an_outgoing_locks_the_area(db, world, make_user, locks):
+    admin = make_user("maria", role="admin")
+    stock(db, world)
+    locks.clear()
+    approvals.request_outgoing(db, OutgoingIn(type="sale", material_id=world["mat"]["Plastic"], price_per_kg=1,
+                                              storage_area_id=world["area_a"], kg=10, recipient="Hauler"), admin)
+    assert locks == ["storage_areas"]
 
 
 def test_approving_an_adjustment_locks_the_record_and_the_area(db, world, make_user, locks):

@@ -179,7 +179,8 @@ def inventory(db: DbSession) -> s.InventoryView:
         ).group_by(StockMovement.material_id, StockMovement.storage_area_id)
     ).all()
     stock = [
-        s.StockRow(material=materials.get(m, "Residual"), area=areas[a], kg=round(float(kg), 2), bags=int(bags), last_change=at)
+        s.StockRow(material=materials.get(m, "Residual"), area=areas[a], kg=round(float(kg), 2), bags=int(bags), last_change=at,
+                   material_id=m, storage_area_id=a)
         for m, a, kg, bags, at in rows
         if kg > 0.005
     ]
@@ -334,20 +335,30 @@ def month_start(months_back: int = 0) -> datetime:
 
 
 APPROVED_SALE = (Outgoing.status == "approved", Outgoing.total.is_not(None))
+REVERSED_SALE = (Outgoing.review == "reversed", Outgoing.total.is_not(None))
 
 
 def income_since(db: DbSession, start: datetime) -> float:
-    q = select(func.coalesce(func.sum(Outgoing.total), 0)).where(*APPROVED_SALE, Outgoing.decided_at >= start)
-    return float(db.scalar(q))
+    """Sales since `start`, minus sales reversed since `start` (on the day they were reversed)."""
+    sold = db.scalar(select(func.coalesce(func.sum(Outgoing.total), 0)).where(*APPROVED_SALE, Outgoing.decided_at >= start))
+    back = db.scalar(select(func.coalesce(func.sum(Outgoing.total), 0)).where(*REVERSED_SALE, Outgoing.reviewed_at >= start))
+    return float(sold) - float(back)
 
 
 def outgoing_view(db: DbSession, days: int) -> s.OutgoingView:
     start = month_start()
     kg = dict(db.execute(select(Outgoing.type, func.sum(Outgoing.kg))
                          .where(Outgoing.status == "approved", Outgoing.decided_at >= start).group_by(Outgoing.type)).all())
+    for t, back in db.execute(select(Outgoing.type, func.sum(Outgoing.kg))  # reversed: taken off on the day it was
+                              .where(Outgoing.review == "reversed", Outgoing.reviewed_at >= start).group_by(Outgoing.type)):
+        kg[t] = kg.get(t, 0) - back
     month = func.date_trunc("month", func.timezone(settings.timezone, Outgoing.decided_at))
     by_month = {m.date(): float(v) for m, v in db.execute(
         select(month, func.sum(Outgoing.total)).where(*APPROVED_SALE, Outgoing.decided_at >= month_start(5)).group_by(month))}
+    back_month = func.date_trunc("month", func.timezone(settings.timezone, Outgoing.reviewed_at))
+    for m, v in db.execute(select(back_month, func.sum(Outgoing.total))
+                           .where(*REVERSED_SALE, Outgoing.reviewed_at >= month_start(5)).group_by(back_month)):
+        by_month[m.date()] = by_month.get(m.date(), 0.0) - float(v)
     months = [month_start(i).date() for i in range(5, -1, -1)]
     _ = preload(db, User, Material, StorageArea)
     rows = db.scalars(select(Outgoing).where(Outgoing.requested_at >= since(days))

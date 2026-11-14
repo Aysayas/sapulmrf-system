@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { OUTGOING_TYPE, useRequestOutgoing } from '../../api/approvals';
+import { OUTGOING_TYPE, outgoingState, useRequestOutgoing } from '../../api/approvals';
 import { useItems } from '../../api/masterdata';
 import { useInventory, useOutgoing } from '../../api/operations';
 import { Kpi } from '../../components/charts';
@@ -25,7 +25,7 @@ export default function OutgoingPage() {
       {v && (
         <div className="grid grid-cols-2 gap-2">
           <Kpi label="Sold this month" value={kg(v.sold_kg_month)} sub="Recyclables" />
-          <Kpi label="Income this month" value={peso(v.income_month)} sub="Approved sales only" />
+          <Kpi label="Income this month" value={peso(v.income_month)} sub="Sales, less any reversed" />
           <Kpi label="Compost given out" value={kg(v.compost_kg_month)} sub="This month" />
           <Kpi label="Residual disposed" value={kg(v.disposed_kg_month)} sub="This month" />
         </div>
@@ -38,7 +38,7 @@ export default function OutgoingPage() {
           <Card key={o.id} label={o.code}>
             <div className="flex items-start gap-2">
               <b className="flex-1">{o.code} · {OUTGOING_TYPE[o.type]}</b>
-              <StatusBadge status={o.status} />
+              <StatusBadge status={outgoingState(o)} />
             </div>
             <p className="text-sm text-ink-2">
               {o.material} · {kg(o.kg)} · {o.recipient}
@@ -71,7 +71,7 @@ const schema = z.object({
 });
 type Form = z.infer<typeof schema>;
 
-function NewOutgoingSheet({ onClose, onSent }: { onClose: () => void; onSent: (m: string) => void }) {
+export function NewOutgoingSheet({ onClose, onSent }: { onClose: () => void; onSent: (m: string) => void }) {
   const materials = useItems('materials');
   const areas = useItems('storage-areas');
   const inv = useInventory();
@@ -97,13 +97,13 @@ function NewOutgoingSheet({ onClose, onSent }: { onClose: () => void; onSent: (m
       kg: f.kg,
       recipient: f.recipient,
       price_per_kg: f.type === 'sale' ? f.price_per_kg : null,
-    }, { onSuccess: (o) => onSent(`${o.code} sent for approval · ${kg(o.kg)} ${o.material}`) });
+    }, { onSuccess: (o) => onSent(`${o.code} recorded · ${kg(o.kg)} ${o.material} · stock updated`) });
 
   return (
     <Drawer title="Record outgoing material" onClose={onClose} footer={
       <>
         <button className={`${btn.base} ${btn.secondary} ${touch}`} onClick={onClose}>Cancel</button>
-        <button className={`${btn.base} ${btn.primary} ${touch}`} disabled={send.isPending} onClick={handleSubmit(onSubmit)}>Send for approval</button>
+        <button className={`${btn.base} ${btn.primary} ${touch}`} disabled={send.isPending} onClick={handleSubmit(onSubmit)}>Save</button>
       </>
     }>
       {send.error && <p role="alert" className="rounded-lg bg-crit-100 px-3 py-2 text-sm font-semibold text-crit">{send.error.message}</p>}

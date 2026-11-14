@@ -1,8 +1,19 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session as DbSession
 
 from app.approvals import service
-from app.approvals.schemas import AdjustmentIn, AdjustmentOut, ApprovalsOut, DecisionIn, OutgoingIn, OutgoingOut, ReviewIn
+from app.approvals.schemas import (
+    AdjustmentIn,
+    AdjustmentOut,
+    ApprovalsOut,
+    DecisionIn,
+    OutgoingIn,
+    OutgoingOut,
+    OutgoingReviewIn,
+    ReviewIn,
+)
 from app.core.db import get_db
 from app.core.deps import require_role
 from app.intake import service as intake
@@ -14,6 +25,7 @@ from app.users.models import User
 router = APIRouter(tags=["approvals"])
 operator_only = require_role("operator")
 admin_only = require_role("admin")
+records_outgoing = require_role("operator", "admin")  # the admin can record what the operators do
 
 
 @router.post("/inventory/adjustments", response_model=AdjustmentOut, status_code=201)
@@ -27,8 +39,20 @@ def my_adjustments(days: int = Query(30, ge=1, le=366), db: DbSession = Depends(
 
 
 @router.post("/outgoing", response_model=OutgoingOut, status_code=201)
-def request_outgoing(body: OutgoingIn, db: DbSession = Depends(get_db), actor: User = Depends(operator_only)):
+def request_outgoing(body: OutgoingIn, db: DbSession = Depends(get_db), actor: User = Depends(records_outgoing)):
     return service.outgoing_out(db, service.request_outgoing(db, body, actor))
+
+
+@router.get("/outgoing/recipients", response_model=list[str])
+def outgoing_recipients(type: Literal["sale", "compost", "disposal"], db: DbSession = Depends(get_db),
+                        _: User = Depends(records_outgoing)):
+    return service.recipients(db, type)
+
+
+@router.post("/approvals/outgoing/{outgoing_id}/review", response_model=OutgoingOut)
+def review_outgoing(outgoing_id: int, body: OutgoingReviewIn, db: DbSession = Depends(get_db),
+                    actor: User = Depends(admin_only)):
+    return service.outgoing_out(db, service.review_outgoing(db, outgoing_id, body, actor))
 
 
 @router.get("/approvals/counts", response_model=dict[str, int])

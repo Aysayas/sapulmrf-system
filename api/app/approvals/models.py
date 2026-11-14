@@ -38,6 +38,7 @@ class Outgoing(Base):
         CheckConstraint(STATUS_CHECK, name="ck_outgoing_status"),
         CheckConstraint("type IN ('sale', 'compost', 'disposal')", name="ck_outgoing_type"),
         CheckConstraint("kg > 0", name="ck_outgoing_kg"),
+        CheckConstraint("review IN ('ok', 'reversed')", name="ck_outgoing_review"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -56,3 +57,7 @@ class Outgoing(Base):
     decided_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), default=None)
     decided_at: Mapped[datetime | None] = mapped_column(default=None, index=True)
     comment: Mapped[str] = mapped_column(String(200), default="")
+    # Operators' outgoing counts at once; the admin then marks it ok, or reverses it (stock goes back that day).
+    review: Mapped[str | None] = mapped_column(String(8), default=None)
+    reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), default=None)
+    reviewed_at: Mapped[datetime | None] = mapped_column(default=None)

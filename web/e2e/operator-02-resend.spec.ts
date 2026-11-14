@@ -30,7 +30,9 @@ test('sending again from a reopened form after a lost response records the outgo
     const recipient = `Resend truck ${id}`
     const fill = async () => {
       await out.getByLabel('Residual for disposal').check()
-      await out.getByLabel('From storage').selectOption({ label: `${area.name} · 3 kg` })
+      // by area name: once the first try landed, the area shows 1 kg, not 3
+      const from = out.getByLabel('From storage')
+      await from.selectOption(await from.locator('option', { hasText: area.name }).getAttribute('value'))
       await out.getByLabel('Recipient').fill(recipient)
       await out.getByLabel('kg', { exact: true }).fill('2')
     }
@@ -44,18 +46,18 @@ test('sending again from a reopened form after a lost response records the outgo
       await route.fetch()
       await route.abort()
     })
-    await out.getByRole('button', { name: 'Send for approval' }).click()
+    await out.getByRole('button', { name: 'Save' }).click()
     await expect(out.getByRole('alert')).toBeVisible()
 
     // The operator gives up on the form, opens it again and enters the same values.
     await page.keyboard.press('Escape')
     await page.getByRole('button', { name: '+ Record outgoing' }).click()
     await fill()
-    await out.getByRole('button', { name: 'Send for approval' }).click()
-    await expect(page.getByRole('status')).toContainText('sent for approval · 2 kg Residual')
+    await out.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByRole('status')).toContainText('recorded · 2 kg Residual')
 
     const inbox = await admin.request.get('/api/approvals').then((r) => r.json())
-    expect(inbox.outgoing.filter((o: { recipient: string }) => o.recipient === recipient)).toHaveLength(1)
+    expect(inbox.outgoing_review.filter((o: { recipient: string }) => o.recipient === recipient)).toHaveLength(1)
   } finally {
     await phone.close()
   }

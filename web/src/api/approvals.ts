@@ -38,13 +38,19 @@ export interface Outgoing extends Decided {
   area_kg: number | null;
   area_after_kg: number | null;
   capacity_kg: number | null;
+  review: 'ok' | 'reversed' | null; // recorded at once by an operator; the admin then looks
 }
-export type Counts = { adjustments: number; outgoing: number; weights: number; classifications: number; flagged: number };
+export type Counts = { outgoing_review: number; adjustments: number; outgoing: number; weights: number; classifications: number; flagged: number };
 export interface Approvals {
   counts: Counts;
   adjustments: Adjustment[];
-  outgoing: Outgoing[];
+  outgoing: Outgoing[]; // old records still waiting for approve / reject
+  outgoing_review: Outgoing[];
 }
+
+/** What an outgoing record's badge says: an operator's record counts at once; a reversed one says so. */
+export const outgoingState = (o: Outgoing) =>
+  o.review === 'reversed' ? 'reversed' as const : o.status === 'approved' && o.review !== 'ok' ? 'recorded' as const : o.status;
 
 export const OUTGOING_TYPE = { sale: 'Recyclable sale', compost: 'Compost given out', disposal: 'Residual for disposal' } as const;
 
@@ -69,6 +75,15 @@ export function useDecide() {
   return useMutation({
     mutationFn: ({ kind, id, ...body }: { kind: 'adjustments' | 'outgoing'; id: number; decision: 'approve' | 'reject'; comment: string }) =>
       api<Adjustment | Outgoing>(`/approvals/${kind}/${id}`, { method: 'POST', body }),
+    onSuccess: refresh,
+  });
+}
+
+export function useReviewOutgoing() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: number; decision: 'ok' | 'reverse'; comment: string }) =>
+      api<Outgoing>(`/approvals/outgoing/${id}/review`, { method: 'POST', body }),
     onSuccess: refresh,
   });
 }

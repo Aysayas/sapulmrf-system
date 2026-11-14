@@ -5,6 +5,8 @@ const STATUS = {
   pending: ['warn', 'Pending approval'],
   approved: ['ok', 'Approved'],
   rejected: ['crit', 'Rejected'],
+  recorded: ['ok', 'Recorded'],
+  reversed: ['crit', 'Reversed'],
   open: ['warn', 'Open'],
   resolved: ['ok', 'Resolved'],
 } as const;

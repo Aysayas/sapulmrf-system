@@ -16,7 +16,7 @@ NOW = datetime(2026, 10, 23, 8, 0, tzinfo=UTC)  # 16:00 in Manila
 
 
 def test_backfill_makes_days_of_history_and_remove_takes_it_all_back(db, world, make_user):
-    make_user("e2e.admin", role="admin")
+    admin = make_user("e2e.admin", role="admin")
     real_op = make_user("juan", role="operator")
     real = Delivery(source_area_id=world["purok1"], category_id=world["cat"]["Residual"], weight_kg=3, weighed_by="manual",
                     recorded_by=real_op.id, code="D-REAL")
@@ -48,6 +48,13 @@ def test_backfill_makes_days_of_history_and_remove_takes_it_all_back(db, world, 
     rows = db.execute(select(StockMovement.storage_area_id, StockMovement.material_id, func.sum(StockMovement.kg))
                       .group_by(StockMovement.storage_area_id, StockMovement.material_id)).all()
     assert all(kg >= -0.01 for _, _, kg in rows)
+
+    # the admin reverses a recent simulated sale: its stock comes back with a movement of its own
+    from app.approvals import service as approvals
+    from app.approvals.schemas import OutgoingReviewIn
+    sold = db.scalar(select(Outgoing).where(Outgoing.storage_area_id.is_not(None), Outgoing.code != "O-REAL").limit(1))
+    sold.review = None  # as if it were still waiting for the admin
+    approvals.review_outgoing(db, sold.id, OutgoingReviewIn(decision="reverse", comment="test"), admin)
 
     removed = simulator.remove(db)
     assert removed["deliveries"] == counts["deliveries"] and removed["users"] == 1

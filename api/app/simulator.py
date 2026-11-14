@@ -175,7 +175,10 @@ def backfill(db, days: int, seed: int = 11, now: datetime | None = None) -> dict
         decide_fn(db, row.id, data, admin, at=t + timedelta(hours=2))
 
     def give_out(data: OutgoingIn, t: datetime) -> None:
-        decide(approvals.decide_outgoing, approvals.request_outgoing(db, data, user, at=t), t)
+        o = approvals.request_outgoing(db, data, user, at=t)  # counts at once
+        if t <= now - RECENT:  # the admin has looked at older ones; recent ones wait in the inbox
+            o.review, o.reviewed_by, o.reviewed_at = "ok", admin.id, t + timedelta(hours=2)
+            db.commit()
         counts["outgoing"] += 1
 
     start_day = now.astimezone(tz).date() - timedelta(days=days - 1)
@@ -404,7 +407,7 @@ def remove(db) -> dict[str, int]:
         delete(StockMovement).where(
             or_(
                 StockMovement.by == user_id,
-                and_(StockMovement.kind == "outgoing", StockMovement.note.in_(codes)),
+                and_(StockMovement.kind == "outgoing", StockMovement.note.in_(codes + [f"{c} reversed" for c in codes])),
                 and_(StockMovement.kind == "adjustment", or_(false(), *[StockMovement.note.like(p) for p in adjusted])),
             )
         )

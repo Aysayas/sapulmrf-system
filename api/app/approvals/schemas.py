@@ -92,9 +92,16 @@ class OutgoingOut(Decided):
     area_kg: float | None
     area_after_kg: float | None
     capacity_kg: int | None
+    review: str | None = None  # ok / reversed, once the admin has looked
 
 
 class ApprovalsOut(BaseModel):
     counts: dict[str, int]
     adjustments: list[AdjustmentOut]
-    outgoing: list[OutgoingOut]
+    outgoing: list[OutgoingOut]  # old-flow rows still waiting for approve / reject
+    outgoing_review: list[OutgoingOut] = []  # recorded at once by operators, waiting for the admin's ok / reverse
+
+
+class OutgoingReviewIn(BaseModel):
+    decision: Literal["ok", "reverse"]
+    comment: Text = ""

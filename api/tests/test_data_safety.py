@@ -81,12 +81,10 @@ def test_a_resent_transfer_moves_stock_once(client, db, world, as_operator):
     assert db.scalar(select(func.count(StockMovement.id)).where(StockMovement.kind == "transfer")) == 2
 
 
-def test_approving_compost_holds_a_lock_other_connections_see(client, db, engine, world, as_operator, make_user, login):
+def test_giving_out_compost_holds_a_lock_other_connections_see(client, db, engine, world, as_operator):
     db.add(CompostBatch(code="B-90", start_kg=100, finished_at=datetime.now(UTC), produced_kg=30))
     db.commit()
-    o = client.post("/outgoing", json={"type": "compost", "kg": 20, "recipient": "Gardens"}).json()
-    as_admin(make_user, login)
-    assert client.post(f"/approvals/outgoing/{o['id']}", json={"decision": "approve"}).status_code == 200
+    assert client.post("/outgoing", json={"type": "compost", "kg": 20, "recipient": "Gardens"}).status_code == 201
     with engine.connect() as other:  # the test's transaction is still open, so its lock is still held
         assert other.scalar(text("SELECT pg_try_advisory_xact_lock(hashtext('compost'))")) is False
         other.rollback()

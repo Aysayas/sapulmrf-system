@@ -58,6 +58,8 @@ class StockRow(BaseModel):
     bags: int
     kg: float
     last_change: datetime
+    material_id: int | None = None  # None = residual
+    storage_area_id: int = 0
 
 
 class InventoryView(BaseModel):

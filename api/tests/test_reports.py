@@ -9,7 +9,8 @@ from sqlalchemy import func, select
 from app.access.models import StaffAccess
 from app.activity.models import ActivityLog
 from app.approvals import service as approvals
-from app.approvals.schemas import DecisionIn, OutgoingIn
+from app.approvals.models import Outgoing
+from app.approvals.schemas import OutgoingIn, OutgoingReviewIn
 from app.compost.models import CompostBatch, CompostReading
 from app.intake.models import Delivery, SegregationCheck
 from app.operations.service import TZ
@@ -80,31 +81,32 @@ def test_empty_range_and_bad_ranges(client, world, admin):
     assert get(client, "intake", area=9999).status_code == 404
 
 
-def test_outgoing_and_income_count_approved_only(client, db, world, make_user, admin):
+def test_outgoing_and_income_count_what_left_and_take_off_reversals(client, db, world, make_user, admin):
     op = make_user("juan", role="operator")
     db.add(StockMovement(material_id=world["mat"]["Plastic"], storage_area_id=world["area_a"], kg=500, kind="sorted"))
     db.add(StockMovement(material_id=None, storage_area_id=world["area_d"], kg=100, kind="sorted"))
     db.commit()
 
-    def sale(kg, price, decision=None):
-        o = approvals.request_outgoing(db, OutgoingIn(type="sale", material_id=world["mat"]["Plastic"], kg=kg, price_per_kg=price,
-                                                      storage_area_id=world["area_a"], recipient="Buyer A"), op)
-        if decision:
-            approvals.decide_outgoing(db, o.id, DecisionIn(decision=decision, comment="no"), admin)
+    def sale(kg, price):
+        return approvals.request_outgoing(db, OutgoingIn(type="sale", material_id=world["mat"]["Plastic"], kg=kg,
+                                                         price_per_kg=price, storage_area_id=world["area_a"],
+                                                         recipient="Buyer A"), op)
 
-    sale(10, 12.0, "approve")
-    sale(20, 10.0, "approve")
-    sale(40, 10.0, "reject")
-    sale(50, 10.0)
-    d = approvals.request_outgoing(db, OutgoingIn(type="disposal", storage_area_id=world["area_d"], kg=60, recipient="ENRO"), op)
-    approvals.decide_outgoing(db, d.id, DecisionIn(decision="approve"), admin)
+    sale(10, 12.0)
+    sale(20, 10.0)
+    back = sale(40, 10.0)
+    approvals.review_outgoing(db, back.id, OutgoingReviewIn(decision="reverse", comment="returned"), admin)
+    db.add(Outgoing(code="O-9999", type="sale", material_id=world["mat"]["Plastic"], storage_area_id=world["area_a"],
+                    kg=50, recipient="Buyer A", price_per_kg=10, total=500))   # old flow, still pending: not counted
+    db.commit()
+    approvals.request_outgoing(db, OutgoingIn(type="disposal", storage_area_id=world["area_d"], kg=60, recipient="ENRO"), op)
 
     inc = get(client, "income").json()
-    assert inc["summary"] == [["Sales", "2"], ["Total income", "PHP 320.00"]]
-    assert [row[-1] for row in inc["rows"]] == [120.0, 200.0]
+    assert inc["summary"] == [["Sales", "3"], ["Total income", "PHP 320.00"]]
+    assert [row[-1] for row in inc["rows"]] == [120.0, 200.0, 400.0, -400.0]  # the reversal is its own negative row
     out = get(client, "outgoing").json()
     assert out["summary"] == [["Sale", "30.00 kg"], ["Compost", "0.00 kg"], ["Residual disposal", "60.00 kg"]]
-    assert len(out["rows"]) == 3
+    assert len(out["rows"]) == 5 and out["rows"][-1][1].endswith("reversed")
 
 
 def test_inventory_ignores_range_and_matches_page(client, db, world, admin):

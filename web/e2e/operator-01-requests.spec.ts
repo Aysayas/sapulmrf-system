@@ -72,10 +72,10 @@ test('an operator asks for an adjustment, records outgoing residual and reports 
     await out.getByLabel('From storage').selectOption({ label: `${area.name} · 3 kg` })
     await out.getByLabel('Recipient').fill('City ENRO truck')
     await out.getByLabel('kg', { exact: true }).fill('2')
-    await out.getByRole('button', { name: 'Send for approval' }).click()
-    await expect(page.getByRole('status')).toContainText('sent for approval · 2 kg Residual')
+    await out.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByRole('status')).toContainText('recorded · 2 kg Residual')
     const code = (await page.getByRole('status').textContent())!.match(/O-\d+/)![0]
-    await expect(page.getByRole('listitem', { name: code })).toContainText('Pending approval')
+    await expect(page.getByRole('listitem', { name: code })).toContainText('Recorded')
 
     // A wrong record, reported from Alerts.
     await page.getByRole('link', { name: /^More/ }).click()

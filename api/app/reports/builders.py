@@ -111,28 +111,48 @@ def _approved(db: DbSession, start, end, *extra):
     return db.execute(q).all()
 
 
+def _reversed(db: DbSession, start, end, *extra):
+    """Outgoing the admin reversed in the range: a negative entry on the day of the reversal."""
+    q = (
+        select(Outgoing, Material.name)
+        .outerjoin(Material, Material.id == Outgoing.material_id)
+        .where(Outgoing.review == "reversed", _in_range(Outgoing.reviewed_at, start, end), *extra)
+        .order_by(Outgoing.reviewed_at, Outgoing.id)
+    )
+    return db.execute(q).all()
+
+
 def outgoing(db: DbSession, start, end, area: int | None) -> Report:
     found = _approved(db, start, end)
+    back = _reversed(db, start, end)
     label = {"sale": "Sale", "compost": "Compost", "disposal": "Residual disposal"}
     by_kind: dict[str, float] = {}
     for o, _ in found:
         by_kind[o.type] = by_kind.get(o.type, 0) + o.kg
+    for o, _ in back:
+        by_kind[o.type] = by_kind.get(o.type, 0) - o.kg
     return Report(kind="outgoing", title=TITLES["outgoing"], subtitle="",
                   summary=[(label[k], f"{by_kind.get(k, 0):,.2f} kg") for k in label],
                   columns=["Date", "Code", "Kind", "Material", "Weight (kg)", "Recipient"],
                   rows=[[_local(o.decided_at)[:10], o.code, label[o.type],
                          m or ("Compost" if o.type == "compost" else "Residual"), round(o.kg, 2), o.recipient]
-                        for o, m in found])
+                        for o, m in found]
+                  + [[_local(o.reviewed_at)[:10], f"{o.code} reversed", label[o.type],
+                      m or ("Compost" if o.type == "compost" else "Residual"), -round(o.kg, 2), o.recipient]
+                     for o, m in back])
 
 
 def income(db: DbSession, start, end, area: int | None) -> Report:
     found = _approved(db, start, end, Outgoing.total.is_not(None))
-    total = sum(float(o.total) for o, _ in found)
+    back = _reversed(db, start, end, Outgoing.total.is_not(None))
+    total = sum(float(o.total) for o, _ in found) - sum(float(o.total) for o, _ in back)
     return Report(kind="income", title=TITLES["income"], subtitle="",
                   summary=[("Sales", str(len(found))), ("Total income", f"PHP {total:,.2f}")],
                   columns=["Date", "Code", "Material", "Weight (kg)", "Price per kg (PHP)", "Amount (PHP)"],
                   rows=[[_local(o.decided_at)[:10], o.code, m or "Compost", round(o.kg, 2),
-                         float(o.price_per_kg or 0), float(o.total)] for o, m in found])
+                         float(o.price_per_kg or 0), float(o.total)] for o, m in found]
+                  + [[_local(o.reviewed_at)[:10], f"{o.code} reversed", m or "Compost", -round(o.kg, 2),
+                      float(o.price_per_kg or 0), -float(o.total)] for o, m in back])
 
 
 BUILDERS = {"intake": intake, "segregation": segregation, "inventory": inventory,

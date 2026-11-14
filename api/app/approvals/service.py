@@ -6,7 +6,16 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.activity.service import log
 from app.approvals.models import AdjustmentRequest, Outgoing
-from app.approvals.schemas import AdjustmentIn, AdjustmentOut, ApprovalsOut, DecisionIn, OutgoingIn, OutgoingOut, ReviewIn
+from app.approvals.schemas import (
+    AdjustmentIn,
+    AdjustmentOut,
+    ApprovalsOut,
+    DecisionIn,
+    OutgoingIn,
+    OutgoingOut,
+    OutgoingReviewIn,
+    ReviewIn,
+)
 from app.compost.models import CompostBatch
 from app.core.db import advisory_lock, preload
 from app.core.errors import AppError
@@ -40,8 +49,8 @@ def _area(db: DbSession, area_id: int) -> StorageArea:
 def compost_on_hand(db: DbSession) -> float:
     """What finished batches produced, minus compost already approved to go out."""
     made = db.scalar(select(func.coalesce(func.sum(CompostBatch.produced_kg), 0.0)).where(CompostBatch.finished_at.is_not(None)))
-    out = db.scalar(select(func.coalesce(func.sum(Outgoing.kg), 0.0)).where(Outgoing.type == "compost",
-                                                                            Outgoing.status == "approved"))
+    out = db.scalar(select(func.coalesce(func.sum(Outgoing.kg), 0.0)).where(
+        Outgoing.type == "compost", Outgoing.status == "approved", Outgoing.review.is_distinct_from("reversed")))
     return round(float(made) - float(out), 2)
 
 
@@ -67,10 +76,11 @@ def outgoing_out(db: DbSession, o: Outgoing, balances: bool = True) -> OutgoingO
                        area=area.name if area else None, kg=o.kg, recipient=o.recipient,
                        price_per_kg=float(o.price_per_kg) if o.price_per_kg is not None else None,
                        total=float(o.total) if o.total is not None else None, available_kg=available,
-                       area_kg=area_kg, area_after_kg=round(area_kg - o.kg, 2) if area_kg is not None else None,
+                       area_kg=area_kg,  # an approved row already left the area
+                       area_after_kg=round(area_kg - (o.kg if o.status == "pending" else 0), 2) if area_kg is not None else None,
                        capacity_kg=area.capacity_kg if area else None, status=o.status,
                        requested_by=_name(db, o.requested_by), decided_by=_name(db, o.decided_by),
-                       decided_at=o.decided_at, comment=o.comment)
+                       decided_at=o.decided_at, comment=o.comment, review=o.review)
 
 
 def request_adjustment(db: DbSession, data: AdjustmentIn, actor: User, at: datetime | None = None) -> AdjustmentRequest:
@@ -101,19 +111,80 @@ def request_outgoing(db: DbSession, data: OutgoingIn, actor: User, at: datetime 
     if data.material_id is not None and not db.get(Material, data.material_id):
         raise AppError(422, "Pick a recyclable material.")
     price = Decimal(str(data.price_per_kg)).quantize(Decimal("0.01")) if data.price_per_kg else None
+    now = at or datetime.now(UTC)
+    # It counts at once: approved now, stock leaves now, the admin reviews it afterwards (ok / reverse).
     o = Outgoing(type=data.type, material_id=data.material_id, storage_area_id=data.storage_area_id,
                  kg=round(data.kg, 2), recipient=data.recipient, price_per_kg=price,
                  total=(price * Decimal(str(round(data.kg, 2)))).quantize(Decimal("0.01")) if price else None,
-                 requested_by=actor.id, client_key=data.client_key)
-    if at:
-        o.requested_at = at
+                 requested_by=actor.id, client_key=data.client_key, status="approved", decided_by=actor.id,
+                 requested_at=now, decided_at=now)
+    available = _available(db, o)
     db.add(o)
     db.flush()
     o.code = f"O-{o.id:04d}"
+    _move_out(db, o, available, actor)
     if not at:
-        log(db, actor.id, "Recorded outgoing material", f"{o.code} · {data.type} · {o.kg} kg · {o.recipient}")
+        money = f" · ₱{o.total}" if o.total is not None else ""
+        log(db, actor.id, "Recorded outgoing material", f"{o.code} · {data.type} · {o.kg} kg · {o.recipient}{money}")
     db.commit()
     return o
+
+
+def _available(db: DbSession, o: Outgoing) -> float:
+    """Locks the area (or compost) and checks there is enough. Two at once can't both take the last kg."""
+    if o.storage_area_id:
+        lock_areas(db, [o.storage_area_id])
+    else:
+        advisory_lock(db, "compost")  # compost has no area row to lock
+    available = material_kg(db, o.material_id, o.storage_area_id) if o.storage_area_id else compost_on_hand(db)
+    if o.kg > available + 0.001:
+        what = f"{_material(db, o.material_id)} in {db.get(StorageArea, o.storage_area_id).name}" \
+            if o.storage_area_id else "finished compost"
+        raise AppError(409, f"Only {available} kg of {what}. Check the count, or take it from another area.")
+    return available
+
+
+def _move_out(db: DbSession, o: Outgoing, available: float, actor: User) -> None:
+    if o.storage_area_id:
+        bags = material_bags(db, o.material_id, o.storage_area_id)
+        db.add(StockMovement(material_id=o.material_id, storage_area_id=o.storage_area_id, kg=-o.kg,
+                             bags=-min(bags, round(bags * o.kg / available)) if available > 0 else 0,
+                             kind="outgoing", by=actor.id, note=o.code, at=o.decided_at))
+
+
+def review_outgoing(db: DbSession, outgoing_id: int, data: OutgoingReviewIn, actor: User) -> Outgoing:
+    """The admin's look at outgoing an operator recorded: ok, or reverse it (the stock goes back today; the day it
+    went out keeps its record, and income reports subtract it on the day of the reversal)."""
+    o = db.get(Outgoing, outgoing_id, with_for_update=True)
+    if o is None:
+        raise AppError(404, "Outgoing record not found.")
+    if o.status != "approved":
+        raise AppError(409, f"{o.code} is {o.status}: approve or reject it instead.")
+    if o.review:
+        raise AppError(409, f"{o.code} was already reviewed ({o.review}).")
+    if data.decision == "reverse" and not data.comment:
+        raise AppError(422, "Say why it's reversed.")
+    o.review = "ok" if data.decision == "ok" else "reversed"
+    o.reviewed_by, o.reviewed_at = actor.id, datetime.now(UTC)
+    if data.comment:
+        o.comment = data.comment
+    if o.review == "reversed" and o.storage_area_id:
+        lock_areas(db, [o.storage_area_id])
+        went = db.scalar(select(StockMovement).where(StockMovement.kind == "outgoing", StockMovement.note == o.code))
+        db.add(StockMovement(material_id=o.material_id, storage_area_id=o.storage_area_id, kg=o.kg,
+                             bags=-went.bags if went else 0, kind="outgoing", by=actor.id,
+                             note=f"{o.code} reversed", at=o.reviewed_at))
+    verb = "Marked outgoing OK" if o.review == "ok" else "Reversed outgoing"
+    log(db, actor.id, verb, f"{o.code} · {o.kg} kg · {o.recipient} {o.comment}".strip())
+    db.commit()
+    return o
+
+
+def recipients(db: DbSession, type_: str, limit: int = 8) -> list[str]:
+    """The most recent distinct recipients of that type, newest first: the kiosk offers them as buttons."""
+    last = func.max(Outgoing.id)
+    return list(db.scalars(select(Outgoing.recipient).where(Outgoing.type == type_)
+                           .group_by(Outgoing.recipient).order_by(last.desc()).limit(limit)))
 
 
 def _pending(row, what: str):
@@ -156,22 +227,11 @@ def decide_adjustment(db: DbSession, request_id: int, data: DecisionIn, actor: U
 
 def decide_outgoing(db: DbSession, outgoing_id: int, data: DecisionIn, actor: User, at: datetime | None = None) -> Outgoing:
     o = _pending(db.get(Outgoing, outgoing_id, with_for_update=True), "Outgoing record")
-    if o.storage_area_id:
-        lock_areas(db, [o.storage_area_id])
-    else:
-        advisory_lock(db, "compost")  # compost has no area row to lock
-    if data.decision == "approve":
-        available = material_kg(db, o.material_id, o.storage_area_id) if o.storage_area_id else compost_on_hand(db)
-        if o.kg > available + 0.001:
-            what = f"{_material(db, o.material_id)} in {db.get(StorageArea, o.storage_area_id).name}" \
-                if o.storage_area_id else "finished compost"
-            raise AppError(409, f"Only {available} kg of {what}. Reject it, or ask the operator for a new count.")
+    available = _available(db, o) if data.decision == "approve" else 0.0
     _decide(o, data, actor, at)
-    if o.status == "approved" and o.storage_area_id:
-        bags = material_bags(db, o.material_id, o.storage_area_id)
-        db.add(StockMovement(material_id=o.material_id, storage_area_id=o.storage_area_id, kg=-o.kg,
-                             bags=-min(bags, round(bags * o.kg / available)), kind="outgoing", by=actor.id,
-                             note=o.code, at=o.decided_at))
+    if o.status == "approved":  # the admin decided it, so it needs no review after
+        o.review, o.reviewed_by, o.reviewed_at = "ok", actor.id, o.decided_at
+        _move_out(db, o, available, actor)
     if not at:
         verb = f"{'Approved' if o.status == 'approved' else 'Rejected'} outgoing {o.type}"
         money = f" · ₱{o.total}" if o.total is not None else ""
@@ -232,6 +292,7 @@ def counts(db: DbSession) -> dict[str, int]:
     n = lambda col, *where: db.scalar(select(func.count(col)).where(*where))  # noqa: E731
     return {"adjustments": n(AdjustmentRequest.id, AdjustmentRequest.status == "pending"),
             "outgoing": n(Outgoing.id, Outgoing.status == "pending"),
+            "outgoing_review": n(Outgoing.id, Outgoing.status == "approved", Outgoing.review.is_(None)),
             "weights": n(Delivery.id, *UNREVIEWED_WEIGHTS),
             "classifications": n(Classification.id, *UNREVIEWED_CHANGES),
             "flagged": n(Flag.id, Flag.status == "open")}
@@ -242,8 +303,11 @@ def pending(db: DbSession) -> ApprovalsOut:
     adjustments = db.scalars(select(AdjustmentRequest).where(AdjustmentRequest.status == "pending")
                              .order_by(AdjustmentRequest.requested_at)).all()
     outgoing = db.scalars(select(Outgoing).where(Outgoing.status == "pending").order_by(Outgoing.requested_at)).all()
+    to_review = db.scalars(select(Outgoing).where(Outgoing.status == "approved", Outgoing.review.is_(None))
+                           .order_by(Outgoing.decided_at)).all()
     return ApprovalsOut(counts=counts(db), adjustments=[adjustment_out(db, r) for r in adjustments],
-                        outgoing=[outgoing_out(db, o) for o in outgoing])
+                        outgoing=[outgoing_out(db, o) for o in outgoing],
+                        outgoing_review=[outgoing_out(db, o, balances=False) for o in to_review])
 
 
 def my_adjustments(db: DbSession, actor: User, days: int) -> list[AdjustmentOut]:

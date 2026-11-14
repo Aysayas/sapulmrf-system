@@ -27,38 +27,33 @@ async function setUp(page: Page, baseURL: string) {
   return { operator, post, purok, area, plastic, cat }
 }
 
-test('an approved sale leaves stock and counts as income; a rejected one changes nothing', async ({ adminPage: page, baseURL }) => {
+test('a sale an operator records leaves stock at once; the admin marks one OK and reverses the other', async ({ adminPage: page, baseURL }) => {
   const { operator, post, area, plastic } = await setUp(page, baseURL!)
   try {
     const sale = (kg: number) =>
       post('/outgoing', { type: 'sale', material_id: plastic, storage_area_id: area.id, kg, recipient: 'Buyer A Junkshop', price_per_kg: 10 })
-    const approved = await sale(6)
-    const rejected = await sale(2)
+    const kept = await sale(6)
+    const back = await sale(2)
+    expect(kept.status).toBe('approved')  // it counts at once: 10 kg -> 2 kg
 
     await page.getByRole('link', { name: /^Approvals/ }).click()
-    await page.getByRole('button', { name: `Review ${approved.code}` }).click()
-    const drawer = page.getByRole('dialog', { name: `${approved.code} · Recyclable sale` })
-    await expect(drawer).toContainText(`After approval: ${area.name} 10 kg → 4 kg (4% full)`)
-    await drawer.getByRole('button', { name: 'Approve sale' }).click()
-    await expect(page.getByRole('status')).toContainText(`${approved.code} approved · 6 kg left ${area.name} · income recorded`)
-    await expect(page.getByRole('button', { name: `Review ${approved.code}` })).toHaveCount(0)
-
-    await page.getByRole('button', { name: `Review ${rejected.code}` }).click()
-    const second = page.getByRole('dialog')
-    await second.getByRole('button', { name: 'Reject' }).click()
-    await expect(second.getByRole('alert')).toHaveText('Say why you are rejecting it.')
-    await second.getByLabel(/^Comment/).fill('Buyer cancelled')
-    await second.getByRole('button', { name: 'Reject' }).click()
-    await expect(page.getByRole('status')).toContainText(`${rejected.code} rejected`)
+    const list = page.getByRole('table', { name: 'Outgoing to review' })
+    await list.getByRole('button', { name: `Mark ${kept.code} OK` }).click()
+    await expect(page.getByRole('status')).toContainText(`${kept.code} marked OK`)
+    await list.getByRole('button', { name: `Reverse ${back.code}` }).click()
+    await list.getByLabel(`Why reverse ${back.code}`).fill('Buyer cancelled')
+    await list.getByRole('button', { name: 'Reverse', exact: true }).click()
+    await expect(page.getByRole('status')).toContainText(`${back.code} reversed · stock is back`)
+    await expect(list.getByRole('row').filter({ hasText: kept.code })).toHaveCount(0)
 
     await page.goto('/admin/operations/inventory')
     await expect(page.getByRole('table', { name: 'Stock' }).getByRole('row').filter({ hasText: area.name })).toContainText('4 kg')
 
     await page.goto('/admin/operations/outgoing')
     const records = page.getByRole('table', { name: 'Outgoing records' })
-    await expect(records.getByRole('row').filter({ hasText: approved.code })).toContainText('₱60.00')
-    await expect(records.getByRole('row').filter({ hasText: approved.code })).toContainText('Approved')
-    await expect(records.getByRole('row').filter({ hasText: rejected.code })).toContainText('Rejected')
+    await expect(records.getByRole('row').filter({ hasText: kept.code })).toContainText('₱60.00')
+    await expect(records.getByRole('row').filter({ hasText: kept.code })).toContainText('Approved')
+    await expect(records.getByRole('row').filter({ hasText: back.code })).toContainText('Reversed')
   } finally {
     await operator.dispose()
   }
