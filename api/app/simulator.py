@@ -318,11 +318,11 @@ def backfill(db, days: int, seed: int = 11, now: datetime | None = None) -> dict
                         opening + timedelta(hours=5),
                     )
                 b = None
-            if (not b or b.finished_at) and wet_pool > 40 and (i % 6 == n * 3):
+            if (not b or b.finished_at) and wet_pool > 40 and (i % 6 == n * 3):  # it takes all the wet waste waiting
                 b = compost.start_batch(
-                    db, BatchIn(start_kg=round(wet_pool * 0.8, 1), sensor_id=None), user, at=opening + timedelta(hours=2)
+                    db, BatchIn(start_kg=round(min(wet_pool, 5000), 1), sensor_id=None), user, at=opening + timedelta(hours=2)
                 )
-                batches[bay], wet_pool = b, 0.0
+                batches[bay], wet_pool = b, round(wet_pool - b.start_kg, 2)
                 counts["batches"] += 1
         for bay in BAYS:
             b = batches.get(bay)
@@ -520,7 +520,7 @@ def run(base: str, pace: float) -> None:
                 view = op.call("GET", "/operations/compost")
                 active = [b for b in view["batches"] if not b["finished_at"]]
                 if len(active) < len(BAYS) and view["wet_waiting_kg"] >= 10:  # a free bay takes the wet waste waiting
-                    op.call("POST", "/compost/batches", json={"start_kg": view["wet_waiting_kg"], "sensor_id": None})
+                    op.call("POST", "/compost/batches", json={"start_kg": min(view["wet_waiting_kg"], 5000), "sensor_id": None})
                 elif active and rnd.random() < 0.01:  # the operator logs some work now and then
                     b = rnd.choice(active)
                     op.call("POST", f"/compost/batches/{b['id']}/activities",

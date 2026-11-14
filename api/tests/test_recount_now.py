@@ -64,3 +64,11 @@ def test_a_recount_cannot_be_reversed_once_stock_changed_after_it(client, db, wo
     r = client.post(f"/approvals/adjustments/{a['id']}/review", json={"decision": "reverse", "comment": "x"})
     assert r.status_code == 409 and "changed" in r.json()["detail"]
     assert material_kg(db, world["mat"]["Plastic"], world["area_a"]) == 50.0
+
+
+def test_the_admins_own_recount_needs_no_review(client, db, world, make_user, login):
+    stock(db, world, kg=100)
+    as_admin(make_user, login)
+    r = recount(client, world, 90)
+    assert r.status_code == 201 and r.json()["review"] == "ok"
+    assert client.get("/approvals").json()["counts"]["adjustments_review"] == 0

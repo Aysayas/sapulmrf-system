@@ -1,5 +1,3 @@
-from typing import Literal
-
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session as DbSession
 
@@ -41,12 +39,6 @@ def my_adjustments(days: int = Query(30, ge=1, le=366), db: DbSession = Depends(
 @router.post("/outgoing", response_model=OutgoingOut, status_code=201)
 def request_outgoing(body: OutgoingIn, db: DbSession = Depends(get_db), actor: User = Depends(records_outgoing)):
     return service.outgoing_out(db, service.request_outgoing(db, body, actor))
-
-
-@router.get("/outgoing/recipients", response_model=list[str])
-def outgoing_recipients(type: Literal["sale", "compost", "disposal", "giveaway"], db: DbSession = Depends(get_db),
-                        _: User = Depends(records_outgoing)):
-    return service.recipients(db, type)
 
 
 @router.post("/approvals/adjustments/{request_id}/review", response_model=AdjustmentOut)

@@ -66,16 +66,9 @@ def test_compost_given_out_then_reversed_is_on_hand_again(client, db, world, as_
     assert client.get("/operations/outgoing").json()["compost_on_hand_kg"] == 10.0
 
 
-def test_recipients_are_the_recent_distinct_names_for_that_type(client, db, world, as_operator):
-    stock(db, world, kg=100)
-    for name in ["A", "B", "A", "C", "D", "E", "F", "G", "H", "I"]:
-        client.post("/outgoing", json={"type": "sale", "material_id": world["mat"]["Plastic"], "kg": 1,
-                                       "storage_area_id": world["area_a"], "recipient": name, "price_per_kg": 1})
-    assert client.get("/outgoing/recipients?type=sale").json() == ["I", "H", "G", "F", "E", "D", "C", "A"]
-    assert client.get("/outgoing/recipients?type=compost").json() == []
-
-
 def test_admins_can_record_outgoing_too(client, db, world, make_user, login):
     stock(db, world, kg=10)
     as_admin(make_user, login)
-    assert sale(client, world, kg=1).status_code == 201
+    r = sale(client, world, kg=1)
+    assert r.status_code == 201 and r.json()["review"] == "ok"  # the admin's own sale isn't left for their review
+    assert client.get("/approvals").json()["counts"]["outgoing_review"] == 0

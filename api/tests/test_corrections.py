@@ -73,7 +73,8 @@ def test_operators_fix_only_todays_steps_admins_any_day(client, db, world, make_
     assert r.status_code == 403 and "today" in r.json()["detail"]
     make_user("maria", role="admin")
     login("maria")
-    assert undo(client, d, "delivery").status_code == 201
+    r = undo(client, d, "delivery")
+    assert r.status_code == 201 and r.json()["review"] == "ok"  # the admin's own fix isn't left for their review
 
 
 def test_a_second_undo_of_the_same_step_is_409(client, db, world, as_operator):
@@ -96,14 +97,18 @@ def test_a_kiosk_drop_off_that_replaces_one_links_the_fix(client, db, world, as_
     from app.core.security import token_hash
     from app.devices.models import Device
     d = sorted_delivery(client, world)
+    assert undo(client, d, "sort", "Wrong material").status_code == 201
     assert undo(client, d, "delivery", "Wrong purok").status_code == 201
     db.add(Device(code="KIOSK-T", type="weighing_station", key_hash=token_hash("kiosk-key")))
     db.commit()
-    r = client.post("/devices/deliveries", headers={"X-Device-Key": "kiosk-key"}, json={
-        "source_area": "Purok 2", "category": "Mixed household", "weight_kg": 5, "weighed_by": "manual",
-        "client_key": "replace-1", "replaces": d["code"]})
-    assert r.status_code == 201, r.text
-    assert db.scalar(select(Correction.redone_as).where(Correction.record_code == d["code"])) == r.json()["code"]
+    for _ in range(2):  # the second is a resend of the same drop-off (no photo): it links nothing more
+        r = client.post("/devices/deliveries", headers={"X-Device-Key": "kiosk-key"}, json={
+            "source_area": "Purok 2", "category": "Mixed household", "weight_kg": 5, "weighed_by": "manual",
+            "client_key": "replace-1", "replaces": d["code"]})
+        assert r.status_code == 201, r.text
+    db.expire_all()
+    linked = dict(db.execute(select(Correction.kind, Correction.redone_as).where(Correction.record_code == d["code"])).all())
+    assert linked == {"delivery": r.json()["code"], "sort": None}  # only the removed delivery was recorded again
 
 
 def test_admin_marks_a_fix_ok_or_wrong_once(client, db, world, as_operator, make_user, login):
@@ -115,3 +120,12 @@ def test_admin_marks_a_fix_ok_or_wrong_once(client, db, world, as_operator, make
     assert client.post(f"/corrections/{fix['id']}/review", json={"review": "wrong"}).json()["review"] == "wrong"
     assert client.post(f"/corrections/{fix['id']}/review", json={"review": "ok"}).status_code == 409
     assert client.get("/approvals").json()["counts"]["fixes"] == 0
+
+
+def test_undo_sort_is_refused_when_its_bags_left_the_area(client, db, world, as_operator):
+    d = sorted_delivery(client, world)  # put 2 bags of plastic in Area A
+    db.add(StockMovement(material_id=world["mat"]["Plastic"], storage_area_id=world["area_a"], kg=0, bags=-2,
+                         kind="adjustment", note="bags taken"))
+    db.commit()
+    r = undo(client, d, "sort")
+    assert r.status_code == 409 and "0 bags left" in r.json()["detail"]

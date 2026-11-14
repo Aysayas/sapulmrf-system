@@ -147,7 +147,8 @@ def income(db: DbSession, start, end, area: int | None) -> Report:
     back = _reversed(db, start, end, Outgoing.total.is_not(None))
     total = sum(float(o.total) for o, _ in found) - sum(float(o.total) for o, _ in back)
     return Report(kind="income", title=TITLES["income"], subtitle="",
-                  summary=[("Sales", str(len(found))), ("Total income", f"PHP {total:,.2f}")],
+                  summary=[("Sales", str(len(found) - len(back))),  # a reversal un-counts it, like its money
+                           ("Total income", f"PHP {total:,.2f}")],
                   columns=["Date", "Code", "Material", "Weight (kg)", "Price per kg (PHP)", "Amount (PHP)"],
                   rows=[[_local(o.decided_at)[:10], o.code, m or "Compost", round(o.kg, 2),
                          float(o.price_per_kg or 0), float(o.total)] for o, m in found]

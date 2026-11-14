@@ -15,7 +15,7 @@ from app.insights.models import Flag
 from app.intake.models import Delivery, DeliveryPhoto, SegregationCheck
 from app.masterdata.models import Material, SourceArea, StorageArea, WasteCategory
 from app.sorting.models import Classification, StockMovement
-from app.sorting.service import lock_areas, material_kg
+from app.sorting.service import lock_areas, material_bags, material_kg
 from app.users.models import User
 
 TZ = ZoneInfo(settings.timezone)
@@ -60,14 +60,17 @@ def undo(db: DbSession, data: UndoIn, actor: User) -> Correction:
 
     if moves:  # the sort's stock leaves its areas, if it's still there
         lock_areas(db, sorted({m.storage_area_id for m in moves}))
-        need: dict[tuple[int | None, int], float] = {}
+        need: dict[tuple[int | None, int], list[float]] = {}  # (material, area) -> [kg, bags] the sort added
         for m in moves:
-            need[(m.material_id, m.storage_area_id)] = need.get((m.material_id, m.storage_area_id), 0) + m.kg
-        for (mat, area), kg in need.items():
-            have = material_kg(db, mat, area)
-            if have < kg - 0.001:
+            row = need.setdefault((m.material_id, m.storage_area_id), [0.0, 0])
+            row[0] += m.kg
+            row[1] += m.bags
+        for (mat, area), (kg, bags) in need.items():
+            have, have_bags = material_kg(db, mat, area), material_bags(db, mat, area)
+            if have < kg - 0.001 or have_bags < bags:
+                left = f"{_kg(have)} kg" if have < kg - 0.001 else f"{have_bags} bags"
                 raise AppError(409, f"{mats.get(mat, 'Residual')} in {db.get(StorageArea, area).name} has only "
-                                    f"{_kg(have)} kg left: some of {d.code} was sold or moved. Recount it instead.")
+                                    f"{left} left: some of {d.code} was sold or moved. Recount it instead.")
         for m in moves:
             db.delete(m)
         for c in db.scalars(select(Classification).where(Classification.delivery_id == d.id)):
@@ -86,6 +89,8 @@ def undo(db: DbSession, data: UndoIn, actor: User) -> Correction:
         db.flush()
         db.delete(d)
     c = Correction(kind=data.to, record_code=d.code, summary=summary, reason=data.reason, by=actor.id)
+    if actor.role == "admin":  # the admin's own fix needs no review from themselves
+        c.review, c.reviewed_by, c.reviewed_at = "ok", actor.id, datetime.now(UTC)
     db.add(c)
     what = {"sort": "the sort of", "segregation": "the wet/dry check of", "delivery": ""}[data.to]
     log(db, actor.id, "Undid a record", f"{what} {summary} · {data.reason}".strip()[:255])
@@ -126,10 +131,11 @@ def mark(db: DbSession, correction_id: int, review: str, actor: User) -> Correct
 
 def link_redo(db: DbSession, replaces: str | None, new_code: str) -> None:
     """A kiosk drop-off recorded again in place of an undone one: the fix says what replaced it."""
-    if not replaces:
+    # a resend of the same drop-off links nothing more; only a removed delivery is recorded again
+    if not replaces or db.scalar(select(Correction.id).where(Correction.redone_as == new_code).limit(1)):
         return
-    c = db.scalar(select(Correction).where(Correction.record_code == replaces, Correction.redone_as.is_(None))
-                  .order_by(Correction.at.desc()).limit(1))
+    c = db.scalar(select(Correction).where(Correction.record_code == replaces, Correction.kind == "delivery",
+                                           Correction.redone_as.is_(None)).order_by(Correction.at.desc()).limit(1))
     if c:
         c.redone_as = new_code
 

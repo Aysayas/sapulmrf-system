@@ -95,6 +95,8 @@ def request_adjustment(db: DbSession, data: AdjustmentIn, actor: User, at: datet
     r = AdjustmentRequest(material_id=data.material_id, storage_area_id=area.id, system_kg=current,
                           actual_kg=round(data.actual_kg, 2), reason=data.reason, details=data.details,
                           requested_by=actor.id, requested_at=now, status="approved", decided_by=actor.id, decided_at=now)
+    if actor.role == "admin":  # the admin's own count needs no review from themselves
+        r.review, r.reviewed_by, r.reviewed_at = "ok", actor.id, now
     db.add(r)
     db.flush()
     _apply_count(db, r, current, actor)
@@ -167,6 +169,8 @@ def request_outgoing(db: DbSession, data: OutgoingIn, actor: User, at: datetime 
                  total=(price * Decimal(str(round(data.kg, 2)))).quantize(Decimal("0.01")) if price else None,
                  requested_by=actor.id, client_key=data.client_key, status="approved", decided_by=actor.id,
                  requested_at=now, decided_at=now)
+    if actor.role == "admin":  # the admin's own record needs no review from themselves
+        o.review, o.reviewed_by, o.reviewed_at = "ok", actor.id, now
     available = _available(db, o)
     db.add(o)
     db.flush()
@@ -227,13 +231,6 @@ def review_outgoing(db: DbSession, outgoing_id: int, data: OutgoingReviewIn, act
     log(db, actor.id, verb, f"{o.code} · {o.kg} kg · {o.recipient} {o.comment}".strip())
     db.commit()
     return o
-
-
-def recipients(db: DbSession, type_: str, limit: int = 8) -> list[str]:
-    """The most recent distinct recipients of that type, newest first: the kiosk offers them as buttons."""
-    last = func.max(Outgoing.id)
-    return list(db.scalars(select(Outgoing.recipient).where(Outgoing.type == type_)
-                           .group_by(Outgoing.recipient).order_by(last.desc()).limit(limit)))
 
 
 def _pending(row, what: str):

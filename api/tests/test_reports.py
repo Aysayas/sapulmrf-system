@@ -102,7 +102,7 @@ def test_outgoing_and_income_count_what_left_and_take_off_reversals(client, db, 
     approvals.request_outgoing(db, OutgoingIn(type="disposal", storage_area_id=world["area_d"], kg=60, recipient="ENRO"), op)
 
     inc = get(client, "income").json()
-    assert inc["summary"] == [["Sales", "3"], ["Total income", "PHP 320.00"]]
+    assert inc["summary"] == [["Sales", "2"], ["Total income", "PHP 320.00"]]  # the reversed sale counts in neither
     assert [row[-1] for row in inc["rows"]] == [120.0, 200.0, 400.0, -400.0]  # the reversal is its own negative row
     out = get(client, "outgoing").json()
     assert out["summary"] == [["Sale", "30.00 kg"], ["Recyclables given away", "0.00 kg"], ["Compost", "0.00 kg"],
