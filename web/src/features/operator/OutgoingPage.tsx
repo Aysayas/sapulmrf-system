@@ -28,6 +28,7 @@ export default function OutgoingPage() {
           <Kpi label="Income this month" value={peso(v.income_month)} sub="Sales, less any reversed" />
           <Kpi label="Compost given out" value={kg(v.compost_kg_month)} sub="This month" />
           <Kpi label="Residual disposed" value={kg(v.disposed_kg_month)} sub="This month" />
+          <Kpi label="Given away" value={kg(v.given_kg_month)} sub="Recyclables, free" />
         </div>
       )}
 
@@ -58,14 +59,14 @@ export default function OutgoingPage() {
 
 // Mirrors OutgoingIn on the server, which stays the authority.
 const schema = z.object({
-  type: z.enum(['sale', 'compost', 'disposal']),
+  type: z.enum(['sale', 'giveaway', 'compost', 'disposal']),
   material_id: z.number(),
   storage_area_id: z.number(),
   kg: z.number({ error: 'Enter the kg.' }).gt(0, 'Enter the kg.').max(50000),
   recipient: z.string().trim().min(1, 'Who is it going to?').max(120),
   price_per_kg: z.number().or(z.nan()),
 }).superRefine((f, ctx) => {
-  if (f.type === 'sale' && !f.material_id) ctx.addIssue({ code: 'custom', path: ['material_id'], message: 'Pick the material.' });
+  if ((f.type === 'sale' || f.type === 'giveaway') && !f.material_id) ctx.addIssue({ code: 'custom', path: ['material_id'], message: 'Pick the material.' });
   if (f.type !== 'compost' && !f.storage_area_id) ctx.addIssue({ code: 'custom', path: ['storage_area_id'], message: 'Pick the storage area it leaves from.' });
   if (f.type === 'sale' && !(f.price_per_kg > 0)) ctx.addIssue({ code: 'custom', path: ['price_per_kg'], message: 'Enter the price per kg.' });
 });
@@ -73,7 +74,6 @@ type Form = z.infer<typeof schema>;
 
 export function NewOutgoingSheet({ onClose, onSent }: { onClose: () => void; onSent: (m: string) => void }) {
   const materials = useItems('materials');
-  const areas = useItems('storage-areas');
   const inv = useInventory();
   const compostOnHand = useOutgoing(30).data?.compost_on_hand_kg;
   const send = useRequestOutgoing();
@@ -86,17 +86,20 @@ export function NewOutgoingSheet({ onClose, onSent }: { onClose: () => void; onS
 
   // The areas holding what is going out, with how much is there.
   const material = type === 'disposal' ? 'Residual' : materials.data?.find((m) => m.id === materialId)?.name;
+  const recyclable = type === 'sale' || type === 'giveaway';
+  // by id: matching names against the areas list lost the choice when that list loaded after this one
   const sources = (inv.data?.stock ?? []).filter((s) => s.material === material)
-    .map((s) => ({ id: areas.data?.find((a) => a.name === s.area)?.id ?? 0, label: `${s.area} · ${kg(s.kg)}` }));
+    .map((s) => ({ id: s.storage_area_id, label: `${s.area} · ${kg(s.kg)}` }));
 
   const onSubmit = (f: Form) =>
     send.mutate({
       type: f.type,
-      material_id: f.type === 'sale' ? f.material_id : null,
+      material_id: f.type === 'sale' || f.type === 'giveaway' ? f.material_id : null,
       storage_area_id: f.type === 'compost' ? null : f.storage_area_id,
       kg: f.kg,
       recipient: f.recipient,
-      price_per_kg: f.type === 'sale' ? f.price_per_kg : null,
+      // a sale has a price; compost may (sold) or may not (given free); a give-away never does
+      price_per_kg: f.type === 'sale' || (f.type === 'compost' && f.price_per_kg > 0) ? f.price_per_kg : null,
     }, { onSuccess: (o) => onSent(`${o.code} recorded · ${kg(o.kg)} ${o.material} · stock updated`) });
 
   return (
@@ -109,13 +112,13 @@ export function NewOutgoingSheet({ onClose, onSent }: { onClose: () => void; onS
       {send.error && <p role="alert" className="rounded-lg bg-crit-100 px-3 py-2 text-sm font-semibold text-crit">{send.error.message}</p>}
       <fieldset className="flex flex-col gap-1">
         <legend className="mb-1 text-sm font-semibold">Type</legend>
-        {([['sale', 'Recyclable sale'], ['compost', 'Compost'], ['disposal', 'Residual for disposal']] as const).map(([v, label]) => (
+        {([['sale', 'Recyclables sold'], ['giveaway', 'Recyclables given away (free)'], ['compost', 'Compost'], ['disposal', 'Residual for disposal']] as const).map(([v, label]) => (
           <label key={v} className={`${touch} flex items-center gap-2 rounded-lg border border-line px-3 text-sm`}>
             <input type="radio" value={v} className="accent-leaf-700" {...register('type')} /> {label}
           </label>
         ))}
       </fieldset>
-      {type === 'sale' && (
+      {recyclable && (
         <Field label="Material" error={e.material_id?.message}>
           <select className={inputCls} aria-invalid={!!e.material_id} {...register('material_id', { valueAsNumber: true })}>
             <option value={0}>Pick a material</option>
@@ -139,9 +142,9 @@ export function NewOutgoingSheet({ onClose, onSent }: { onClose: () => void; onS
       <Field label="kg" error={e.kg?.message}>
         <input type="number" step="0.1" inputMode="decimal" className={inputCls} aria-invalid={!!e.kg} {...register('kg', { valueAsNumber: true })} />
       </Field>
-      {type === 'sale' && (
+      {(type === 'sale' || type === 'compost') && (
         <>
-          <Field label="Price per kg (₱)" error={e.price_per_kg?.message}>
+          <Field label={type === 'compost' ? 'Price per kg (₱) · leave empty if given free' : 'Price per kg (₱)'} error={e.price_per_kg?.message}>
             <input type="number" step="0.01" inputMode="decimal" className={inputCls} aria-invalid={!!e.price_per_kg} {...register('price_per_kg', { valueAsNumber: true })} />
           </Field>
           <p className="rounded-lg bg-surface p-3 text-sm" aria-live="polite">
@@ -149,7 +152,7 @@ export function NewOutgoingSheet({ onClose, onSent }: { onClose: () => void; onS
           </p>
         </>
       )}
-      <p className="text-sm text-ink-2">Stock leaves storage only after the administrator approves.</p>
+      <p className="text-sm text-ink-2">Stock leaves storage when you save. The administrator reviews it afterwards.</p>
     </Drawer>
   );
 }

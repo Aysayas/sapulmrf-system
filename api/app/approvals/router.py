@@ -44,7 +44,7 @@ def request_outgoing(body: OutgoingIn, db: DbSession = Depends(get_db), actor: U
 
 
 @router.get("/outgoing/recipients", response_model=list[str])
-def outgoing_recipients(type: Literal["sale", "compost", "disposal"], db: DbSession = Depends(get_db),
+def outgoing_recipients(type: Literal["sale", "compost", "disposal", "giveaway"], db: DbSession = Depends(get_db),
                         _: User = Depends(records_outgoing)):
     return service.recipients(db, type)
 

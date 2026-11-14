@@ -28,7 +28,7 @@ export interface Outgoing extends Decided {
   id: number;
   code: string;
   requested_at: string;
-  type: 'sale' | 'compost' | 'disposal';
+  type: 'sale' | 'giveaway' | 'compost' | 'disposal';
   material: string;
   area: string | null;
   kg: number;
@@ -63,7 +63,9 @@ export interface Approvals {
 export const outgoingState = (o: Outgoing) =>
   o.review === 'reversed' ? 'reversed' as const : o.status === 'approved' && o.review !== 'ok' ? 'recorded' as const : o.status;
 
-export const OUTGOING_TYPE = { sale: 'Recyclable sale', compost: 'Compost given out', disposal: 'Residual for disposal' } as const;
+export const OUTGOING_TYPE = {
+  sale: 'Recyclable sale', giveaway: 'Recyclables given away', compost: 'Compost given out', disposal: 'Residual for disposal',
+} as const;
 
 export const useApprovalCounts = () =>
   useQuery({ queryKey: ['approvals', 'counts'], queryFn: () => api<Record<string, number>>('/approvals/counts'), refetchInterval: 30_000 });

@@ -19,7 +19,7 @@ class AdjustmentIn(BaseModel):
 
 
 class OutgoingIn(BaseModel):
-    type: Literal["sale", "compost", "disposal"]
+    type: Literal["sale", "compost", "disposal", "giveaway"]
     material_id: int | None = None
     storage_area_id: int | None = None
     kg: Annotated[float, Field(ge=0.01, le=50000)]
@@ -35,6 +35,10 @@ class OutgoingIn(BaseModel):
             raise ValueError("A sale needs the material, the storage area it leaves from, and the price per kg.")
         if self.type == "disposal" and (self.storage_area_id is None or self.material_id is not None or self.price_per_kg):
             raise ValueError("Residual for disposal needs its storage area, and has no material or price.")
+        if self.type == "giveaway" and self.price_per_kg:
+            raise ValueError("A give-away has no price. Choose Sell to charge for it.")
+        if self.type == "giveaway" and (self.material_id is None or self.storage_area_id is None):
+            raise ValueError("A give-away needs the material and the storage area it leaves from.")
         if self.type == "compost" and (self.material_id is not None or self.storage_area_id is not None):
             raise ValueError("Compost comes from finished batches, not from a storage area.")
         return self

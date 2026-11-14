@@ -29,11 +29,12 @@ export default function OutgoingPage() {
       <Toast message={done} />
       {v.data && (
         <>
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-6 gap-4">
             <Kpi label="Income this month" value={peso(v.data.income_month)} sub="sales, less any reversed" />
             <Kpi label="Recyclables sold" value={kg(v.data.sold_kg_month)} sub="this month" />
             <Kpi label="Compost given out" value={kg(v.data.compost_kg_month)} sub={`this month · ${kg(v.data.compost_on_hand_kg)} on hand`} />
             <Kpi label="Residual disposed" value={kg(v.data.disposed_kg_month)} sub="this month" />
+            <Kpi label="Recyclables given away" value={kg(v.data.given_kg_month)} sub="this month, free" />
             <Kpi label="To review" value={toReview === undefined ? '…' : String(toReview)} sub={v.data.pending ? `outgoing · ${v.data.pending} old requests waiting` : 'outgoing records'} />
           </div>
           <section aria-label="Income per month" className="rounded-xl border border-line bg-white p-4">

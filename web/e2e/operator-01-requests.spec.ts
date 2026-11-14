@@ -77,6 +77,18 @@ test('an operator asks for an adjustment, records outgoing residual and reports 
     const code = (await page.getByRole('status').textContent())!.match(/O-\d+/)![0]
     await expect(page.getByRole('listitem', { name: code })).toContainText('Recorded')
 
+    // Recyclables given away free: no price field, stock leaves at once.
+    await page.getByRole('button', { name: '+ Record outgoing' }).click()
+    await out.getByLabel('Recyclables given away (free)').check()
+    await expect(out.getByLabel('Price per kg (₱)')).toHaveCount(0)
+    await out.getByRole('combobox').first().selectOption({ label: 'Plastic' })  // the Material picker comes first
+    const from = out.getByLabel('From storage')  // by area name: its kg depends on the recount above
+    await from.selectOption(await from.locator('option', { hasText: area.name }).getAttribute('value'))
+    await out.getByLabel('Recipient').fill('Sapul Elementary')
+    await out.getByLabel('kg', { exact: true }).fill('1')
+    await out.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByRole('status')).toContainText('recorded · 1 kg Plastic')
+
     // A wrong record, reported from Alerts.
     await page.getByRole('link', { name: /^More/ }).click()
     await page.getByRole('link', { name: /^Alerts/ }).click()

@@ -147,6 +147,7 @@ class OutgoingView(BaseModel):
     sold_kg_month: float
     compost_kg_month: float
     disposed_kg_month: float
+    given_kg_month: float = 0  # recyclables given away free
     pending: int
     compost_on_hand_kg: float
     income_6m: list[MonthIncome]

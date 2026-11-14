@@ -69,6 +69,7 @@ export interface OutgoingView {
   sold_kg_month: number;
   compost_kg_month: number;
   disposed_kg_month: number;
+  given_kg_month: number;
   pending: number;
   compost_on_hand_kg: number;
   income_6m: { month: string; income: number }[];
@@ -94,7 +95,10 @@ export interface SortingView {
 }
 export interface InventoryView {
   areas: AreaFill[];
-  stock: { material: string; area: string; bags: number; kg: number; last_change: string }[];
+  stock: {
+    material: string; area: string; bags: number; kg: number; last_change: string;
+    material_id: number | null; storage_area_id: number; last_price_per_kg: number | null;
+  }[];
 }
 export interface CompostView {
   ranges: { compost_temp_min: number; compost_temp_max: number; moisture_min: number; moisture_max: number };

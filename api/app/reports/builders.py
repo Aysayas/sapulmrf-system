@@ -125,7 +125,7 @@ def _reversed(db: DbSession, start, end, *extra):
 def outgoing(db: DbSession, start, end, area: int | None) -> Report:
     found = _approved(db, start, end)
     back = _reversed(db, start, end)
-    label = {"sale": "Sale", "compost": "Compost", "disposal": "Residual disposal"}
+    label = {"sale": "Sale", "giveaway": "Recyclables given away", "compost": "Compost", "disposal": "Residual disposal"}
     by_kind: dict[str, float] = {}
     for o, _ in found:
         by_kind[o.type] = by_kind.get(o.type, 0) + o.kg

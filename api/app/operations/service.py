@@ -374,6 +374,7 @@ def outgoing_view(db: DbSession, days: int) -> s.OutgoingView:
         sold_kg_month=round(float(kg.get("sale", 0)), 2),
         compost_kg_month=round(float(kg.get("compost", 0)), 2),
         disposed_kg_month=round(float(kg.get("disposal", 0)), 2),
+        given_kg_month=round(float(kg.get("giveaway", 0)), 2),
         pending=db.scalar(select(func.count(Outgoing.id)).where(Outgoing.status == "pending")),
         compost_on_hand_kg=approvals.compost_on_hand(db),
         income_6m=[s.MonthIncome(month=m, income=round(by_month.get(m, 0.0), 2)) for m in months],

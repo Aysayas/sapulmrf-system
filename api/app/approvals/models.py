@@ -41,7 +41,7 @@ class Outgoing(Base):
     __tablename__ = "outgoing"
     __table_args__ = (
         CheckConstraint(STATUS_CHECK, name="ck_outgoing_status"),
-        CheckConstraint("type IN ('sale', 'compost', 'disposal')", name="ck_outgoing_type"),
+        CheckConstraint("type IN ('sale', 'compost', 'disposal', 'giveaway')", name="ck_outgoing_type"),
         CheckConstraint("kg > 0", name="ck_outgoing_kg"),
         CheckConstraint("review IN ('ok', 'reversed')", name="ck_outgoing_review"),
     )
