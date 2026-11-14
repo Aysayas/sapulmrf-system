@@ -41,7 +41,7 @@ export default function TodayPage() {
     ['/op/segregation', 'Segregation', count(o.data?.awaiting_segregation, 'waiting')],
     ['/op/sorting', 'Sorting', count(toSort.data?.length, 'waiting')],
     ['/op/storage', 'Storage', count(o.data?.areas.length, 'areas')],
-    ['/op/compost', 'Compost', count(o.data?.active_batches, 'batches')],
+    ['/op/compost', 'Compost', o.data ? `${kg(o.data.wet_waiting_kg)} wet waiting` : '…'],
     ['/op/outgoing', 'Outgoing', count(pendingOut, 'pending')],
   ] as const;
 

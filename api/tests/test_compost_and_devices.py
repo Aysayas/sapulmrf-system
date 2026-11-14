@@ -11,8 +11,12 @@ def register(client, code, type_):
     return r.json()["id"], r.json()["key"]
 
 
-def setup_devices(client, make_user, login):
-    """Registers a compost sensor, a scale and a camera, then logs in as the operator."""
+def setup_devices(client, make_user, login, db=None, world=None):
+    """Registers a compost sensor, a scale and a camera, then logs in as the operator. With db and world, 100 kg of
+    wet waste is waiting for compost, so batches can start."""
+    if db is not None:
+        from test_compost_balance import check
+        check(db, world, 100.0)
     make_user("msantos", role="admin")
     login("msantos")
     sensor = register(client, "CS-01", "compost_sensor")
@@ -24,8 +28,8 @@ def setup_devices(client, make_user, login):
     return sensor, scale, camera
 
 
-def test_operator_starts_a_batch_with_a_sensor_and_logs_activities(client, make_user, login, world):
-    (sensor_id, _), _, _ = setup_devices(client, make_user, login)
+def test_operator_starts_a_batch_with_a_sensor_and_logs_activities(client, make_user, login, world, db):
+    (sensor_id, _), _, _ = setup_devices(client, make_user, login, db, world)
     r = client.post("/compost/batches", json={"start_kg": 18.4, "sensor_id": sensor_id})
     assert r.status_code == 201
     b = r.json()
@@ -34,15 +38,15 @@ def test_operator_starts_a_batch_with_a_sensor_and_logs_activities(client, make_
     assert r.status_code == 201 and r.json()["activities"][0]["type"] == "turning"
 
 
-def test_one_sensor_per_unfinished_batch(client, make_user, login, world):
-    (sensor_id, _), (scale_id, _), _ = setup_devices(client, make_user, login)
+def test_one_sensor_per_unfinished_batch(client, make_user, login, world, db):
+    (sensor_id, _), (scale_id, _), _ = setup_devices(client, make_user, login, db, world)
     client.post("/compost/batches", json={"start_kg": 10, "sensor_id": sensor_id})
     assert client.post("/compost/batches", json={"start_kg": 10, "sensor_id": sensor_id}).status_code == 409
     assert client.post("/compost/batches", json={"start_kg": 10, "sensor_id": scale_id}).status_code == 422
 
 
-def test_finishing_a_batch_records_the_compost_and_closes_it(client, make_user, login, world):
-    (sensor_id, _), _, _ = setup_devices(client, make_user, login)
+def test_finishing_a_batch_records_the_compost_and_closes_it(client, make_user, login, world, db):
+    (sensor_id, _), _, _ = setup_devices(client, make_user, login, db, world)
     b = client.post("/compost/batches", json={"start_kg": 20, "sensor_id": sensor_id}).json()
     r = client.post(f"/compost/batches/{b['id']}/activities", json={"type": "inspection", "finished_kg": 12.5})
     assert r.json()["finished_at"] is not None and r.json()["produced_kg"] == 12.5
@@ -50,7 +54,7 @@ def test_finishing_a_batch_records_the_compost_and_closes_it(client, make_user, 
 
 
 def test_sensor_readings_land_on_the_linked_batch(client, make_user, login, world, db):
-    (sensor_id, sensor_key), _, _ = setup_devices(client, make_user, login)
+    (sensor_id, sensor_key), _, _ = setup_devices(client, make_user, login, db, world)
     b = client.post("/compost/batches", json={"start_kg": 20, "sensor_id": sensor_id}).json()
     r = client.post("/devices/readings", headers={"X-Device-Key": sensor_key}, json={"temp_c": 58.2, "moisture_pct": 52})
     assert r.status_code == 200 and r.json()["stored_on"] == b["code"]
@@ -75,7 +79,9 @@ def test_camera_suggestions_become_pending_classifications(client, make_user, lo
     assert c.confirmed_at is None and c.device_id is not None
 
 
-def test_only_cameras_send_suggestions(client, make_user, login, world):
-    _, (_, scale_key), _ = setup_devices(client, make_user, login)
+def test_the_kiosk_sends_camera_suggestions_but_a_compost_sensor_cannot(client, make_user, login, world):
+    (_, sensor_key), (_, kiosk_key), _ = setup_devices(client, make_user, login)
     body = {"label": "plastic", "confidence": 0.9}
-    assert client.post("/devices/cv-suggestions", headers={"X-Device-Key": scale_key}, json=body).status_code == 403
+    assert client.post("/devices/cv-suggestions", headers={"X-Device-Key": kiosk_key}, json=body).status_code == 201
+    r = client.post("/devices/cv-suggestions", headers={"X-Device-Key": sensor_key}, json=body)
+    assert r.status_code == 403 and "weighing station or sorting camera" in r.json()["detail"]

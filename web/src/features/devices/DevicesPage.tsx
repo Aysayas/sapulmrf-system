@@ -42,7 +42,7 @@ export default function DevicesPage() {
             {devices.isPending && <tr><td colSpan={6} className="px-3 py-4 text-muted">Loading…</td></tr>}
             {devices.isError && <tr><td colSpan={6} className="px-3 py-4 text-crit">{devices.error.message}</td></tr>}
             {devices.data?.length === 0 && (
-              <tr><td colSpan={6} className="px-3 py-4 text-ink-2">No devices yet. Register the weighing station, the compost sensors and the sorting camera.</td></tr>
+              <tr><td colSpan={6} className="px-3 py-4 text-ink-2">No devices yet. Register the kiosk.</td></tr>
             )}
             {devices.data?.map((d) => (
               <tr key={d.id} className={`border-b border-line/60 last:border-0 ${d.active ? '' : 'text-muted'}`}>
@@ -82,7 +82,7 @@ export default function DevicesPage() {
 }
 
 const schema = z.object({
-  code: z.string().trim().regex(/^[A-Za-z0-9-]{2,20}$/, '2–20 letters, numbers or dashes, like WS-01.'),
+  code: z.string().trim().regex(/^[A-Za-z0-9-]{2,20}$/, '2–20 letters, numbers or dashes, like KIOSK-01.'),
   type: z.enum(['weighing_station', 'compost_sensor', 'sorting_camera']),
   location: z.string().trim().max(80),
   active: z.boolean(),
@@ -98,7 +98,7 @@ function DeviceDrawer({ device, onClose, onSaved, onKey }: { device: Device | nu
   const error = registerDevice.error ?? update.error ?? newKey.error;
   const { register, handleSubmit, formState, setError } = useForm<Form>({
     resolver: zodResolver(schema),
-    defaultValues: { code: device?.code ?? '', type: device?.type ?? 'compost_sensor', location: device?.location ?? '', active: device?.active ?? true },
+    defaultValues: { code: device?.code ?? '', type: device?.type ?? 'weighing_station', location: device?.location ?? '', active: device?.active ?? true },
   });
   const on409 = (e: Error) => e instanceof ApiError && e.status === 409 && setError('code', { message: e.message });
 
@@ -124,21 +124,13 @@ function DeviceDrawer({ device, onClose, onSaved, onKey }: { device: Device | nu
         <p role="alert" className="rounded-lg bg-crit-100 px-3 py-2 text-sm font-semibold text-crit">{error.message}</p>
       )}
       <label className="flex flex-col gap-1 text-sm font-semibold">
-        Device type
-        <select {...register('type')} className={inputCls}>
-          {Object.entries(TYPE_LABEL).map(([v, l]) => (
-            <option key={v} value={v}>{l}</option>
-          ))}
-        </select>
-      </label>
-      <label className="flex flex-col gap-1 text-sm font-semibold">
         Device ID
-        <input {...register('code')} placeholder="e.g. CS-03" className={`${inputCls} uppercase`} aria-invalid={!!formState.errors.code} />
+        <input {...register('code')} placeholder="e.g. KIOSK-02" className={`${inputCls} uppercase`} aria-invalid={!!formState.errors.code} />
         {formState.errors.code && <span className="text-xs text-crit">{formState.errors.code.message}</span>}
       </label>
       <label className="flex flex-col gap-1 text-sm font-semibold">
         Location
-        <input {...register('location')} placeholder="e.g. Intake area, Sorting area, Compost bay 2" className={inputCls} />
+        <input {...register('location')} placeholder="e.g. Intake area" className={inputCls} />
       </label>
       {!device && <p className="text-sm text-ink-2">After you register, the device key is shown once. Copy it into the device so it can check in.</p>}
       {device && (

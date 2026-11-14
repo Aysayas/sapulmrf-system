@@ -60,20 +60,7 @@ function RangesForm({ ranges, areas }: { ranges: Ranges; areas: Item[] }) {
   return (
     <form noValidate onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       <div className="grid grid-cols-3 gap-4">
-        <section aria-label="Compost temperature" className="rounded-xl border border-line bg-white p-4">
-          <h3 className="mb-3 text-sm font-bold">Compost temperature</h3>
-          <div className="grid grid-cols-2 gap-3">
-            {field('compost_temp_min', 'Minimum', '°C')}
-            {field('compost_temp_max', 'Maximum', '°C')}
-          </div>
-        </section>
-        <section aria-label="Compost moisture" className="rounded-xl border border-line bg-white p-4">
-          <h3 className="mb-3 text-sm font-bold">Compost moisture</h3>
-          <div className="grid grid-cols-2 gap-3">
-            {field('moisture_min', 'Minimum', '%')}
-            {field('moisture_max', 'Maximum', '%')}
-          </div>
-        </section>
+        {/* No compost sensor: the compost temperature and moisture limits stay saved but aren't shown. */}
         <section aria-label="Predictions" className="rounded-xl border border-line bg-white p-4">
           <h3 className="mb-3 text-sm font-bold">Predictions</h3>
           <div className="flex flex-col gap-3">

@@ -16,7 +16,7 @@ test('the dashboard and every Operations page show data', async ({ adminPage: pa
     ['Segregation', 'Segregation compliance', 'Compliance by source area'],
     ['Sorting', 'Sorting and camera records', 'Sorted bags'],
     ['Inventory', 'Inventory', 'Stock'],
-    ['Compost', 'Compost and sensors', 'Compost batches'],
+    ['Compost', 'Compost', 'Compost batches'],
     ['Live camera', 'Live camera', 'In storage by material'],
   ]
   const sub = page.getByRole('navigation', { name: 'Monitor' })

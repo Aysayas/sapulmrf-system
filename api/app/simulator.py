@@ -22,12 +22,9 @@ from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 SIM_USER = "sim.operator"
-DEVICES = [
-    ("SIM-WS-01", "weighing_station", "Intake area"),
-    ("SIM-CS-01", "compost_sensor", "Compost bay 1"),
-    ("SIM-CS-02", "compost_sensor", "Compost bay 2"),
-    ("SIM-CAM-01", "sorting_camera", "Sorting area"),
-]
+# One device, like the real MRF: the kiosk weighs and runs the camera. Compost has no sensor; it's logged by hand.
+DEVICES = [("SIM-WS-01", "weighing_station", "Intake area")]
+BAYS = ("bay 1", "bay 2")  # two compost batches can run at once
 DEMO_PUROKS = [f"Demo Purok {i}" for i in range(1, 8)]
 DEMO_AREAS = [
     ("Demo Area A · Plastics", 500),
@@ -82,20 +79,6 @@ def camera_guess(rnd: random.Random, truth: str) -> tuple[str, float, bool]:
         return truth, round(rnd.uniform(0.78, 0.98), 2), False
     wrong = rnd.choice([m for m in MIX if m != truth])
     return wrong, round(rnd.uniform(0.38, 0.7), 2), True
-
-
-def compost_reading(rnd: random.Random, day: float, prev_moist: float | None, hours: float = 0.5) -> tuple[float, float]:
-    """A thermophilic curve: warms up over ~5 days, holds 55–65 °C with the odd spike, cools after ~3 weeks."""
-    if day < 5:
-        temp = 32 + day * 5.5
-    elif day < 20:
-        temp = 60 + rnd.gauss(0, 2.5) + (7 if rnd.random() < 0.03 else 0)
-    else:
-        temp = max(30.0, 60 - (day - 20) * 2.5)
-    # dries ~3.5 points a day; noise scaled to the time since the last reading so 30 s and 30 min steps both look right
-    drift = rnd.uniform(0.05, 0.25) * hours
-    moist = (prev_moist if prev_moist is not None else 55) - drift + rnd.gauss(0, 0.15 * (hours / 0.5) ** 0.5)
-    return round(temp + rnd.gauss(0, 0.6), 1), round(min(70, max(30, moist)), 1)
 
 
 # ---------------------------------------------------------------- database side (api container)
@@ -160,7 +143,7 @@ def backfill(db, days: int, seed: int = 11, now: datetime | None = None) -> dict
     from app.approvals import service as approvals
     from app.approvals.schemas import AdjustmentIn, DecisionIn, OutgoingIn
     from app.compost import service as compost
-    from app.compost.schemas import ActivityIn, BatchIn, ReadingIn
+    from app.compost.schemas import ActivityIn, BatchIn
     from app.core.config import settings
     from app.intake import service as intake
     from app.intake.models import Delivery
@@ -181,10 +164,8 @@ def backfill(db, days: int, seed: int = 11, now: datetime | None = None) -> dict
     mats = {m.name: m.id for m in db.scalars(select(Material))}
     profiles = purok_profiles([p.name for p in puroks])
     names = {v: k for k, v in mats.items()}
-    counts = {"deliveries": 0, "classifications": 0, "readings": 0, "batches": 0, "outgoing": 0, "adjustments": 0}
-    sensors = [devices["SIM-CS-01"], devices["SIM-CS-02"]]
+    counts = {"deliveries": 0, "classifications": 0, "batches": 0, "outgoing": 0, "adjustments": 0}
     batches: dict[str, object] = {}
-    moist: dict[int, float] = {}
     wet_pool = 0.0
 
     def decide(decide_fn, row, t: datetime, reject: bool = False) -> None:
@@ -241,7 +222,7 @@ def backfill(db, days: int, seed: int = 11, now: datetime | None = None) -> dict
                 label, conf, changed = camera_guess(rnd, material)
                 c = sorting.create_suggestion(
                     db,
-                    devices["SIM-CAM-01"],
+                    devices["SIM-WS-01"],
                     SuggestionIn(label=label, confidence=conf, model_version="sim-1", image_url=PHOTOS[label]),
                     at=sorted_at,
                 )
@@ -310,9 +291,9 @@ def backfill(db, days: int, seed: int = 11, now: datetime | None = None) -> dict
                 decide(approvals.decide_adjustment, r, recount, reject=rnd.random() < 0.25)
                 counts["adjustments"] += 1
 
-        # compost: start a batch on a free sensor every ~6 days from the wet waste collected, readings every 30 min
-        for sensor in sensors:
-            b = batches.get(sensor.code)
+        # compost: start a batch in a free bay every ~6 days from the wet waste collected; logged by hand
+        for n, bay in enumerate(BAYS):
+            b = batches.get(bay)
             if b and (datetime(day.year, day.month, day.day, tzinfo=tz) - b.started_at).days >= 21 and not b.finished_at:
                 compost.log_activity(
                     db,
@@ -332,28 +313,19 @@ def backfill(db, days: int, seed: int = 11, now: datetime | None = None) -> dict
                         opening + timedelta(hours=5),
                     )
                 b = None
-            if (not b or b.finished_at) and wet_pool > 40 and (i % 6 == sensors.index(sensor) * 3):
+            if (not b or b.finished_at) and wet_pool > 40 and (i % 6 == n * 3):
                 b = compost.start_batch(
-                    db, BatchIn(start_kg=round(wet_pool * 0.8, 1), sensor_id=sensor.id), user, at=opening + timedelta(hours=2)
+                    db, BatchIn(start_kg=round(wet_pool * 0.8, 1), sensor_id=None), user, at=opening + timedelta(hours=2)
                 )
-                batches[sensor.code], wet_pool = b, 0.0
+                batches[bay], wet_pool = b, 0.0
                 counts["batches"] += 1
-        for sensor in sensors:
-            b = batches.get(sensor.code)
+        for bay in BAYS:
+            b = batches.get(bay)
             if not b or b.finished_at:
                 continue
-            for half_hour in range(48):
-                t = datetime(day.year, day.month, day.day, tzinfo=tz) + timedelta(minutes=30 * half_hour)
-                if t < b.started_at or t > now:
-                    continue
-                age = (t - b.started_at).total_seconds() / 86400
-                temp, m = compost_reading(rnd, age, moist.get(b.id))
-                if half_hour == 16 and m < 47:  # morning watering
-                    compost.log_activity(db, b.id, ActivityIn(type="watering"), user, at=t)
-                    m += 8
-                moist[b.id] = m
-                compost.record_reading(db, sensor, ReadingIn(temp_c=temp, moisture_pct=m), at=t)
-                counts["readings"] += 1
+            water_at = datetime(day.year, day.month, day.day, 8, tzinfo=tz)
+            if i % 2 == 0 and b.started_at < water_at <= now:  # watered every other morning
+                compost.log_activity(db, b.id, ActivityIn(type="watering"), user, at=water_at)
             if i % 3 == 0:
                 compost.log_activity(
                     db, b.id, ActivityIn(type="turning"), user, at=datetime(day.year, day.month, day.day, 9, tzinfo=tz)
@@ -531,9 +503,6 @@ def run(base: str, pace: float) -> None:
     cats = {c["name"]: c["id"] for c in op.call("GET", "/masterdata/categories")}
     mats = {m["name"]: m["id"] for m in op.call("GET", "/masterdata/materials")}
     profiles = purok_profiles([p["name"] for p in puroks])
-    moist: dict[str, float] = {}
-    quiet: dict[str, float] = {}  # sensor → monotonic time its readings resume
-    hot: dict[str, float] = {}  # sensor → monotonic time its batch cools back down
     next_delivery = time.monotonic()
     next_readings = time.monotonic()
     print(f"Simulator running against {base} (pace ×{pace}). Ctrl+C or `docker compose stop sim` to stop.", flush=True)
@@ -542,39 +511,14 @@ def run(base: str, pace: float) -> None:
         try:
             if now >= next_readings:
                 op.call("POST", "/devices/readings", keys["SIM-WS-01"], json={"kg": 0.0, "stable": True})
-                op.call("POST", "/devices/heartbeat", keys["SIM-CAM-01"])
                 view = op.call("GET", "/operations/compost")
-                open_by_sensor = {b["sensor"]: b for b in view["batches"] if not b["finished_at"] and b["sensor"]}
-                for sensor in ("SIM-CS-01", "SIM-CS-02"):
-                    b = open_by_sensor.get(sensor)
-                    if not b:
-                        op.call(
-                            "POST", "/compost/batches", json={"start_kg": round(rnd.uniform(15, 25), 1), "sensor_id": ids[sensor]}
-                        )
-                        continue
-                    # now and then a sensor drops out for ~5 minutes, or a batch overheats for ~15, so alerts open and clear
-                    if now >= quiet.get(sensor, 0) and now >= hot.get(sensor, 0):
-                        if rnd.random() < 1 / 100:
-                            quiet[sensor] = now + 300 * pace
-                            print(f"{datetime.now():%H:%M:%S} disturbance: {sensor} silent for ~5 min", flush=True)
-                        elif rnd.random() < 1 / 100:
-                            hot[sensor] = now + 900 * pace
-                            print(f"{datetime.now():%H:%M:%S} disturbance: {b['code']} overheating for ~15 min", flush=True)
-                    if now < quiet.get(sensor, 0):
-                        continue
-                    age = b["day"] - 1 + datetime.now().hour / 24
-                    temp, m = compost_reading(rnd, age, moist.get(sensor, b["moisture_pct"]), hours=30 * pace / 3600)
-                    if now < hot.get(sensor, 0):
-                        temp = round(max(temp, 66) + rnd.uniform(3, 6), 1)
-                    if m < 45:  # the operator waters a drying batch
-                        op.call("POST", f"/compost/batches/{b['id']}/activities", json={"type": "watering"})
-                        m += 8
-                    moist[sensor] = m
-                    op.call("POST", "/devices/readings", keys[sensor], json={"temp_c": temp, "moisture_pct": m})
-                    if rnd.random() < 0.01:
-                        op.call(
-                            "POST", f"/compost/batches/{b['id']}/activities", json={"type": rnd.choice(["turning", "inspection"])}
-                        )
+                active = [b for b in view["batches"] if not b["finished_at"]]
+                if len(active) < len(BAYS) and view["wet_waiting_kg"] >= 10:  # a free bay takes the wet waste waiting
+                    op.call("POST", "/compost/batches", json={"start_kg": view["wet_waiting_kg"], "sensor_id": None})
+                elif active and rnd.random() < 0.01:  # the operator logs some work now and then
+                    b = rnd.choice(active)
+                    op.call("POST", f"/compost/batches/{b['id']}/activities",
+                            json={"type": rnd.choice(["turning", "watering", "inspection"])})
                 next_readings = now + 30 * pace
             if now >= next_delivery:
                 # About 20 a day, like the backfill. Set first, so a failure partway doesn't start another at once.
@@ -621,7 +565,7 @@ def _one_delivery(op, rnd, keys, ids, puroks, profiles, cats, mats, areas):
         c = op.call(
             "POST",
             "/devices/cv-suggestions",
-            keys["SIM-CAM-01"],
+            keys["SIM-WS-01"],
             json={"label": label, "confidence": conf, "model_version": "sim-1", "image_url": PHOTOS[label]},
         )
         body = {"final_material_id": mats[material], "reason": "Looked again"} if changed else {}

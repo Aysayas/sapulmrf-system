@@ -55,8 +55,8 @@ def reading(body: ReadingIn, x_device_key: str | None = Header(None), db: DbSess
 
 @router.post("/cv-suggestions", response_model=ClassificationOut, status_code=201)
 def cv_suggestion(body: SuggestionIn, x_device_key: str | None = Header(None), db: DbSession = Depends(get_db)):
-    """The sorting camera sends what it thinks an item is; the operator confirms it."""
-    d = service.authenticate(db, x_device_key, expected_type="sorting_camera")
+    """The camera (the kiosk's, or a separate one) sends what it thinks an item is; the operator confirms it."""
+    d = service.authenticate(db, x_device_key, expected_type=("weighing_station", "sorting_camera"))
     c = sorting.create_suggestion(db, d, body)
     d.last_seen_at = c.suggested_at
     db.commit()

@@ -20,7 +20,7 @@ from app.sorting.models import StockMovement
 COMPOST_WAIT = timedelta(minutes=10)  # out of range this long opens an alert; back in range this long resolves it
 WINDOW = timedelta(hours=6)  # readings looked at per batch
 TZ = ZoneInfo(settings.timezone)
-DEVICE_LABEL = {"weighing_station": "Weighing station", "compost_sensor": "Compost sensor", "sorting_camera": "Sorting camera"}
+DEVICE_LABEL = {"weighing_station": "Kiosk", "compost_sensor": "Compost sensor", "sorting_camera": "Sorting camera"}
 
 
 def _streak(readings: list[tuple[datetime, bool]]) -> tuple[bool, datetime]:

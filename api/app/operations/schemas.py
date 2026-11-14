@@ -83,6 +83,7 @@ class CompostView(BaseModel):
     ranges: dict[str, float]
     batches: list[BatchLive]
     selected: str | None
+    wet_waiting_kg: float  # wet waste from segregation checks not yet in a batch
     series: list[Point]
 
 
@@ -119,6 +120,7 @@ class Overview(BaseModel):
     compliance_week_pct: int | None  # None for staff without the segregation grant
     in_storage_kg: float
     active_batches: int
+    wet_waiting_kg: float
     intake_14d: list[DayKg]
     areas: list[AreaFill]
     compost: list[BatchLive]

@@ -78,15 +78,16 @@ def new_key(db: DbSession, device_id: int, actor: User) -> DeviceWithKey:
     return DeviceWithKey(**out(d).model_dump(), key=key)
 
 
-def authenticate(db: DbSession, key: str | None, expected_type: str | None = None) -> Device:
+def authenticate(db: DbSession, key: str | None, expected_type: str | tuple[str, ...] | None = None) -> Device:
     """The device behind an X-Device-Key header, or 401/403."""
     d = db.scalar(select(Device).where(Device.key_hash == token_hash(key))) if key else None
     if not d:
         raise AppError(401, "Unknown device key.")
     if not d.active:
         raise AppError(403, "This device is deactivated.")
-    if expected_type and d.type != expected_type:
-        raise AppError(403, f"Only a {expected_type.replace('_', ' ')} can send this.")
+    allowed = (expected_type,) if isinstance(expected_type, str) else expected_type
+    if allowed and d.type not in allowed:
+        raise AppError(403, f"Only a {' or '.join(a.replace('_', ' ') for a in allowed)} can send this.")
     return d
 
 

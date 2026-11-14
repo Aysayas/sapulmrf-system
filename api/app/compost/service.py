@@ -1,14 +1,16 @@
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session as DbSession
 
 from app.activity.service import log
 from app.compost.models import CompostActivity, CompostBatch, CompostReading
 from app.compost.schemas import ActivityIn, ActivityOut, BatchIn, BatchOut, ReadingIn
+from app.core.db import advisory_lock
 from app.core.errors import AppError
 from app.devices.models import Device
+from app.intake.models import SegregationCheck
 from app.users.models import User
 
 CLOCK_SLACK = timedelta(minutes=5)
@@ -27,7 +29,26 @@ def out(db: DbSession, b: CompostBatch) -> BatchOut:
                     finished_at=b.finished_at, produced_kg=b.produced_kg, activities=activities)
 
 
+WET_SLACK = 0.5  # kg: scale rounding, as segregation allows
+
+
+def _wet_balance(db: DbSession) -> float:
+    """Wet kg from segregation checks minus kg put into batches. Negative after older batches or an undone check."""
+    wet = db.scalar(select(func.coalesce(func.sum(SegregationCheck.wet_kg), 0.0)))
+    used = db.scalar(select(func.coalesce(func.sum(CompostBatch.start_kg), 0.0)))
+    return round(float(wet) - float(used), 2)
+
+
+def wet_waiting(db: DbSession) -> float:
+    """Wet waste waiting for compost, as shown: never below 0."""
+    return max(0.0, _wet_balance(db))
+
+
 def start_batch(db: DbSession, data: BatchIn, actor: User, at: datetime | None = None) -> CompostBatch:
+    advisory_lock(db, "compost-start")  # two taps at once mustn't both pass the check below
+    balance = _wet_balance(db)  # the real one: the slack covers one batch's rounding, it can't be reused
+    if balance <= 0 or data.start_kg > balance + WET_SLACK:
+        raise AppError(422, f"Only {max(0.0, balance):g} kg of wet waste is waiting for compost.")
     if data.sensor_id is not None:
         sensor = db.get(Device, data.sensor_id)
         if not sensor or sensor.type != "compost_sensor":

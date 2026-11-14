@@ -2,9 +2,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useDevices } from '../../api/devices';
-import { useCompost, useLogBatchActivity, useStartBatch, type BatchLive, type CompostView } from '../../api/operations';
-import { Kpi, ReadingChart } from '../../components/charts';
+import { useCompost, useLogBatchActivity, useStartBatch, type BatchLive } from '../../api/operations';
+import { Kpi } from '../../components/charts';
 import { Badge, btn, Drawer, inputCls, PageHeader, Toast } from '../../components/ui';
 import { kg, when } from '../operations/shared';
 import { Card, Field, touch } from './shared';
@@ -13,19 +12,12 @@ const alertCls = 'rounded-lg bg-crit-100 px-3 py-2 text-sm font-semibold text-cr
 const ACTIVITIES = [['turning', 'Turning'], ['watering', 'Watering'], ['inspection', 'Inspection']] as const;
 const activityName = (type: string) => ACTIVITIES.find(([v]) => v === type)?.[1] ?? type;
 
-/** The reading with an arrow when it is outside its range. The arrow's meaning is also in the batch's badge. */
-const reading = (v: number | null, unit: string, lo: number, hi: number) =>
-  v === null ? '—' : `${v}${unit}${v > hi ? ' ▲' : v < lo ? ' ▼' : ''}`;
-
-function BatchBadge({ b }: { b: BatchLive }) {
-  if (b.finished_at) return <Badge kind="dash">Finished</Badge>;
-  if (b.in_range === null) return <Badge>No readings yet</Badge>;
-  return b.in_range ? <Badge kind="ok">In range</Badge> : <Badge kind="crit">Out of range</Badge>;
-}
+// Compost is logged by hand: there is no compost sensor.
+const BatchBadge = ({ b }: { b: BatchLive }) => b.finished_at ? <Badge kind="dash">Finished</Badge> : <Badge kind="ok">Active</Badge>;
 
 export default function CompostPage() {
   const [open, setOpen] = useState<string | undefined>();
-  const compost = useCompost(open, open ? 7 : undefined);
+  const compost = useCompost(open);
   const [starting, setStarting] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const v = compost.data;
@@ -35,10 +27,11 @@ export default function CompostPage() {
     <>
       {compost.error && <p role="alert" className={alertCls}>{compost.error.message}</p>}
       {batch && v ? (
-        <BatchDetail batch={batch} view={v} onBack={() => setOpen(undefined)} onDone={setDone} />
+        <BatchDetail batch={batch} onBack={() => setOpen(undefined)} onDone={setDone} />
       ) : (
         <>
-          <PageHeader title="Compost" sub="Batches with temperature and moisture from the sensors." />
+          <PageHeader title="Compost" sub="Batches you log by hand: start weight, turning and watering, finished compost." />
+          {v && <p className="text-sm font-semibold">{kg(v.wet_waiting_kg)} wet waste waiting for compost</p>}
           <button className={`${btn.base} ${btn.primary} ${touch} w-full`} onClick={() => setStarting(true)}>+ New batch</button>
           {compost.isPending && <p className="text-muted">Loading…</p>}
           <ul aria-label="Compost batches" className="flex flex-col gap-2">
@@ -55,10 +48,7 @@ export default function CompostPage() {
                     <small className="block text-ink-2">{when(b.finished_at)} · {b.produced_kg === null ? 'Finished' : `${kg(b.produced_kg)} compost`}</small>
                   ) : (
                     <>
-                      <small className="block text-ink-2">Day {b.day} · started {when(b.started_at)}</small>
-                      <span className="block text-sm font-semibold tabular-nums">
-                        {reading(b.temp_c, ' °C', v.ranges.compost_temp_min, v.ranges.compost_temp_max)} · {reading(b.moisture_pct, '%', v.ranges.moisture_min, v.ranges.moisture_max)}
-                      </span>
+                      <small className="block text-ink-2">Day {b.day} · started {when(b.started_at)} · {kg(b.start_kg)} wet waste</small>
                       <small className="block text-muted">
                         {b.activities[0] ? `${activityName(b.activities[0].type)} · ${when(b.activities[0].at)}` : 'No activity yet'}
                       </small>
@@ -70,15 +60,14 @@ export default function CompostPage() {
           </ul>
         </>
       )}
-      {starting && <StartSheet onClose={() => setStarting(false)} onSaved={(m) => { setStarting(false); setDone(m); }} />}
+      {starting && <StartSheet waiting={v?.wet_waiting_kg ?? 0} onClose={() => setStarting(false)} onSaved={(m) => { setStarting(false); setDone(m); }} />}
       <Toast message={done} />
     </>
   );
 }
 
-function BatchDetail({ batch: b, view, onBack, onDone }: { batch: BatchLive; view: CompostView; onBack: () => void; onDone: (m: string) => void }) {
+function BatchDetail({ batch: b, onBack, onDone }: { batch: BatchLive; onBack: () => void; onDone: (m: string) => void }) {
   const [sheet, setSheet] = useState<'log' | 'finish' | null>(null);
-  const r = view.ranges;
   const close = () => setSheet(null);
 
   return (
@@ -95,27 +84,11 @@ function BatchDetail({ batch: b, view, onBack, onDone }: { batch: BatchLive; vie
         </div>
       )}
       <div className="grid grid-cols-2 gap-2">
-        <Kpi label="Temperature" value={reading(b.temp_c, ' °C', r.compost_temp_min, r.compost_temp_max)} sub={`Range ${r.compost_temp_min}–${r.compost_temp_max} °C`} />
-        <Kpi label="Moisture" value={reading(b.moisture_pct, '%', r.moisture_min, r.moisture_max)} sub={`Range ${r.moisture_min}–${r.moisture_max}%`} />
         <Kpi label="Started with" value={kg(b.start_kg)} sub="Wet waste" />
         {b.finished_at
           ? <Kpi label="Compost made" value={b.produced_kg === null ? '—' : kg(b.produced_kg)} />
-          : <Kpi label="Sensor" value={b.sensor ?? 'None'} sub={b.read_at ? `Read ${when(b.read_at)}` : 'No readings yet'} />}
+          : <Kpi label="Age" value={`Day ${b.day}`} sub={b.activities[0] ? `Last: ${activityName(b.activities[0].type)}, ${when(b.activities[0].at)}` : 'No activity yet'} />}
       </div>
-
-      <h2 className="text-lg font-bold">Readings, last 7 days</h2>
-      {view.series.length === 0 ? <p className="text-muted">No readings in the last 7 days.</p> : (
-        <>
-          <section aria-label="Temperature chart" className="rounded-xl border border-line bg-white p-3">
-            <h3 className="text-sm font-semibold">Temperature</h3>
-            <ReadingChart data={view.series} field="temp_c" unit=" °C" min={r.compost_temp_min} max={r.compost_temp_max} height={180} />
-          </section>
-          <section aria-label="Moisture chart" className="rounded-xl border border-line bg-white p-3">
-            <h3 className="text-sm font-semibold">Moisture</h3>
-            <ReadingChart data={view.series} field="moisture_pct" unit="%" min={r.moisture_min} max={r.moisture_max} height={180} />
-          </section>
-        </>
-      )}
 
       <h2 className="text-lg font-bold">Activity log</h2>
       <ul aria-label="Activity log" className="flex flex-col gap-2">
@@ -136,14 +109,12 @@ function BatchDetail({ batch: b, view, onBack, onDone }: { batch: BatchLive; vie
 
 const startSchema = z.object({
   start_kg: z.number({ error: 'Enter the kg of wet waste.' }).gt(0, 'Enter the kg of wet waste.').max(5000, 'At most 5,000 kg.'),
-  sensor_id: z.number(),
 });
 type StartForm = z.infer<typeof startSchema>;
 
-function StartSheet({ onClose, onSaved }: { onClose: () => void; onSaved: (m: string) => void }) {
+function StartSheet({ waiting, onClose, onSaved }: { waiting: number; onClose: () => void; onSaved: (m: string) => void }) {
   const send = useStartBatch();
-  const devices = useDevices();
-  const { register, handleSubmit, formState } = useForm<StartForm>({ resolver: zodResolver(startSchema), defaultValues: { sensor_id: 0 } });
+  const { register, handleSubmit, formState } = useForm<StartForm>({ resolver: zodResolver(startSchema), defaultValues: { start_kg: waiting || undefined } });
   const e = formState.errors.start_kg;
 
   return (
@@ -151,20 +122,14 @@ function StartSheet({ onClose, onSaved }: { onClose: () => void; onSaved: (m: st
       <>
         <button className={`${btn.base} ${btn.secondary} ${touch}`} onClick={onClose}>Cancel</button>
         <button className={`${btn.base} ${btn.primary} ${touch}`} disabled={send.isPending}
-          onClick={handleSubmit((f) => send.mutate({ start_kg: f.start_kg, sensor_id: f.sensor_id || null }, { onSuccess: (b) => onSaved(`${b.code} started · ${kg(b.start_kg)} wet waste`) }))}>Start batch</button>
+          onClick={handleSubmit((f) => send.mutate({ start_kg: f.start_kg, sensor_id: null }, { onSuccess: (b) => onSaved(`${b.code} started · ${kg(b.start_kg)} wet waste`) }))}>Start batch</button>
       </>
     }>
       {send.error && <p role="alert" className={alertCls}>{send.error.message}</p>}
       <Field label="Wet waste (kg)" error={e?.message}>
         <input type="number" step="0.1" inputMode="decimal" className={`${inputCls} ${touch}`} aria-invalid={!!e} {...register('start_kg', { valueAsNumber: true })} />
       </Field>
-      {/* The server refuses a sensor already in a batch; that error shows above. */}
-      <Field label="Sensor (optional)">
-        <select className={`${inputCls} ${touch}`} {...register('sensor_id', { valueAsNumber: true })}>
-          <option value={0}>No sensor</option>
-          {devices.data?.filter((d) => d.type === 'compost_sensor' && d.active).map((d) => <option key={d.id} value={d.id}>{d.code}{d.location ? ` · ${d.location}` : ''}</option>)}
-        </select>
-      </Field>
+      <p className="text-sm text-ink-2">Up to {kg(waiting)} waiting</p>
     </Drawer>
   );
 }

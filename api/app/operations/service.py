@@ -242,6 +242,7 @@ def compost_view(db: DbSession, batch_code: str | None, days: int = 1) -> s.Comp
         batches=batches,
         selected=pick.code if pick else None,
         series=series,
+        wet_waiting_kg=compost.wet_waiting(db),
     )
 
 
@@ -309,6 +310,7 @@ def overview(db: DbSession) -> s.Overview:
         compliance_week_pct=compliance(db, 7).pct,
         in_storage_kg=round(sum(a.kg for a in areas), 2),
         active_batches=len(live),
+        wet_waiting_kg=compost.wet_waiting(db),
         intake_14d=intake_by_day(db, 14),
         areas=areas,
         compost=live,

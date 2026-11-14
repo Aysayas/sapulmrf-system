@@ -14,7 +14,6 @@ test('an operator takes a delivery through the whole day from a phone, then chan
   const purok = await made('/masterdata/puroks', { name: `e2e Purok ${id}` })
   const from = await made('/masterdata/storage-areas', { name: `e2e From ${id}`, capacity_kg: 100 })
   const to = await made('/masterdata/storage-areas', { name: `e2e To ${id}`, capacity_kg: 100 })
-  const sensor = await made('/devices', { code: `E2E-CS-${id}`.toUpperCase(), type: 'compost_sensor' })
   const op = newAccount('operator')
   await made('/users', op)
 
@@ -103,22 +102,21 @@ test('an operator takes a delivery through the whole day from a phone, then chan
     await expect(stock.getByRole('button', { name: `Request adjustment for Plastic in ${from.name}` })).toContainText('7 kg')
     await expect(stock.getByRole('button', { name: `Request adjustment for Plastic in ${to.name}` })).toContainText('5 kg')
 
-    // Compost: a new batch on a sensor, then an activity.
+    // Compost, logged by hand (no sensor): a new batch, then an activity.
     await openFromMore('Compost')
+    await expect(page.getByText(/kg wet waste waiting for compost/)).toBeVisible()
     await page.getByRole('button', { name: '+ New batch' }).click()
     const start = page.getByRole('dialog', { name: 'Start compost batch' })
+    await expect(start.getByLabel('Wet waste (kg)')).not.toHaveValue('')  // prefilled with what's waiting
+    await expect(start.getByText(/^Up to .* waiting$/)).toBeVisible()
     await start.getByLabel('Wet waste (kg)').fill('5')
-    await start.getByLabel('Sensor (optional)').selectOption(String(sensor.id))
+    await expect(start.getByLabel('Sensor (optional)')).toHaveCount(0)
     await start.getByRole('button', { name: 'Start batch' }).click()
     await expect(toast).toContainText('started · 5 kg wet waste')
     const batch = (await toast.textContent())!.match(/B-\d+/)![0]
-    // A reading from that sensor lands on the new batch.
-    const read = await admin.request.post('/api/devices/readings', { headers: { 'X-Device-Key': sensor.key }, data: { temp_c: 55, moisture_pct: 50 } })
-    expect((await read.json()).stored_on).toBe(batch)
-    await page.reload()
     await page.getByRole('button', { name: `Open batch ${batch}`, exact: true }).click()
-    await expect(page.getByText(sensor.code)).toBeVisible()
-    await expect(page.getByText('55 °C').first()).toBeVisible()
+    await expect(page.getByText('Started with')).toBeVisible()
+    await expect(page.getByText('°C')).toHaveCount(0)
     await page.getByRole('button', { name: '+ Log activity' }).click()
     const activity = page.getByRole('dialog', { name: `Log activity · ${batch}` })
     await activity.getByRole('radio', { name: 'Watering' }).check()

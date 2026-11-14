@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 
 from app import simulator
 from app.approvals.models import AdjustmentRequest, Outgoing
-from app.compost.models import CompostReading
+from app.compost.models import CompostActivity, CompostBatch, CompostReading
 from app.devices.models import Device
 from app.intake.models import Delivery
 from app.masterdata.models import SourceArea, StorageArea
@@ -24,7 +24,7 @@ def test_backfill_makes_days_of_history_and_remove_takes_it_all_back(db, world, 
     db.commit()
 
     counts = simulator.backfill(db, days=15, now=NOW)
-    assert counts["deliveries"] >= 15 * 10 and counts["readings"] > 0 and counts["batches"] >= 1
+    assert counts["deliveries"] >= 15 * 10 and counts["batches"] >= 1
     manila_day = func.date(func.timezone("Asia/Manila", Delivery.received_at))
     days = db.scalar(select(func.count(func.distinct(manila_day))).where(Delivery.code != "D-REAL"))
     assert days == 15
@@ -37,7 +37,11 @@ def test_backfill_makes_days_of_history_and_remove_takes_it_all_back(db, world, 
                                                                       Classification.review.is_(None))).all()
     assert unreviewed and min(unreviewed) > NOW - simulator.RECENT
     assert db.scalar(select(func.count()).where(Classification.confirmed_at.is_(None))) == 0
-    assert db.scalar(select(func.count()).select_from(CompostReading)) == counts["readings"]
+    # one device (the kiosk); compost is logged by hand: no sensor, no readings, but watering and turning
+    assert db.scalars(select(Device.code).where(Device.code.like("SIM-%"))).all() == ["SIM-WS-01"]
+    assert db.scalar(select(func.count()).select_from(CompostReading)) == 0
+    assert db.scalar(select(func.count()).where(CompostBatch.sensor_id.is_not(None))) == 0
+    assert {"watering", "turning"} <= set(db.scalars(select(CompostActivity.type)))
     # the world's real areas were used, so no demo areas were made
     assert not db.scalar(select(SourceArea.id).where(SourceArea.name.like("Demo %")))
     # every area's stock stays at or above zero per material

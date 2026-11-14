@@ -6,7 +6,7 @@ from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session as DbSession
 
 from app.approvals.models import Outgoing
-from app.compost.models import CompostBatch, CompostReading
+from app.compost.models import CompostBatch
 from app.intake.models import Delivery, SegregationCheck
 from app.masterdata.models import Material, SourceArea, WasteCategory
 from app.operations import service as ops
@@ -91,17 +91,13 @@ def composting(db: DbSession, start, end, area: int | None) -> Report:
         .order_by(CompostBatch.started_at)
     ).all()
     rows, made = [], 0.0
-    for b in batches:
-        last = db.scalar(
-            select(CompostReading).where(CompostReading.batch_id == b.id).order_by(CompostReading.read_at.desc()).limit(1)
-        )
+    for b in batches:  # logged by hand: there is no compost sensor, so no temperature or moisture
         made += b.produced_kg or 0
         rows.append([b.code, _local(b.started_at)[:10], "Finished" if b.finished_at else "Active", round(b.start_kg, 2),
-                     round(b.produced_kg, 2) if b.produced_kg is not None else "",
-                     round(last.temp_c, 1) if last else "", round(last.moisture_pct, 1) if last else ""])
+                     round(b.produced_kg, 2) if b.produced_kg is not None else ""])
     return Report(kind="composting", title=TITLES["composting"], subtitle="",
                   summary=[("Batches", str(len(rows))), ("Compost produced", f"{made:,.2f} kg")],
-                  columns=["Batch", "Started", "Status", "Raw waste (kg)", "Compost (kg)", "Last temp (C)", "Last moisture (%)"],
+                  columns=["Batch", "Started", "Status", "Raw waste (kg)", "Compost (kg)"],
                   rows=rows)
 
 

@@ -95,7 +95,7 @@ function RecordSheet({ d, onClose, onSaved }: { d: Delivery; onClose: () => void
 
   const onSubmit = (f: Form) =>
     send.mutate({ deliveryId: d.id, ...f }, {
-      onSuccess: () => onSaved(`${d.code} saved: ${f.condition === 'mixed' ? 'Mixed' : 'Segregated'} · wet ${kg2(f.wet_kg)} → compost · dry ${kg2(f.dry_kg)} → sorting`),
+      onSuccess: () => onSaved(`${d.code} saved: ${f.condition === 'mixed' ? 'Mixed' : 'Segregated'} · wet ${kg2(f.wet_kg)} → waiting for compost · dry ${kg2(f.dry_kg)} → sorting`),
     });
 
   return (

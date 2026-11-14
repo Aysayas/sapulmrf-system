@@ -63,10 +63,7 @@ function Dashboard({ o }: { o: Overview }) {
               <li key={b.id} className="flex items-center gap-2 border-b border-line/60 py-2 text-sm last:border-0">
                 <span className="font-semibold">{b.code}</span>
                 <span className="text-ink-2">Day {b.day}</span>
-                <span className="ml-auto">{b.temp_c ?? '—'} °C · {b.moisture_pct ?? '—'}%</span>
-                {o.alert_batch_ids.includes(b.id) ? <Link to="/admin/alerts"><Badge kind="crit">⚠ Alert</Badge></Link>
-                  : b.in_range === false ? <Badge kind="warn">Out of range</Badge>
-                  : b.in_range ? <Badge kind="ok">In range</Badge> : <Badge kind="dash">No reading</Badge>}
+                <span className="ml-auto tabular-nums">{b.start_kg} kg wet waste</span>
               </li>
             ))}
           </ul>

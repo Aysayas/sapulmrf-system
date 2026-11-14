@@ -33,9 +33,9 @@ test('a registered device shows its key once and goes online after a heartbeat',
   await page.goto('/admin/settings/devices')
   await page.getByRole('button', { name: '+ Register device' }).click()
   const drawer = page.getByRole('dialog', { name: 'Register device' })
-  await drawer.getByLabel('Device type').selectOption('compost_sensor')
+  await expect(drawer.getByLabel('Device type')).toHaveCount(0)  // one device: the kiosk
   await drawer.getByLabel('Device ID').fill(code)
-  await drawer.getByLabel('Location').fill('Compost bay test')
+  await drawer.getByLabel('Location').fill('Intake test')
   await drawer.getByRole('button', { name: 'Register' }).click()
 
   const panel = page.getByRole('dialog', { name: `Key for ${code}` })
@@ -68,10 +68,10 @@ test('admin changes a range and it stays saved, then puts it back', async ({ adm
     await page.reload()
     await expect(days).toHaveValue(changed)
 
-    const min = page.getByRole('region', { name: 'Compost temperature' }).getByRole('spinbutton', { name: /^Minimum/ })
-    await min.fill('99')
+    await expect(page.getByRole('region', { name: 'Compost temperature' })).toHaveCount(0)  // no compost sensor
+    await page.getByLabel(/^Unusual-weight limit/).fill('9')
     await page.getByRole('button', { name: 'Save ranges' }).click()
-    await expect(page.getByText('Must be higher than the minimum.')).toBeVisible()
+    await expect(page.getByText('At most 6.')).toBeVisible()
   } finally {
     const restore = await page.request.put('/api/settings', { data: { ...before, storage_areas: [] } })
     expect(restore.status()).toBe(200)

@@ -14,7 +14,7 @@ export interface Device {
 export type DeviceWithKey = Device & { key: string };
 
 export const TYPE_LABEL: Record<DeviceType, string> = {
-  weighing_station: 'Weighing station',
+  weighing_station: 'Kiosk (scale + camera)',
   compost_sensor: 'Compost sensor',
   sorting_camera: 'Sorting camera',
 };

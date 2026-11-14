@@ -123,12 +123,10 @@ def test_composting_lists_batches_in_range(client, db, admin):
     old = CompostBatch(code="B-1", start_kg=50, started_at=now - timedelta(days=90),
                        finished_at=now - timedelta(days=60), produced_kg=20)
     db.add_all([b, old])
-    db.flush()
-    db.add(CompostReading(batch_id=b.id, temp_c=55.04, moisture_pct=60.0))
     db.commit()
     r = get(client, "composting").json()
     assert [row[0] for row in r["rows"]] == ["B-7"]
-    assert r["rows"][0][2:] == ["Active", 80.0, "", 55.0, 60.0]
+    assert r["rows"][0][2:] == ["Active", 80.0, ""]
     wide = get(client, "composting", frm=TODAY - timedelta(days=100)).json()
     assert [row[0] for row in wide["rows"]] == ["B-1", "B-7"] and wide["summary"][1] == ["Compost produced", "20.00 kg"]
 
@@ -259,15 +257,15 @@ def test_segregation_findings_name_the_lowest_purok(client, db, world, admin):
     assert "Plan a segregation reminder or visit for Purok 1." in texts(r, "next")
 
 
-def test_composting_findings_flag_readings_out_of_range(client, db, admin):
+def test_composting_is_logged_by_hand_so_no_temperature_or_moisture(client, db, admin):
     b = CompostBatch(code="B-9", start_kg=80, started_at=datetime.now(UTC) - timedelta(days=2))
     db.add(b)
     db.flush()
-    db.add(CompostReading(batch_id=b.id, temp_c=70.0, moisture_pct=30.0))
+    db.add(CompostReading(batch_id=b.id, temp_c=70.0, moisture_pct=30.0))  # an old sensor reading is ignored
     db.commit()
     r = get(client, "composting").json()
-    assert "Batch B-9 is at 70.0 C, above the 65.0 C limit." in texts(r, "attention")
-    assert "Add water to batch B-9." in texts(r, "next")
+    assert r["columns"] == ["Batch", "Started", "Status", "Raw waste (kg)", "Compost (kg)"]
+    assert texts(r, "attention") == []
 
 
 def test_no_data_means_no_findings(client, world, admin):

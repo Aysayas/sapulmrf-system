@@ -53,6 +53,7 @@ export interface Overview {
   compliance_week_pct: number | null;
   in_storage_kg: number;
   active_batches: number;
+  wet_waiting_kg: number;
   intake_14d: { day: string; kg: number }[];
   areas: AreaFill[];
   compost: BatchLive[];
@@ -99,6 +100,7 @@ export interface CompostView {
   ranges: { compost_temp_min: number; compost_temp_max: number; moisture_min: number; moisture_max: number };
   batches: BatchLive[];
   selected: string | null;
+  wet_waiting_kg: number;
   series: { at: string; temp_c: number; moisture_pct: number }[];
 }
 export interface CameraView {

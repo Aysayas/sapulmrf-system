@@ -13,7 +13,6 @@ from app.insights.models import Flag
 from app.intake.models import Delivery
 from app.operations.service import pct
 from app.reports.schemas import Finding, Report
-from app.settings import service as ranges
 
 LOW_COMPLIANCE = 80  # below this a purok is worth a reminder or visit
 FILL_SOON_DAYS = 14  # warn about areas filling up within this many days
@@ -128,23 +127,7 @@ def _inventory(db, r, prev, days, start, end, area):
 
 
 def _composting(db, r, prev, days, start, end, area):
-    lim = ranges.get(db)
-    out = []
-    for row in r.rows:
-        code, status, temp, wet = row[0], row[2], row[5], row[6]
-        if status != "Active":
-            continue
-        if temp != "" and not lim.compost_temp_min <= temp <= lim.compost_temp_max:
-            side = f"above the {lim.compost_temp_max} C limit" if temp > lim.compost_temp_max else \
-                f"below the {lim.compost_temp_min} C minimum"
-            out.append(("attention", f"Batch {code} is at {temp} C, {side}."))
-            out.append(("next", f"Turn batch {code} and log the activity." if temp > lim.compost_temp_max else
-                        f"Check batch {code}: it may need more green material or turning to heat up."))
-        if wet != "" and not lim.moisture_min <= wet <= lim.moisture_max:
-            dry = wet < lim.moisture_min
-            out.append(("attention", f"Batch {code} moisture is {wet}%, {'below' if dry else 'above'} the "
-                                     f"{lim.moisture_min if dry else lim.moisture_max}% {'minimum' if dry else 'limit'}."))
-            out.append(("next", f"Add water to batch {code}." if dry else f"Turn batch {code} or add dry material."))
+    out = []  # compost is logged by hand (no sensor), so there are no temperature or moisture findings
     done = [row for row in r.rows if row[2] == "Finished" and row[4] != ""]
     raw, made = sum(row[3] for row in done), sum(row[4] for row in done)
     if raw > 0:

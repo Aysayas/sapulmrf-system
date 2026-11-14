@@ -78,7 +78,7 @@ def test_a_silent_device_is_disconnected_until_it_reports(db):
     assert open_alerts(db, "device") == []
     run_checks(db, NOW + 3 * MIN)
     [a] = open_alerts(db, "device")
-    assert a.title == "Weighing station WS-09 disconnected" and a.subject_id == ws.id
+    assert a.title == "Kiosk WS-09 disconnected" and a.subject_id == ws.id
     ws.last_seen_at = NOW + 4 * MIN
     db.commit()
     run_checks(db, NOW + 4 * MIN)
