@@ -2,7 +2,7 @@
 
 **SapulMRF: An IoT and AI-Based Material Recovery Facility Management System for Barangay Sapul, Calapan City.**
 
-This repo holds the real system. The admin, operator and staff screens are built, following `docs/roadmap.md`. `docs/deployment.md` covers the production setup, and `docs/device-contract.md` what devices send. The clickable design reference and prototype are in `C:\dev\sapulmrf-prototype`. The ESP32 drop-off kiosk and its camera bridge (separate repo, not yet connected to this API) are in `C:\dev\sapulmrf-kiosk`.
+This repo holds the real system. The admin, operator and staff screens are built, following `docs/roadmap.md`. `docs/deployment.md` covers the production setup, and `docs/device-contract.md` what devices send. The clickable design reference and prototype are in `C:\dev\sapulmrf-prototype`. The ESP32 drop-off kiosk and its camera bridge (separate repo, connected through `/devices/*` and the operator routes) are in `C:\dev\sapulmrf-kiosk`. **`docs/start-up.md` starts the website and the kiosk together, in order.**
 
 ## Stack
 FastAPI (Python 3.12), PostgreSQL 16, React + TypeScript + Vite + Tailwind v4, all on Docker.
