@@ -8,8 +8,6 @@ class Settings(BaseSettings):
     lockout_attempts: int = 5
     lockout_minutes: int = 5
     timezone: str = "Asia/Manila"  # "today" and daily totals follow the barangay's clock
-    ollama_url: str = ""  # empty turns the AI report summaries off
-    ollama_model: str = "qwen2.5:7b"
 
 
 settings = Settings()

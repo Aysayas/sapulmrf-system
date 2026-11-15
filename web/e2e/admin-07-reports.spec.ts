@@ -18,6 +18,7 @@ test('the admin previews a segregation report, exports it as CSV and PDF, and se
   await findings.getByRole('button', { name: 'What needs attention?' }).click()
   await expect(findings.getByRole('button', { name: 'What needs attention?' })).toHaveAttribute('aria-pressed', 'true')
   await expect(findings.getByRole('listitem').first()).toContainText('lowest compliance')
+  await expect(findings.getByRole('button', { name: 'Explain this report' })).toHaveCount(0)  // no LLM summary any more
 
   for (const [button, ext, magic] of [['Export CSV', 'csv', 'Barangay Sapul MRF'], ['Export PDF', 'pdf', '%PDF']] as const) {
     const [file] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: button }).click()])
@@ -38,4 +39,15 @@ test('the admin previews a segregation report, exports it as CSV and PDF, and se
   await expect(page.getByRole('cell', { name: 'Logged in' })).toHaveCount(0)
   const [log] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export CSV' }).click()])
   expect(log.suggestedFilename()).toBe('activity-log.csv')
+})
+
+test('"Ask about this report" opens Ask SapulMRF with that report already asked', async ({ adminPage: page }) => {
+  await page.goto('/admin/reports')
+  await page.getByRole('radio', { name: /Segregation/ }).click()
+  await page.getByRole('button', { name: 'Preview report' }).click()
+  await page.getByRole('region', { name: 'Findings' }).getByRole('link', { name: /Ask about this report/ }).click()
+  await expect(page).toHaveURL(/\/admin\/assistant\?c=\d+/)  // asked once, then the chat is open
+  await expect(page.getByRole('heading', { name: /Segregation Compliance Report/ })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole('article')).toHaveCount(1)  // a reload doesn't ask again
 })

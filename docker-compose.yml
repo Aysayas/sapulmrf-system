@@ -20,6 +20,8 @@ services:
   api:
     build: ./api
     image: sapulmrf-api:dev  # worker and sim run this same image, so it is built and stored once
+    # Watch only app/: polling the whole mount (incl. .venv, ~8k files) through Windows file sharing burns ~2 CPU cores.
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+psycopg://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}

@@ -2,7 +2,6 @@ import csv
 import io
 from datetime import UTC, datetime, timedelta
 
-import httpx
 import pytest
 from sqlalchemy import func, select
 
@@ -284,76 +283,11 @@ def test_findings_go_in_the_csv_above_the_table(client, db, world, admin):
     assert ["Finding", "Purok 2 had the lowest compliance: 0% (0 of 1 delivery segregated)."] in lines[:header]
 
 
-# ---- AI summary
+# ---- no AI summary: Ask SapulMRF answers questions about a report, with no language model
 
 
-def test_numbers_check_rejects_made_up_numbers():
-    from app.reports.narrate import numbers_ok
-
-    facts = ["Intake was 1,215.50 kg, up 18% from 1,030.00 kg in the previous 30 days."]
-    assert numbers_ok("Intake rose 18% to 1,215.50 kg compared with the previous 30 days.", facts)
-    assert numbers_ok("Intake rose to 1215.5 kg.", facts)  # same number, other formatting
-    assert not numbers_ok("Intake rose 20% to 1,215.50 kg.", facts)
-    assert not numbers_ok("Intake rose by about fifty percent.", facts)
-    assert numbers_ok("", facts)
-
-
-@pytest.fixture
-def ai(monkeypatch):
-    """Turns the AI on with a fake Ollama that answers with whatever `ai.reply` holds."""
-    from app.core.config import settings
-    from app.reports import narrate
-
-    class Fake:
-        reply, calls = "", 0
-
-    def post(url, json, timeout):
-        Fake.calls += 1
-        return httpx.Response(200, json={"response": Fake.reply}, request=httpx.Request("POST", url))
-
-    monkeypatch.setattr(settings, "ollama_url", "http://ollama:11434")
-    monkeypatch.setattr(narrate.httpx, "post", post)
-    monkeypatch.setattr(narrate, "_cache", {})
-    return Fake
-
-
-def narrative(client, kind="intake"):
-    return client.get(f"/reports/{kind}/narrative", params={"from": str(TODAY), "to": str(TODAY)})
-
-
-def test_summary_is_off_without_an_ollama_url(client, db, world, admin):
-    delivery(db, world, "purok1", 10.0)
-    assert narrative(client).json() == {"text": None}
-
-
-def test_summary_is_shown_only_when_its_numbers_match(client, db, world, admin, ai):
-    delivery(db, world, "purok1", 10.0)
-    ai.reply = "Intake was 10.00 kg today, with none the day before."
-    assert narrative(client).json()["text"] == ai.reply
-    narrative(client)
-    assert ai.calls == 1  # the same findings are not sent twice
-
-    delivery(db, world, "purok1", 2.0)
-    ai.reply = "Intake was 15.00 kg today."
-    assert narrative(client).json() == {"text": None}
-
-
-def test_summary_falls_back_when_ollama_is_down(client, db, world, admin, monkeypatch):
-    from app.core.config import settings
-
-    monkeypatch.setattr(settings, "ollama_url", "http://127.0.0.1:9")  # nothing listens here
-    delivery(db, world, "purok1", 10.0)
-    assert narrative(client).json() == {"text": None}
-
-
-def test_staff_summary_follows_the_report_grants(client, db, make_user, login, ai):
-    make_user("maria", role="admin")
-    login("maria")
-    client.get("/reports/income/export", params={"from": str(TODAY), "to": str(TODAY), "format": "csv"})
-    income_id = client.get("/reports/recent").json()[0]["id"]
-    rosa = make_user("rosa", role="staff")
-    db.add(StaffAccess(user_id=rosa.id, screen="reports", granted=True))
-    db.commit()
-    login("rosa")
-    assert client.get(f"/reports/exports/{income_id}/narrative").status_code == 403
-    assert narrative(client).status_code == 403  # building new summaries is admin only
+@pytest.mark.parametrize("path", ["/reports/intake/narrative", "/reports/exports/1/narrative"])
+def test_the_ai_summary_routes_are_gone(client, admin, path):
+    r = client.get(path, params={"from": str(TODAY), "to": str(TODAY)})
+    assert r.status_code in (404, 405, 422)
+    assert "text" not in (r.json() if r.headers.get("content-type", "").startswith("application/json") else {})

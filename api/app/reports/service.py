@@ -7,10 +7,10 @@ from app.activity.service import log
 from app.core.errors import AppError
 from app.masterdata.models import SourceArea
 from app.operations.service import TZ
-from app.reports import findings, narrate, render
+from app.reports import findings, render
 from app.reports.builders import BUILDERS, BY_AREA, TITLES
 from app.reports.models import ReportExport
-from app.reports.schemas import Format, Kind, Narrative, RecentExport, Report
+from app.reports.schemas import Format, Kind, RecentExport, Report
 from app.users.models import User
 
 PREVIEW_ROWS = 500
@@ -98,14 +98,6 @@ def download_export(db: DbSession, export_id: int, actor: User, hidden: tuple[st
     log(db, actor.id, f"Downloaded {e.kind} report as {e.format.upper()}", r.subtitle)
     db.commit()
     return file
-
-
-def narrative(db: DbSession, kind: Kind, from_day: date, to_day: date, area: int | None) -> Narrative:
-    return Narrative(text=narrate.narrate(build(db, kind, from_day, to_day, area)))
-
-
-def export_narrative(db: DbSession, export_id: int, hidden: tuple[str, ...] = ()) -> Narrative:
-    return Narrative(text=narrate.narrate(_exported(db, export_id, hidden)[1]))
 
 
 def recent(db: DbSession, hidden: tuple[str, ...] = (), limit: int = 10) -> list[RecentExport]:

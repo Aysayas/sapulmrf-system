@@ -24,6 +24,15 @@ export default function AssistantPage() {
   const end = useRef<HTMLDivElement>(null);
 
   const messages = chat.data?.messages ?? [];
+
+  // "Ask about this report" lands here with ?q= (and ?topic=): ask it once, in a new chat
+  const handedOver = useRef(false);
+  useEffect(() => {
+    const q = params.get('q');
+    if (!q || handedOver.current) return;
+    handedOver.current = true;
+    send(q, params.get('topic') ?? undefined);
+  }, [params]); // eslint-disable-line react-hooks/exhaustive-deps -- send once, on arrival
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'end' }); // newer Chrome returns a promise here: never hand it back to React
   }, [messages.length, pending]);

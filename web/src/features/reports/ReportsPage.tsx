@@ -1,9 +1,20 @@
 import { useState } from 'react';
 import { useItems } from '../../api/masterdata';
-import { narrativePath, useExportReport, useRecentReports, useReport, type ReportFormat, type ReportKind, type ReportParams } from '../../api/reports';
+import { useExportReport, useRecentReports, useReport, type ReportFormat, type ReportKind, type ReportParams } from '../../api/reports';
 import { btn, inputCls, PageHeader, Toast } from '../../components/ui';
 import { Table, when } from '../operations/shared';
 import ReportFindings from './ReportFindings';
+
+// A report, put as a question for Ask SapulMRF: its words, its dates, and the topic it belongs to.
+const ASK: Record<ReportKind, [string, string]> = {
+  intake: ['intake', 'intake'], segregation: ['segregation compliance', 'segregation'], inventory: ['stock in storage', 'storage'],
+  composting: ['compost', 'compost'], outgoing: ['outgoing materials', 'outgoing'], income: ['income', 'income'],
+};
+const askAbout = (p: ReportParams, purok?: string) => {
+  const [words, topic] = ASK[p.kind];
+  const dates = p.kind === 'inventory' ? '' : ` from ${p.from} to ${p.to}`;
+  return { text: `${words}${dates}${purok && (p.kind === 'intake' || p.kind === 'segregation') ? ` ${purok}` : ''}`, topic };
+};
 
 const KINDS: [ReportKind, string, string][] = [
   ['intake', 'Intake', 'Deliveries and weights per purok and category'],
@@ -105,6 +116,7 @@ function Preview({ p, onBack, onExport, busy }: {
   p: ReportParams; onBack: () => void; onExport: (p: ReportParams, f: ReportFormat, t: string) => void; busy: boolean;
 }) {
   const r = useReport(p);
+  const puroks = useItems('puroks'); // cached: the form already loaded them
   const title = r.data?.title ?? 'Report';
   return (
     <>
@@ -125,7 +137,7 @@ function Preview({ p, onBack, onExport, busy }: {
           ))}
         </dl>
       )}
-      {r.data && <ReportFindings findings={r.data.findings} narrative={narrativePath(p)} />}
+      {r.data && <ReportFindings findings={r.data.findings} ask={askAbout(p, puroks.data?.find((x) => x.id === p.area)?.name)} />}
       <Table label={title} head={r.data?.columns ?? []} state={{ isPending: r.isPending, error: r.error, count: r.data?.rows.length }}
         empty="No records in this range.">
         {r.data?.rows.map((row, i) => (

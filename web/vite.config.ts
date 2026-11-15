@@ -9,7 +9,12 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     // Windows → Docker bind mounts don't deliver file-change events, so poll.
-    watch: { usePolling: true, interval: 300 },
+    // 1 s interval and skipping build/test output keeps polling from eating a CPU core.
+    watch: {
+      usePolling: true,
+      interval: 1000,
+      ignored: ['**/dist/**', '**/e2e/**', '**/playwright-report/**', '**/test-results/**'],
+    },
     proxy: { '/api': { target: apiUrl, rewrite: (path) => path.replace(/^\/api/, '') } },
   },
 });

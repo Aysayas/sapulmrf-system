@@ -39,10 +39,6 @@ const query = (p: Omit<ReportParams, 'kind'>) => {
 export const useReport = (p: ReportParams | null) =>
   useQuery({ queryKey: ['report', p], queryFn: () => api<Report>(`/reports/${p!.kind}?${query(p!)}`), enabled: !!p });
 
-/** The optional AI paragraph. `text` is null when the AI is off or its paragraph failed the number check. */
-export const useNarrative = (path: string, enabled: boolean) =>
-  useQuery({ queryKey: ['report-narrative', path], queryFn: () => api<{ text: string | null }>(path), enabled, staleTime: Infinity, retry: false });
-export const narrativePath = (p: ReportParams) => `/reports/${p.kind}/narrative?${query(p)}`;
 
 export const useRecentReports = () => useQuery({ queryKey: ['reports-recent'], queryFn: () => api<RecentExport[]>('/reports/recent') });
 

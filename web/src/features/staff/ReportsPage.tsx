@@ -60,7 +60,7 @@ function ExportSheet({ id, onClose }: { id: number; onClose: () => void }) {
           ))}
         </dl>
       )}
-      {r.data && <ReportFindings findings={r.data.findings} narrative={`/reports/exports/${id}/narrative`} />}
+      {r.data && <ReportFindings findings={r.data.findings} />}
       <Table label="Report rows" head={r.data?.columns ?? ['Report']} state={{ isPending: r.isPending, error: r.error, count: r.data?.rows.length }}
         empty="No records in this report.">
         {r.data?.rows.map((row, i) => (

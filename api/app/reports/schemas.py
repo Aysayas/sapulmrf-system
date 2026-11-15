@@ -31,10 +31,6 @@ class Report(BaseModel):
     findings: list[Finding] = []
 
 
-class Narrative(BaseModel):
-    text: str | None  # None: the AI is off or its paragraph failed the number check
-
-
 class RecentExport(BaseModel):
     id: int
     kind: Kind
