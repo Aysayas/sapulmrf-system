@@ -1,2 +1,4 @@
 # Files run inside Linux containers; keep LF on Windows checkouts too.
 * text=auto eol=lf
+# Windows batch files need CRLF line endings, or cmd misreads goto labels
+*.cmd text eol=crlf

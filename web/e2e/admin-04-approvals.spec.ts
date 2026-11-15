@@ -24,7 +24,7 @@ async function setUp(page: Page, baseURL: string) {
   const d = await post('/deliveries', { source_area_id: purok.id, category_id: cat('Mixed household'), weight_kg: 14, weighed_by: 'manual' })
   await post(`/deliveries/${d.id}/segregation`, { condition: 'mixed', wet_kg: 4, dry_kg: 10 })
   await post('/sorting', { delivery_id: d.id, rows: [{ material_id: plastic, bags: 4, kg: 10, storage_area_id: area.id }] })
-  return { operator, post, purok, area, plastic, cat }
+  return { operator, post, purok, area, plastic, cat, delivery: d }
 }
 
 test('a sale an operator records leaves stock at once; the admin marks one OK and reverses the other', async ({ adminPage: page, baseURL }) => {
@@ -78,10 +78,8 @@ test('marking a corrected weight OK takes it off the list', async ({ adminPage: 
 })
 
 test('the admin undoes a sort from Intake with a reason, then marks the fix OK', async ({ adminPage: page, baseURL }) => {
-  const { operator } = await setUp(page, baseURL!)
+  const { operator, post, area, plastic, delivery: d } = await setUp(page, baseURL!)
   try {
-    const sorted = await page.request.get('/api/operations/intake?days=1&limit=5').then((r) => r.json())
-    const d = sorted.find((x: { status: string }) => x.status === 'sorted')
     await page.goto('/admin/operations/intake')
     await page.getByRole('searchbox', { name: 'Search deliveries' }).fill(d.code)
     await page.getByRole('button', { name: `Undo ${d.code}` }).click()
@@ -90,9 +88,15 @@ test('the admin undoes a sort from Intake with a reason, then marks the fix OK',
     await page.getByRole('button', { name: 'Undo', exact: true }).click()
     await expect(page.getByRole('status')).toContainText(`${d.code}: undone`)
 
+    // The admin's own fix needs no review; an operator's does. The operator sorts it again, then undoes that.
+    await post('/sorting', { delivery_id: d.id, rows: [{ material_id: plastic, bags: 4, kg: 10, storage_area_id: area.id }] })
+    await post('/corrections/undo', { delivery_id: d.id, to: 'sort', reason: 'Wrong material' })
+
     await page.goto('/admin/approvals?tab=fixes')
     const fixes = page.getByRole('table', { name: 'Fixes to review' })
-    await expect(fixes.getByRole('row').filter({ hasText: d.code })).toContainText('Sort undone')
+    const rows = fixes.getByRole('row').filter({ hasText: d.code })
+    await expect(rows).toHaveCount(1)
+    await expect(rows).toContainText('Wrong material')
     await fixes.getByRole('button', { name: `Mark fix of ${d.code} OK` }).click()
     await expect(page.getByRole('status')).toContainText(`Fix of ${d.code} marked OK`)
   } finally {

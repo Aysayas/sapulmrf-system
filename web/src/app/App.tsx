@@ -15,6 +15,7 @@ const AlertsPage = lazy(() => import('../features/alerts/AlertsPage'));
 const DevicesPage = lazy(() => import('../features/devices/DevicesPage'));
 const InsightsPage = lazy(() => import('../features/insights/InsightsPage'));
 const ReportsPage = lazy(() => import('../features/reports/ReportsPage'));
+const AssistantPage = lazy(() => import('../features/assistant/AssistantPage'));
 const MasterDataPage = lazy(() => import('../features/masterdata/MasterDataPage'));
 const CameraPage = lazy(() => import('../features/operations/CameraPage'));
 const CompostPage = lazy(() => import('../features/operations/CompostPage'));
@@ -75,6 +76,7 @@ export default function App() {
             </Route>
             <Route path="insights" element={<InsightsPage />} />
             <Route path="reports" element={<ReportsPage />} />
+            <Route path="assistant" element={<AssistantPage />} />
             <Route path="settings" element={<SettingsLayout />}>
               <Route index element={<Navigate to="users" replace />} />
               <Route path="users" element={<UsersPage />} />

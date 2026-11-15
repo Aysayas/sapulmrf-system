@@ -9,6 +9,7 @@ from app.access.router import router as access_router
 from app.activity.router import router as activity_router
 from app.alerts.router import router as alerts_router
 from app.approvals.router import router as approvals_router
+from app.assistant.router import router as assistant_router
 from app.auth.router import router as auth_router
 from app.compost.router import router as compost_router
 from app.core import errors
@@ -43,6 +44,7 @@ app.include_router(corrections_router)
 app.include_router(alerts_router)
 app.include_router(insights_router)
 app.include_router(reports_router)
+app.include_router(assistant_router)
 
 
 WORKER_LATE_AFTER = timedelta(minutes=5)

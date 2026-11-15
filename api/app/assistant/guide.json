@@ -1,0 +1,943 @@
+[
+ {
+  "id": "compliance",
+  "kind": "meaning",
+  "title": "Segregation compliance",
+  "text": "Compliance is the share of checked deliveries that arrived already segregated (wet and dry kept apart at home). Higher is better. The Segregation page shows it per purok.",
+  "steps": [],
+  "link": {
+   "label": "Open Segregation",
+   "to": "/admin/operations/segregation"
+  },
+  "questions": [
+   "what does compliance mean",
+   "ano ang compliance",
+   "meaning of segregation compliance",
+   "what is compliance rate",
+   "paano kinukwenta ang compliance",
+   "define compliance"
+  ]
+ },
+ {
+  "id": "segregation",
+  "kind": "meaning",
+  "title": "Segregated, mixed, wet and dry",
+  "text": "When a delivery is checked, the operator marks it Segregated (already separated at home) or Mixed, and records its wet kg (biodegradable, goes to compost) and dry kg (goes on to sorting).",
+  "steps": [],
+  "link": {
+   "label": "Open Intake",
+   "to": "/admin/operations/intake"
+  },
+  "questions": [
+   "what does segregated mean",
+   "ano ang ibig sabihin ng mixed",
+   "what is wet and dry",
+   "difference between wet and dry waste",
+   "ano ang wet kg",
+   "what is a segregation check"
+  ]
+ },
+ {
+  "id": "residual",
+  "kind": "meaning",
+  "title": "Residual",
+  "text": "Residual is waste that can't be recycled or composted. In storage it is stock with no recyclable material set, and it leaves the MRF as \"Residual for disposal\".",
+  "steps": [],
+  "link": {
+   "label": "Open Inventory",
+   "to": "/admin/operations/inventory"
+  },
+  "questions": [
+   "what is residual",
+   "ano ang ibig sabihin ng residual",
+   "meaning of residual waste",
+   "ano ang residual",
+   "residual meaning",
+   "what counts as residual"
+  ]
+ },
+ {
+  "id": "material-category",
+  "kind": "meaning",
+  "title": "Material vs waste category",
+  "text": "Waste categories (Recyclable, Biodegradable, Residual, Mixed household) describe a whole drop-off at intake and are used for forecasts. Recyclable materials (Plastic, Paper, Metal...) are what sorted waste is stored and sold as.",
+  "steps": [],
+  "link": {
+   "label": "Open Master data",
+   "to": "/admin/settings/masterdata"
+  },
+  "questions": [
+   "difference between material and category",
+   "what is a waste category",
+   "ano ang material",
+   "material vs category",
+   "what are recyclable materials",
+   "ano ang kategorya ng basura"
+  ]
+ },
+ {
+  "id": "purok",
+  "kind": "meaning",
+  "title": "Purok (source area)",
+  "text": "A purok is a source area that delivers waste to the MRF. Deliveries, compliance and intake reports are counted per purok. They are listed under Master data > Source areas.",
+  "steps": [],
+  "link": {
+   "label": "Open Master data",
+   "to": "/admin/settings/masterdata"
+  },
+  "questions": [
+   "what is a purok",
+   "what is a source area",
+   "ano ang source area",
+   "meaning of source area",
+   "saan nakalista ang mga purok"
+  ]
+ },
+ {
+  "id": "storage-area",
+  "kind": "meaning",
+  "title": "Storage area, capacity and alert %",
+  "text": "A storage area holds sorted materials. Its capacity is how many kg it holds; the alert % is how full it may get before an alert is raised. The bars say \"almost full\" at the alert % and \"over capacity\" above 100%.",
+  "steps": [],
+  "link": {
+   "label": "Open Inventory",
+   "to": "/admin/operations/inventory"
+  },
+  "questions": [
+   "what is a storage area",
+   "what does alert percent mean",
+   "ano ang capacity",
+   "meaning of almost full",
+   "what is over capacity",
+   "storage alert meaning"
+  ]
+ },
+ {
+  "id": "compost-batch",
+  "kind": "meaning",
+  "title": "Compost batch",
+  "text": "A compost batch is wet waste put into a compost bay on one day. It has a code, its age in days and its starting kg. Operators log turning, watering and checks, then finish it with the kg of compost made.",
+  "steps": [],
+  "link": {
+   "label": "Open Compost",
+   "to": "/admin/operations/compost"
+  },
+  "questions": [
+   "what is a compost batch",
+   "ano ang batch ng compost",
+   "meaning of compost batch",
+   "what is wet waste waiting",
+   "how does composting work here"
+  ]
+ },
+ {
+  "id": "codes",
+  "kind": "meaning",
+  "title": "Record codes (D-, O-, K-, B-, R-)",
+  "text": "D- is a delivery (drop-off). O- is an outgoing record (sale, give-away, compost or disposal). K- is a kiosk receipt made while SapulMRF was offline; the kiosk sends it later and it gets a D- code. B- is a compost batch. R- is an operator's problem report.",
+  "steps": [],
+  "link": {
+   "label": "Open Intake",
+   "to": "/admin/operations/intake"
+  },
+  "questions": [
+   "what is a d code",
+   "what does o-0012 mean",
+   "what is a k code",
+   "ano ang k code sa resibo",
+   "meaning of record codes",
+   "what is d-0042",
+   "receipt code meaning"
+  ]
+ },
+ {
+  "id": "giveaway",
+  "kind": "meaning",
+  "title": "Give-away",
+  "text": "A give-away is recyclables given out for free. It takes stock out like a sale but never has a price, and income reports leave it out. It shows as \"Recyclables given away (free)\".",
+  "steps": [],
+  "link": {
+   "label": "Open Outgoing",
+   "to": "/admin/operations/outgoing"
+  },
+  "questions": [
+   "what is a give-away",
+   "ano ang give away",
+   "meaning of given free",
+   "difference between sale and give-away",
+   "ibinigay nang libre meaning"
+  ]
+ },
+ {
+  "id": "reversal",
+  "kind": "meaning",
+  "title": "Reverse (undo a sale or recount)",
+  "text": "Sales, give-aways and recounts count at once; the admin checks them afterwards. Reverse puts the stock back today. A reversed sale comes off income on the day it was reversed; the original day keeps its record.",
+  "steps": [],
+  "link": {
+   "label": "Open Approvals",
+   "to": "/admin/approvals"
+  },
+  "questions": [
+   "what does reverse mean",
+   "ano ang reverse",
+   "what happens when i reverse a sale",
+   "meaning of reversed",
+   "reversal meaning"
+  ]
+ },
+ {
+  "id": "recount",
+  "kind": "meaning",
+  "title": "Recount",
+  "text": "A recount is an operator counting the stock in an area again. It changes the stock at once (Was > Counted), and the admin reviews it afterwards: OK, or Reverse to bring the old count back.",
+  "steps": [],
+  "link": {
+   "label": "Open Recounts to review",
+   "to": "/admin/approvals?tab=adjustments_review"
+  },
+  "questions": [
+   "what is a recount",
+   "ano ang recount",
+   "meaning of adjustment",
+   "what does was and counted mean",
+   "inventory adjustment meaning"
+  ]
+ },
+ {
+  "id": "fix",
+  "kind": "meaning",
+  "title": "Fix (undo a record)",
+  "text": "A fix undoes a step of a delivery (the sort, the wet/dry check, or the whole record) with a reason, so it can be recorded again. Marking a fix OK or Wrong is only a mark: the undo already happened.",
+  "steps": [],
+  "link": {
+   "label": "Open Fixes to review",
+   "to": "/admin/approvals?tab=fixes"
+  },
+  "questions": [
+   "what is a fix",
+   "ano ang fix",
+   "what does undo mean",
+   "meaning of fixes to review",
+   "what is sort undone"
+  ]
+ },
+ {
+  "id": "corrected-weight",
+  "kind": "meaning",
+  "title": "Corrected weight",
+  "text": "A corrected weight is a delivery whose scale reading was changed by hand. The review shows what the scale said and what it was corrected to.",
+  "steps": [],
+  "link": {
+   "label": "Open Corrected weights",
+   "to": "/admin/approvals?tab=weights"
+  },
+  "questions": [
+   "what is a corrected weight",
+   "ano ang corrected weight",
+   "scale said meaning",
+   "why was the weight corrected"
+  ]
+ },
+ {
+  "id": "flag",
+  "kind": "meaning",
+  "title": "Unusual delivery (flag) and false alarm",
+  "text": "A flag marks a delivery whose weight is far from that purok's usual weights, or whose sorted kg doesn't match what came in. Flags never change records. Valid means it really is unusual; False alarm means it's normal.",
+  "steps": [],
+  "link": {
+   "label": "Open Flagged records",
+   "to": "/admin/approvals?tab=flagged"
+  },
+  "questions": [
+   "what is a flag",
+   "what does false alarm mean",
+   "ano ang flagged record",
+   "meaning of unusual delivery",
+   "why was this delivery flagged"
+  ]
+ },
+ {
+  "id": "camera-kept",
+  "kind": "meaning",
+  "title": "Camera suggestion and kept %",
+  "text": "The kiosk camera suggests a material for each drop-off. Kept % is the share of suggestions the operator kept as suggested; changed ones can be marked OK or Wrong by the admin.",
+  "steps": [],
+  "link": {
+   "label": "Open Insights",
+   "to": "/admin/insights"
+  },
+  "questions": [
+   "what is kept percent",
+   "what is a camera suggestion",
+   "ano ang camera accepted",
+   "meaning of camera classification",
+   "what does camera said mean"
+  ]
+ },
+ {
+  "id": "forecast",
+  "kind": "meaning",
+  "title": "Forecast and its error",
+  "text": "The forecast predicts kg per day for the next 7 days from the MRF's own records. Two models run side by side (a 7-day average and a Ridge regression); the one that was closer recently is used. The error is how far off it was, as % of the total kg.",
+  "steps": [],
+  "link": {
+   "label": "Open Insights",
+   "to": "/admin/insights"
+  },
+  "questions": [
+   "what does the forecast mean",
+   "what is wape",
+   "ano ang forecast error",
+   "how does the prediction work",
+   "what is ridge regression here",
+   "meaning of predicted vs actual"
+  ]
+ },
+ {
+  "id": "kiosk-pin",
+  "kind": "meaning",
+  "title": "Kiosk PIN",
+  "text": "Each operator sets their own kiosk PIN on their Profile and signs in at the kiosk with it. An admin can't see or set it, only clear it (Settings > Users > Edit > Clear kiosk PIN).",
+  "steps": [],
+  "link": {
+   "label": "Open Users",
+   "to": "/admin/settings/users"
+  },
+  "questions": [
+   "what is a kiosk pin",
+   "ano ang pin sa kiosk",
+   "how do operators sign in at the kiosk",
+   "operator forgot kiosk pin",
+   "kiosk pin meaning"
+  ]
+ },
+ {
+  "id": "roles",
+  "kind": "meaning",
+  "title": "Roles",
+  "text": "Barangay Administrator manages accounts, settings and approvals. MRF Operator records the daily work. Authorized Barangay Staff can only view, and only the screens turned on for them.",
+  "steps": [],
+  "link": {
+   "label": "Open Roles and permissions",
+   "to": "/admin/settings/roles"
+  },
+  "questions": [
+   "what roles are there",
+   "ano ang staff role",
+   "difference between operator and staff",
+   "what can staff see",
+   "meaning of authorized barangay staff"
+  ]
+ },
+ {
+  "id": "buyer",
+  "kind": "meaning",
+  "title": "Buyer",
+  "text": "Buyers are the junkshops and recipients the kiosk shows as buttons when selling or giving out. They are managed under Master data > Buyers.",
+  "steps": [],
+  "link": {
+   "label": "Open Master data",
+   "to": "/admin/settings/masterdata"
+  },
+  "questions": [
+   "what is a buyer",
+   "ano ang buyer",
+   "where do buyer buttons come from",
+   "meaning of walk-in buyer"
+  ]
+ },
+ {
+  "id": "device-online",
+  "kind": "meaning",
+  "title": "Device online / offline",
+  "text": "A device counts as online when it checked in within the last 2 minutes. A new key stops the old one working right away.",
+  "steps": [],
+  "link": {
+   "label": "Open IoT devices",
+   "to": "/admin/settings/devices"
+  },
+  "questions": [
+   "what does device offline mean",
+   "ano ang online sa device",
+   "why is the kiosk offline",
+   "device status meaning"
+  ]
+ },
+ {
+  "id": "export-report",
+  "kind": "howto",
+  "title": "Export a report",
+  "text": "Reports can be downloaded as PDF or CSV.",
+  "steps": [
+   "Pick a report card (Intake, Segregation, Inventory, Composting, Outgoing material or Income).",
+   "Set \"From\" and \"To\" (and \"Source area\" for Intake or Segregation).",
+   "Click \"Preview report\".",
+   "Click \"Export PDF\" or \"Export CSV\"."
+  ],
+  "link": {
+   "label": "Open Reports",
+   "to": "/admin/reports"
+  },
+  "questions": [
+   "how do i export a report",
+   "paano mag download ng report",
+   "how to download pdf report",
+   "export csv",
+   "how to print a report",
+   "paano gumawa ng report",
+   "make a monthly report"
+  ]
+ },
+ {
+  "id": "redownload-report",
+  "kind": "howto",
+  "title": "Download an earlier report again",
+  "text": "Earlier exports are listed under Recent reports. Downloading again rebuilds the file from today's data.",
+  "steps": [
+   "Open Reports.",
+   "Find it under \"Recent reports\".",
+   "Click \"Download\"."
+  ],
+  "link": {
+   "label": "Open Reports",
+   "to": "/admin/reports"
+  },
+  "questions": [
+   "download an old report again",
+   "where are my past reports",
+   "recent reports",
+   "paano kunin ulit ang report"
+  ]
+ },
+ {
+  "id": "review-outgoing",
+  "kind": "howto",
+  "title": "Review sales and give-aways",
+  "text": "Operators' sales and give-outs count at once; you check them afterwards.",
+  "steps": [
+   "Open Approvals > \"Outgoing to review\".",
+   "Click \"OK\" if it's right."
+  ],
+  "link": {
+   "label": "Open Outgoing to review",
+   "to": "/admin/approvals"
+  },
+  "questions": [
+   "where do i review sales",
+   "how do i approve a sale",
+   "paano i-approve ang benta",
+   "check give-aways",
+   "review outgoing",
+   "saan makikita ang mga benta na ire-review"
+  ]
+ },
+ {
+  "id": "reverse-sale",
+  "kind": "howto",
+  "title": "Reverse a sale or give-away",
+  "text": "Reversing puts the stock back today and takes a sale off income on the day you reverse it.",
+  "steps": [
+   "Open Approvals > \"Outgoing to review\".",
+   "Click \"Reverse...\" on the record.",
+   "Type why (e.g. buyer returned it).",
+   "Click \"Reverse\"."
+  ],
+  "link": {
+   "label": "Open Outgoing to review",
+   "to": "/admin/approvals"
+  },
+  "questions": [
+   "how do i reverse a sale",
+   "paano i-cancel ang benta",
+   "undo a sale",
+   "cancel a give-away",
+   "buyer returned the items"
+  ]
+ },
+ {
+  "id": "review-recount",
+  "kind": "howto",
+  "title": "Review a recount",
+  "text": "Recounts change stock at once; you check them afterwards.",
+  "steps": [
+   "Open Approvals > \"Recounts to review\".",
+   "Click \"OK\", or \"Reverse...\", type why and click \"Reverse\"."
+  ],
+  "link": {
+   "label": "Open Recounts to review",
+   "to": "/admin/approvals?tab=adjustments_review"
+  },
+  "questions": [
+   "how do i review a recount",
+   "approve inventory adjustment",
+   "paano i-review ang recount",
+   "reverse a recount"
+  ]
+ },
+ {
+  "id": "review-fix",
+  "kind": "howto",
+  "title": "Review a fix",
+  "text": "Fixes were already undone; your mark records whether the fix was right.",
+  "steps": [
+   "Open Approvals > \"Fixes to review\".",
+   "Click \"OK\" or \"Wrong\"."
+  ],
+  "link": {
+   "label": "Open Fixes to review",
+   "to": "/admin/approvals?tab=fixes"
+  },
+  "questions": [
+   "how do i review fixes",
+   "where are the fixes",
+   "paano tingnan ang mga inayos",
+   "mark a fix ok"
+  ]
+ },
+ {
+  "id": "decide-flag",
+  "kind": "howto",
+  "title": "Decide a flagged record",
+  "text": "Flags never change records; you mark whether the weight really is unusual.",
+  "steps": [
+   "Open Approvals > \"Flagged records\".",
+   "Click \"Valid\" or \"False alarm\"."
+  ],
+  "link": {
+   "label": "Open Flagged records",
+   "to": "/admin/approvals?tab=flagged"
+  },
+  "questions": [
+   "how do i clear a flag",
+   "mark false alarm",
+   "paano i-dismiss ang flag",
+   "review unusual deliveries"
+  ]
+ },
+ {
+  "id": "review-camera",
+  "kind": "howto",
+  "title": "Review camera corrections",
+  "text": "When an operator changes the camera's suggestion, you can mark the change OK or Wrong.",
+  "steps": [
+   "Open Approvals > \"Corrected classifications\".",
+   "Click \"OK\" or \"Wrong\"."
+  ],
+  "link": {
+   "label": "Open Corrected classifications",
+   "to": "/admin/approvals?tab=classifications"
+  },
+  "questions": [
+   "review camera changes",
+   "where are corrected classifications",
+   "mark camera change wrong",
+   "paano i-review ang camera"
+  ]
+ },
+ {
+  "id": "undo-delivery",
+  "kind": "howto",
+  "title": "Undo a delivery step from Intake",
+  "text": "You can undo the sort, the wet/dry check, or a whole delivery, any day.",
+  "steps": [
+   "Open Operations > Intake and find the record (search by code).",
+   "Click \"Undo...\".",
+   "Pick what to undo (e.g. \"The sort\" or \"The whole record\").",
+   "Type why, then click \"Undo\"."
+  ],
+  "link": {
+   "label": "Open Intake",
+   "to": "/admin/operations/intake"
+  },
+  "questions": [
+   "how do i delete a delivery",
+   "undo a wrong delivery",
+   "paano burahin ang maling drop-off",
+   "fix a wrong record",
+   "undo a sort"
+  ]
+ },
+ {
+  "id": "record-outgoing",
+  "kind": "howto",
+  "title": "Record a sale or give-out yourself",
+  "text": "Admins can record outgoing material too; stock leaves at once.",
+  "steps": [
+   "Open Operations > Outgoing and click \"+ Record outgoing\".",
+   "Pick the \"Type\", then the \"Material\" and \"From storage\".",
+   "Pick the \"Buyer\" or \"Recipient\" and type the kg (and the price for a sale).",
+   "Click \"Save\"."
+  ],
+  "link": {
+   "label": "Open Outgoing",
+   "to": "/admin/operations/outgoing"
+  },
+  "questions": [
+   "how do i record a sale",
+   "paano mag-record ng benta",
+   "record compost given out",
+   "record residual disposal",
+   "add outgoing"
+  ]
+ },
+ {
+  "id": "acknowledge-alert",
+  "kind": "howto",
+  "title": "Acknowledge an alert",
+  "text": "Acknowledging says you've seen it; the alert stays until its condition clears.",
+  "steps": [
+   "Open Alerts > \"Open\".",
+   "Click \"Acknowledge\"."
+  ],
+  "link": {
+   "label": "Open Alerts",
+   "to": "/admin/alerts"
+  },
+  "questions": [
+   "how do i acknowledge an alert",
+   "paano i-acknowledge ang alert",
+   "dismiss an alert",
+   "clear the bell notifications"
+  ]
+ },
+ {
+  "id": "resolve-report",
+  "kind": "howto",
+  "title": "Resolve an operator's problem report",
+  "text": "Problem reports stay open until you say what was done.",
+  "steps": [
+   "Open Alerts > \"Problem reports\".",
+   "Click \"Resolve\".",
+   "Type \"What was done\".",
+   "Click \"Mark resolved\"."
+  ],
+  "link": {
+   "label": "Open Problem reports",
+   "to": "/admin/alerts?tab=reports"
+  },
+  "questions": [
+   "how do i resolve a problem report",
+   "operator reported a problem",
+   "paano sagutin ang report ng operator",
+   "close a problem report"
+  ]
+ },
+ {
+  "id": "add-user",
+  "kind": "howto",
+  "title": "Add a user",
+  "text": "Each person gets their own account and role.",
+  "steps": [
+   "Open Settings > Users and click \"+ Add user\".",
+   "Fill \"Full name\", \"Username\", \"Role\" and \"Temporary password\".",
+   "Click \"Create account\"."
+  ],
+  "link": {
+   "label": "Open Users",
+   "to": "/admin/settings/users"
+  },
+  "questions": [
+   "how do i add a user",
+   "create an account for an operator",
+   "paano magdagdag ng user",
+   "add new staff account",
+   "register an operator"
+  ]
+ },
+ {
+  "id": "disable-user",
+  "kind": "howto",
+  "title": "Disable a user or reset a password",
+  "text": "Edit the person's account; you can't disable yourself or change your own role.",
+  "steps": [
+   "Open Settings > Users and click \"Edit\" on the person.",
+   "Type a \"New password\", untick \"Account active\", or click \"Clear kiosk PIN\".",
+   "Click \"Save changes\"."
+  ],
+  "link": {
+   "label": "Open Users",
+   "to": "/admin/settings/users"
+  },
+  "questions": [
+   "how do i disable a user",
+   "reset a user's password",
+   "remove an operator",
+   "paano i-deactivate ang account",
+   "clear a kiosk pin"
+  ]
+ },
+ {
+  "id": "change-password",
+  "kind": "howto",
+  "title": "Change your own password",
+  "text": "Admins change their password on their own row in Users.",
+  "steps": [
+   "Open Settings > Users and click \"Edit\" on your own name.",
+   "Type a \"New password\".",
+   "Click \"Save changes\"."
+  ],
+  "link": {
+   "label": "Open Users",
+   "to": "/admin/settings/users"
+  },
+  "questions": [
+   "where can i change my password",
+   "paano palitan ang password ko",
+   "change my password",
+   "update my login"
+  ]
+ },
+ {
+  "id": "staff-access",
+  "kind": "howto",
+  "title": "Give staff access to screens",
+  "text": "Staff are view-only; you turn screens on per person.",
+  "steps": [
+   "Open Settings > Roles and permissions.",
+   "Under \"Staff access, per person\", tick the screens for each person.",
+   "Click \"Save access\"."
+  ],
+  "link": {
+   "label": "Open Roles and permissions",
+   "to": "/admin/settings/roles"
+  },
+  "questions": [
+   "how do i give staff access",
+   "allow staff to see reports",
+   "paano bigyan ng access ang staff",
+   "staff permissions",
+   "turn on a screen for staff"
+  ]
+ },
+ {
+  "id": "add-buyer",
+  "kind": "howto",
+  "title": "Add a buyer",
+  "text": "Buyers show as buttons on the kiosk when selling.",
+  "steps": [
+   "Open Settings > Master data, card \"Buyers\".",
+   "Click \"+ Add\" and type the \"Name\".",
+   "Click \"Add buyer\". To retire one: \"Edit\", untick \"Active\", \"Save changes\"."
+  ],
+  "link": {
+   "label": "Open Master data",
+   "to": "/admin/settings/masterdata"
+  },
+  "questions": [
+   "how to add a buyer",
+   "add a junkshop",
+   "paano magdagdag ng buyer",
+   "new buyer for the kiosk",
+   "remove a buyer"
+  ]
+ },
+ {
+  "id": "add-purok",
+  "kind": "howto",
+  "title": "Add a purok, category or material",
+  "text": "Source areas (puroks), waste categories and materials are master data.",
+  "steps": [
+   "Open Settings > Master data and pick the card (Source areas, Waste categories or Recyclable materials).",
+   "Click \"+ Add\" and type the \"Name\".",
+   "Click the \"Add ...\" button."
+  ],
+  "link": {
+   "label": "Open Master data",
+   "to": "/admin/settings/masterdata"
+  },
+  "questions": [
+   "how do i add a purok",
+   "add a source area",
+   "paano magdagdag ng purok",
+   "add a waste category",
+   "add a material"
+  ]
+ },
+ {
+  "id": "add-storage-area",
+  "kind": "howto",
+  "title": "Add or change a storage area",
+  "text": "Each storage area has a capacity and an alert %.",
+  "steps": [
+   "Open Settings > Master data, card \"Storage areas\".",
+   "Click \"+ Add\" and fill \"Name\", \"Capacity (kg)\" and \"Alert when this full (%)\".",
+   "Click \"Add storage area\" (or \"Edit\" > \"Save changes\" to change one)."
+  ],
+  "link": {
+   "label": "Open Master data",
+   "to": "/admin/settings/masterdata"
+  },
+  "questions": [
+   "how do i add a new storage area",
+   "paano magdagdag ng storage area",
+   "change storage capacity",
+   "set the storage alert",
+   "add a bin"
+  ]
+ },
+ {
+  "id": "register-device",
+  "kind": "howto",
+  "title": "Register the kiosk or another device",
+  "text": "A device needs a key to send data; the key is shown once.",
+  "steps": [
+   "Open Settings > IoT devices and click \"+ Register device\".",
+   "Fill \"Device ID\" and \"Location\", click \"Register\".",
+   "Click \"Copy key\" and keep it safe, then \"Done\". (New key: \"Edit\" > \"Generate new key\".)"
+  ],
+  "link": {
+   "label": "Open IoT devices",
+   "to": "/admin/settings/devices"
+  },
+  "questions": [
+   "how do i register the kiosk",
+   "add a device",
+   "paano i-register ang kiosk",
+   "get a device key",
+   "replace a device key"
+  ]
+ },
+ {
+  "id": "ranges",
+  "kind": "howto",
+  "title": "Change limits (ranges)",
+  "text": "Ranges set the days of records before predictions show, how strict the unusual-weight check is, and storage capacities.",
+  "steps": [
+   "Open Settings > Ranges and limits.",
+   "Change the values.",
+   "Click \"Save ranges\"."
+  ],
+  "link": {
+   "label": "Open Ranges and limits",
+   "to": "/admin/settings/ranges"
+  },
+  "questions": [
+   "how do i change the limits",
+   "make the unusual weight check stricter",
+   "paano baguhin ang ranges",
+   "change prediction days",
+   "settings for alerts"
+  ]
+ },
+ {
+  "id": "logout",
+  "kind": "howto",
+  "title": "Log out",
+  "text": "Log out from the account menu at the top right.",
+  "steps": [
+   "Click your name at the top right.",
+   "Click \"Log out\"."
+  ],
+  "link": {
+   "label": "Open Overview",
+   "to": "/admin"
+  },
+  "questions": [
+   "how do i log out",
+   "paano mag logout",
+   "sign out",
+   "exit my account"
+  ]
+ },
+ {
+  "id": "activity-log",
+  "kind": "where",
+  "title": "Activity log",
+  "text": "Every sign-in, change and export is logged. You can filter it and export it as CSV.",
+  "steps": [
+   "Open Settings > Activity log.",
+   "Pick a period, an action type or a person.",
+   "Click \"Export CSV\" to keep a copy."
+  ],
+  "link": {
+   "label": "Open Activity log",
+   "to": "/admin/settings/activity"
+  },
+  "questions": [
+   "where is the activity log",
+   "who changed this",
+   "saan makikita ang activity log",
+   "audit trail",
+   "history of changes",
+   "export the activity log",
+   "who made changes",
+   "track what users did",
+   "sino ang nag-edit",
+   "log of actions",
+   "who approved this",
+   "user actions record"
+  ]
+ },
+ {
+  "id": "live-camera",
+  "kind": "where",
+  "title": "Live camera",
+  "text": "The kiosk camera's live view, with what it detects, plus today's camera numbers.",
+  "steps": [],
+  "link": {
+   "label": "Open Live camera",
+   "to": "/admin/operations/camera"
+  },
+  "questions": [
+   "saan ko makikita ang live camera",
+   "where is the camera view",
+   "watch the kiosk camera",
+   "live video",
+   "camera feed"
+  ]
+ },
+ {
+  "id": "predictions",
+  "kind": "where",
+  "title": "Predictions (Insights)",
+  "text": "Forecasts, the storage outlook, a suggested pickup or sale date and the camera's accuracy.",
+  "steps": [],
+  "link": {
+   "label": "Open Insights",
+   "to": "/admin/insights"
+  },
+  "questions": [
+   "where are the predictions",
+   "saan ang forecast",
+   "where is the storage outlook",
+   "suggested pickup date",
+   "insights page"
+  ]
+ },
+ {
+  "id": "overview",
+  "kind": "where",
+  "title": "Overview",
+  "text": "Today's MRF at a glance: received today, approvals waiting, compliance, storage, income and alerts.",
+  "steps": [],
+  "link": {
+   "label": "Open Overview",
+   "to": "/admin"
+  },
+  "questions": [
+   "where is the dashboard",
+   "home page",
+   "saan ang overview",
+   "main dashboard",
+   "go back home"
+  ]
+ },
+ {
+  "id": "compost-page",
+  "kind": "where",
+  "title": "Compost",
+  "text": "Batches in progress and those finished in the last 30 days, with their logged turning, watering and checks.",
+  "steps": [],
+  "link": {
+   "label": "Open Compost",
+   "to": "/admin/operations/compost"
+  },
+  "questions": [
+   "where are the compost batches",
+   "saan makikita ang compost",
+   "compost history",
+   "see batch activities"
+  ]
+ }
+]

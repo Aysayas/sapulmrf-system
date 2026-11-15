@@ -13,6 +13,7 @@ const ICON: Record<string, string[]> = {
   '/admin/operations': ['M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z', 'M12 22V12', 'm3.3 7 7.7 4.73a2 2 0 0 0 2 0L20.7 7', 'm7.5 4.27 9 5.15'],
   '/admin/insights': ['M22 7 13.5 15.5 8.5 10.5 2 17', 'M16 7h6v6'],
   '/admin/reports': ['M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z', 'M14 2v4a2 2 0 0 0 2 2h4', 'M16 13H8', 'M16 17H8', 'M10 9H8'],
+  '/admin/assistant': ['M7.9 20A9 9 0 1 0 4 16.1L2 22Z', 'M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3', 'M12 17h.01'],
   '/admin/settings': ['M21 4h-7', 'M10 4H3', 'M21 12h-9', 'M8 12H3', 'M21 20h-5', 'M12 20H3', 'M14 2v4', 'M8 10v4', 'M16 18v4'],
 };
 
@@ -20,7 +21,7 @@ const NAV = [
   { section: 'Monitor', items: [{ to: '/admin', label: 'Overview', end: true }, { to: '/admin/approvals', label: 'Approvals' }, { to: '/admin/alerts', label: 'Alerts' }, { to: '/admin/operations', label: 'Operations', sub: [
     ['intake', 'Intake'], ['segregation', 'Segregation'], ['sorting', 'Sorting'], ['inventory', 'Inventory'], ['compost', 'Compost'], ['outgoing', 'Outgoing'], ['camera', 'Live camera'],
   ] }] },
-  { section: 'Analyze', items: [{ to: '/admin/insights', label: 'Insights' }, { to: '/admin/reports', label: 'Reports' }] },
+  { section: 'Analyze', items: [{ to: '/admin/insights', label: 'Insights' }, { to: '/admin/reports', label: 'Reports' }, { to: '/admin/assistant', label: 'Ask SapulMRF' }] },
   { section: 'Manage', items: [{ to: '/admin/settings', label: 'Settings' }] },
 ];
 
